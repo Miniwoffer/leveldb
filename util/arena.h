@@ -9,6 +9,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 namespace leveldb {
@@ -19,8 +20,6 @@ class Arena {
 
   Arena(const Arena&) = delete;
   Arena& operator=(const Arena&) = delete;
-
-  ~Arena();
 
   // Return a pointer to a newly allocated memory block of "bytes" bytes.
   char* Allocate(size_t bytes);
@@ -43,7 +42,7 @@ class Arena {
   size_t alloc_bytes_remaining_;
 
   // Array of new[] allocated memory blocks
-  std::vector<char*> blocks_;
+  std::vector<std::unique_ptr<char[]>> blocks_;
 
   // Total memory usage of the arena.
   //
