@@ -11,12 +11,6 @@ static const int kBlockSize = 4096;
 Arena::Arena()
     : alloc_ptr_(nullptr), alloc_bytes_remaining_(0), memory_usage_(0) {}
 
-Arena::~Arena() {
-  for (size_t i = 0; i < blocks_.size(); i++) {
-    delete[] blocks_[i];
-  }
-}
-
 char* Arena::AllocateFallback(size_t bytes) {
   if (bytes > kBlockSize / 4) {
     // Object is more than a quarter of our block size.  Allocate it separately
@@ -56,8 +50,8 @@ char* Arena::AllocateAligned(size_t bytes) {
 }
 
 char* Arena::AllocateNewBlock(size_t block_bytes) {
-  char* result = new char[block_bytes];
-  blocks_.push_back(result);
+  blocks_.push_back(std::make_unique<char[]>(block_bytes));
+  char* result = blocks_.back().get();
   memory_usage_.fetch_add(block_bytes + sizeof(char*),
                           std::memory_order_relaxed);
   return result;
