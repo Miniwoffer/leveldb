@@ -5,9 +5,9 @@
 name: ci_simple
 on: 
   push:
-    branche: [ "main" ]
+    branches: [ "main" ]
   pull_request:
-    branche: [ "main" ]
+    branches: [ "main" ]
 
 permissions:
   contents: read
