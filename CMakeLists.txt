@@ -1,8 +1,9 @@
-# Copyright 2017 The LevelDB Authors. All rights reserved.
+# Copyright 2023 The LevelDB Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file. See the AUTHORS file for names of contributors.
 
 cmake_minimum_required(VERSION 3.22)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Keep the version below in sync with the one in db.h
 project(leveldb VERSION 1.23.0 LANGUAGES C CXX)
 
@@ -16,7 +17,7 @@ endif(NOT CMAKE_C_STANDARD)
 
 # C++ standard can be overridden when this is used as a sub-project.
 if(NOT CMAKE_CXX_STANDARD)
-  # This project requires C++17.
+  # This project requires C++23.
   set(CMAKE_CXX_STANDARD 23)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
   set(CMAKE_CXX_EXTENSIONS OFF)
@@ -88,13 +89,13 @@ check_cxx_compiler_flag(-Wno-missing-field-initializers
 
 include(CheckCXXSourceCompiles)
 
-# Test whether C++17 __has_include is available.
+# Test whether C++23 __has_include is available.
 check_cxx_source_compiles("
 #if defined(__has_include) &&  __has_include(<string>)
 #include <string>
 #endif
 int main() { std::string str; return 0; }
-" HAVE_CXX17_HAS_INCLUDE)
+" HAVE_CXX23_HAS_INCLUDE)
 
 set(LEVELDB_PUBLIC_INCLUDE_DIR "include/leveldb")
 set(LEVELDB_PORT_CONFIG_DIR "include/port")
@@ -247,12 +248,12 @@ target_compile_definitions(leveldb
     # Used by port/port.h.
     ${LEVELDB_PLATFORM_NAME}=1
 )
-if (NOT HAVE_CXX17_HAS_INCLUDE)
+if (NOT HAVE_CXX23_HAS_INCLUDE)
   target_compile_definitions(leveldb
     PRIVATE
       LEVELDB_HAS_PORT_CONFIG_H=1
   )
-endif(NOT HAVE_CXX17_HAS_INCLUDE)
+endif(NOT HAVE_CXX23_HAS_INCLUDE)
 
 if(BUILD_SHARED_LIBS)
   target_compile_definitions(leveldb
@@ -267,6 +268,10 @@ if(HAVE_CLANG_THREAD_SAFETY)
     PUBLIC
       -Werror -Wthread-safety)
 endif(HAVE_CLANG_THREAD_SAFETY)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_options(leveldb PRIVATE -gdwarf-4)
+endif()
 
 if(HAVE_CRC32C)
   target_link_libraries(leveldb crc32c)
@@ -355,12 +360,12 @@ if(LEVELDB_BUILD_TESTS)
     PRIVATE
       ${LEVELDB_PLATFORM_NAME}=1
   )
-  if (NOT HAVE_CXX17_HAS_INCLUDE)
+  if (NOT HAVE_CXX23_HAS_INCLUDE)
     target_compile_definitions(leveldb_tests
       PRIVATE
         LEVELDB_HAS_PORT_CONFIG_H=1
     )
-  endif(NOT HAVE_CXX17_HAS_INCLUDE)
+  endif(NOT HAVE_CXX23_HAS_INCLUDE)
 
   add_test(NAME "leveldb_tests" COMMAND "leveldb_tests")
 
@@ -381,12 +386,12 @@ if(LEVELDB_BUILD_TESTS)
       PRIVATE
         ${LEVELDB_PLATFORM_NAME}=1
     )
-    if (NOT HAVE_CXX17_HAS_INCLUDE)
+    if (NOT HAVE_CXX23_HAS_INCLUDE)
       target_compile_definitions("${test_target_name}"
         PRIVATE
           LEVELDB_HAS_PORT_CONFIG_H=1
       )
-    endif(NOT HAVE_CXX17_HAS_INCLUDE)
+    endif(NOT HAVE_CXX23_HAS_INCLUDE)
 
     add_test(NAME "${test_target_name}" COMMAND "${test_target_name}")
   endfunction(leveldb_test)
@@ -429,12 +434,12 @@ if(LEVELDB_BUILD_BENCHMARKS)
       PRIVATE
         ${LEVELDB_PLATFORM_NAME}=1
     )
-    if (NOT HAVE_CXX17_HAS_INCLUDE)
+    if (NOT HAVE_CXX23_HAS_INCLUDE)
       target_compile_definitions("${bench_target_name}"
         PRIVATE
           LEVELDB_HAS_PORT_CONFIG_H=1
       )
-    endif(NOT HAVE_CXX17_HAS_INCLUDE)
+    endif(NOT HAVE_CXX23_HAS_INCLUDE)
   endfunction(leveldb_benchmark)
 
   if(NOT BUILD_SHARED_LIBS)
