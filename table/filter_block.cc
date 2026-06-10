@@ -5,6 +5,7 @@
 #include "table/filter_block.h"
 
 #include "leveldb/filter_policy.h"
+
 #include "util/coding.h"
 
 namespace leveldb {
@@ -62,7 +63,7 @@ void FilterBlockBuilder::GenerateFilter() {
   for (size_t i = 0; i < num_keys; i++) {
     const char* base = keys_.data() + start_[i];
     size_t length = start_[i + 1] - start_[i];
-    tmp_keys_[i] = Slice(base, length);
+    tmp_keys_[i] = std::string_view{base, length};
   }
 
   // Generate filter for current set of keys and append to result_.

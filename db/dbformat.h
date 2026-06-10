@@ -133,7 +133,6 @@ class InternalFilterPolicy : public FilterPolicy {
   const char* Name() const override;
   virtual void CreateFilter(const std::string_view* keys, int n,
                             std::string* dst) const override;
-  void CreateFilter(const Slice* keys, int n, std::string* dst) const override;
   bool KeyMayMatch(const Slice& key, const Slice& filter) const override;
 };
 

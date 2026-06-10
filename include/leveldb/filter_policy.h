@@ -44,9 +44,6 @@ class LEVELDB_EXPORT FilterPolicy {
   virtual void CreateFilter(const std::string_view* keys, int n,
                             std::string* dst) const = 0;
 
-  virtual void CreateFilter(const Slice* keys, int n,
-                            std::string* dst) const = 0;
-
   // "filter" contains the data appended by a preceding call to
   // CreateFilter() on this class.  This method must return true if
   // the key was in the list of keys passed to CreateFilter().

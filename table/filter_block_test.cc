@@ -27,12 +27,6 @@ class TestHashFilter : public FilterPolicy {
       PutFixed32(dst, h);
     }
   }
-  void CreateFilter(const Slice* keys, int n, std::string* dst) const override {
-    for (int i = 0; i < n; i++) {
-      uint32_t h = Hash(keys[i].data(), keys[i].size(), 1);
-      PutFixed32(dst, h);
-    }
-  }
 
   bool KeyMayMatch(const Slice& key, const Slice& filter) const override {
     uint32_t h = Hash(key.data(), key.size(), 1);

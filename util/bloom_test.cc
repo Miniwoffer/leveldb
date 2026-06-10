@@ -2,11 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
-#include "gtest/gtest.h"
 #include "leveldb/filter_policy.h"
+
 #include "util/coding.h"
 #include "util/logging.h"
 #include "util/testutil.h"
+
+#include "gtest/gtest.h"
 
 namespace leveldb {
 
@@ -31,9 +33,9 @@ class BloomTest : public testing::Test {
   void Add(const Slice& s) { keys_.push_back(s.ToString()); }
 
   void Build() {
-    std::vector<Slice> key_slices;
+    std::vector<std::string_view> key_slices;
     for (size_t i = 0; i < keys_.size(); i++) {
-      key_slices.push_back(Slice(keys_[i]));
+      key_slices.push_back(std::string_view{keys_[i]});
     }
     filter_.clear();
     policy_->CreateFilter(&key_slices[0], static_cast<int>(key_slices.size()),
