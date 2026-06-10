@@ -3,6 +3,8 @@
 .vscode
 .DS_Store
 compile_commands.json
+tags
+.cache
 
 # Build directory.
 build/
