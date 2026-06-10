@@ -2,8 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file. See the AUTHORS file for names of contributors.
 
-name: ci
-on: [ workflow_dispatch ]
+name: ci_simple
+on: 
+  push:
+    branche: [ "main" ]
+  pull_request:
+    branche: [ "main" ]
 
 permissions:
   contents: read
@@ -19,40 +23,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: [clang, gcc, msvc]
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        optimized: [true, false]
-        exclude:
-        # MSVC only works on Windows.
-        - os: ubuntu-latest
-          compiler: msvc
-        - os: macos-latest
-          compiler: msvc
-        # Not testing with GCC on macOS.
-        - os: macos-latest
-          compiler: gcc
-        # Only testing with MSVC on Windows.
-        - os: windows-latest
-          compiler: clang
-        - os: windows-latest
-          compiler: gcc
-        include:
-        - compiler: clang
-          CC: clang
-          CXX: clang++
-        - compiler: gcc
-          CC: gcc
-          CXX: g++
-        - compiler: msvc
-          CC:
-          CXX:
+        compiler: [clang]
+        os: [ubuntu-latest]
+        optimized: [true]
 
     env:
       CMAKE_BUILD_DIR: ${{ github.workspace }}/build
       CMAKE_BUILD_TYPE: ${{ matrix.optimized && 'RelWithDebInfo' || 'Debug' }}
-      CC: ${{ matrix.CC }}
-      CXX: ${{ matrix.CXX }}
-      BINARY_SUFFIX: ${{ startsWith(matrix.os, 'windows') && '.exe' || '' }}
+      CC: clang
+      CXX: clang++
+      BINARY_SUFFIX: ''
       BINARY_PATH: >-
         ${{ format(
         startsWith(matrix.os, 'windows') && '{0}\build\{1}\' || '{0}/build/',
