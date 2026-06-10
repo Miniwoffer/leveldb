@@ -2,19 +2,21 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
-#include <sys/types.h>
-
-#include "gtest/gtest.h"
 #include "db/db_impl.h"
 #include "db/filename.h"
 #include "db/log_format.h"
 #include "db/version_set.h"
+#include <sys/types.h>
+
 #include "leveldb/cache.h"
 #include "leveldb/db.h"
 #include "leveldb/table.h"
 #include "leveldb/write_batch.h"
+
 #include "util/logging.h"
 #include "util/testutil.h"
+
+#include "gtest/gtest.h"
 
 namespace leveldb {
 
@@ -276,17 +278,22 @@ TEST_F(CorruptionTest, SequenceNumberRecovery) {
   ASSERT_LEVELDB_OK(db_->Put(WriteOptions(), "foo", "v5"));
   RepairDB();
   Reopen();
-  std::string v;
-  ASSERT_LEVELDB_OK(db_->Get(ReadOptions(), "foo", &v));
-  ASSERT_EQ("v5", v);
+
+  auto resp = db_->Get(ReadOptions(), "foo");
+  ASSERT_TRUE(resp);
+  ASSERT_EQ("v5", *resp);
   // Write something.  If sequence number was not recovered properly,
   // it will be hidden by an earlier write.
   ASSERT_LEVELDB_OK(db_->Put(WriteOptions(), "foo", "v6"));
-  ASSERT_LEVELDB_OK(db_->Get(ReadOptions(), "foo", &v));
-  ASSERT_EQ("v6", v);
+
+  resp = db_->Get(ReadOptions(), "foo");
+  ASSERT_TRUE(resp);
+  ASSERT_EQ("v6", *resp);
+
   Reopen();
-  ASSERT_LEVELDB_OK(db_->Get(ReadOptions(), "foo", &v));
-  ASSERT_EQ("v6", v);
+  resp = db_->Get(ReadOptions(), "foo");
+  ASSERT_TRUE(resp);
+  ASSERT_EQ("v6", *resp);
 }
 
 TEST_F(CorruptionTest, CorruptedDescriptor) {
@@ -302,8 +309,10 @@ TEST_F(CorruptionTest, CorruptedDescriptor) {
   RepairDB();
   Reopen();
   std::string v;
-  ASSERT_LEVELDB_OK(db_->Get(ReadOptions(), "foo", &v));
-  ASSERT_EQ("hello", v);
+
+  auto resp = db_->Get(ReadOptions(), "foo");
+  ASSERT_TRUE(resp);
+  ASSERT_EQ("hello", *resp);
 }
 
 TEST_F(CorruptionTest, CompactionInputError) {
@@ -351,12 +360,14 @@ TEST_F(CorruptionTest, UnrelatedKeys) {
   std::string tmp1, tmp2;
   ASSERT_LEVELDB_OK(
       db_->Put(WriteOptions(), Key(1000, &tmp1), Value(1000, &tmp2)));
-  std::string v;
-  ASSERT_LEVELDB_OK(db_->Get(ReadOptions(), Key(1000, &tmp1), &v));
-  ASSERT_EQ(Value(1000, &tmp2).ToString(), v);
+  auto resp = db_->Get(ReadOptions(), Key(1000, &tmp1).ToStringView());
+  ASSERT_TRUE(resp);
+  ASSERT_EQ(Value(1000, &tmp2).ToString(), *resp);
+
   dbi->TEST_CompactMemTable();
-  ASSERT_LEVELDB_OK(db_->Get(ReadOptions(), Key(1000, &tmp1), &v));
-  ASSERT_EQ(Value(1000, &tmp2).ToString(), v);
+  resp = db_->Get(ReadOptions(), Key(1000, &tmp1).ToStringView());
+  ASSERT_TRUE(resp);
+  ASSERT_EQ(Value(1000, &tmp2).ToString(), *resp);
 }
 
 }  // namespace leveldb

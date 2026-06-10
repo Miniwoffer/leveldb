@@ -2,16 +2,19 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
-#include "gtest/gtest.h"
 #include "db/db_impl.h"
 #include "db/filename.h"
 #include "db/version_set.h"
 #include "db/write_batch_internal.h"
+
 #include "leveldb/db.h"
 #include "leveldb/env.h"
 #include "leveldb/write_batch.h"
+
 #include "util/logging.h"
 #include "util/testutil.h"
+
+#include "gtest/gtest.h"
 
 namespace leveldb {
 
@@ -72,14 +75,14 @@ class RecoveryTest : public testing::Test {
   }
 
   std::string Get(const std::string& k, const Snapshot* snapshot = nullptr) {
-    std::string result;
-    Status s = db_->Get(ReadOptions(), k, &result);
-    if (s.IsNotFound()) {
-      result = "NOT_FOUND";
-    } else if (!s.ok()) {
-      result = s.ToString();
+    auto s = db_->Get(ReadOptions(), k);
+    if (s) {
+      return *s;
     }
-    return result;
+    if (s.error().IsNotFound()) {
+      return "NOT_FOUND";
+    }
+    return s.error().ToString();
   }
 
   std::string ManifestFileName() {

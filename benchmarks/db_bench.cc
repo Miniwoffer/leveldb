@@ -2,11 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
-#include <sys/types.h>
-
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
+#include <sys/types.h>
 
 #include "leveldb/cache.h"
 #include "leveldb/comparator.h"
@@ -14,6 +13,7 @@
 #include "leveldb/env.h"
 #include "leveldb/filter_policy.h"
 #include "leveldb/write_batch.h"
+
 #include "port/port.h"
 #include "util/crc32c.h"
 #include "util/histogram.h"
@@ -893,13 +893,12 @@ class Benchmark {
 
   void ReadRandom(ThreadState* thread) {
     ReadOptions options;
-    std::string value;
     int found = 0;
     KeyBuffer key;
     for (int i = 0; i < reads_; i++) {
       const int k = thread->rand.Uniform(FLAGS_num);
       key.Set(k);
-      if (db_->Get(options, key.slice(), &value).ok()) {
+      if (db_->Get(options, key.slice().ToStringView())) {
         found++;
       }
       thread->stats.FinishedSingleOp();
@@ -911,26 +910,24 @@ class Benchmark {
 
   void ReadMissing(ThreadState* thread) {
     ReadOptions options;
-    std::string value;
     KeyBuffer key;
     for (int i = 0; i < reads_; i++) {
       const int k = thread->rand.Uniform(FLAGS_num);
       key.Set(k);
-      Slice s = Slice(key.slice().data(), key.slice().size() - 1);
-      db_->Get(options, s, &value);
+      std::string_view sv(key.slice().data(), key.slice().size() - 1);
+      db_->Get(options, sv);
       thread->stats.FinishedSingleOp();
     }
   }
 
   void ReadHot(ThreadState* thread) {
     ReadOptions options;
-    std::string value;
     const int range = (FLAGS_num + 99) / 100;
     KeyBuffer key;
     for (int i = 0; i < reads_; i++) {
       const int k = thread->rand.Uniform(range);
       key.Set(k);
-      db_->Get(options, key.slice(), &value);
+      db_->Get(options, key.slice().ToStringView());
       thread->stats.FinishedSingleOp();
     }
   }

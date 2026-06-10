@@ -203,15 +203,14 @@ char* leveldb_get(leveldb_t* db, const leveldb_readoptions_t* options,
                   const char* key, size_t keylen, size_t* vallen,
                   char** errptr) {
   char* result = nullptr;
-  std::string tmp;
-  Status s = db->rep->Get(options->rep, Slice(key, keylen), &tmp);
-  if (s.ok()) {
-    *vallen = tmp.size();
-    result = CopyString(tmp);
+  auto s = db->rep->Get(options->rep, std::string_view(key, keylen));
+  if (s) {
+    *vallen = (*s).size();
+    result = CopyString(*s);
   } else {
     *vallen = 0;
-    if (!s.IsNotFound()) {
-      SaveError(errptr, s);
+    if (!s.error().IsNotFound()) {
+      SaveError(errptr, s.error());
     }
   }
   return result;

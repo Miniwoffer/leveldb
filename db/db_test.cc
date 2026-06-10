@@ -4,25 +4,27 @@
 
 #include "leveldb/db.h"
 
-#include <atomic>
-#include <cinttypes>
-#include <string>
-
-#include "gtest/gtest.h"
 #include "db/db_impl.h"
 #include "db/filename.h"
 #include "db/version_set.h"
 #include "db/write_batch_internal.h"
+#include <atomic>
+#include <cinttypes>
+#include <string>
+
 #include "leveldb/cache.h"
 #include "leveldb/env.h"
 #include "leveldb/filter_policy.h"
 #include "leveldb/table.h"
+
 #include "port/port.h"
 #include "port/thread_annotations.h"
 #include "util/hash.h"
 #include "util/logging.h"
 #include "util/mutexlock.h"
 #include "util/testutil.h"
+
+#include "gtest/gtest.h"
 
 namespace leveldb {
 
@@ -584,7 +586,6 @@ TEST_F(DBTest, EmptyKey) {
     ASSERT_EQ("v2", Get(""));
   } while (ChangeOptions());
 }
-
 
 TEST_F(DBTest, EmptyValue) {
   do {
@@ -2032,7 +2033,6 @@ static void MTThreadBody(void* arg) {
   int counter = 0;
   std::fprintf(stderr, "... starting thread %d\n", id);
   Random rnd(1000 + id);
-  std::string value;
   char valbuf[1500];
   while (!t->state->stop.load(std::memory_order_acquire)) {
     t->state->counter[id].store(counter, std::memory_order_release);
@@ -2049,18 +2049,17 @@ static void MTThreadBody(void* arg) {
       ASSERT_LEVELDB_OK(db->Put(WriteOptions(), Slice(keybuf), Slice(valbuf)));
     } else {
       // Read a value and verify that it matches the pattern written above.
-      Status s = db->Get(ReadOptions(), Slice(keybuf), &value);
-      if (s.IsNotFound()) {
-        // Key has not yet been written
-      } else {
-        // Check that the writer thread counter is >= the counter in the value
-        ASSERT_LEVELDB_OK(s);
+      auto s = db->Get(ReadOptions(), keybuf);
+
+      if (s) {
         int k, w, c;
-        ASSERT_EQ(3, sscanf(value.c_str(), "%d.%d.%d", &k, &w, &c)) << value;
+        ASSERT_EQ(3, sscanf((*s).c_str(), "%d.%d.%d", &k, &w, &c)) << *s;
         ASSERT_EQ(k, key);
         ASSERT_GE(w, 0);
         ASSERT_LT(w, kNumThreads);
         ASSERT_LE(c, t->state->counter[w].load(std::memory_order_acquire));
+      } else if (!s.error().IsNotFound()) {
+        ASSERT_TRUE(false);
       }
     }
     counter++;
@@ -2127,7 +2126,8 @@ class ModelDB : public DB {
     assert(false);  // Not implemented
     return Status::NotFound(key);
   }
-  std::expected<std::string, Status> Get(const ReadOptions& options, const std::string_view key) override {
+  std::expected<std::string, Status> Get(const ReadOptions& options,
+                                         const std::string_view key) override {
     assert(false);  // Not implemented
     return std::unexpected(Status::NotFound(std::string(key)));
   }
