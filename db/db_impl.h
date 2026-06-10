@@ -9,6 +9,7 @@
 #include <deque>
 #include <set>
 #include <string>
+#include <expected>
 
 #include "db/dbformat.h"
 #include "db/log_writer.h"
@@ -40,6 +41,8 @@ class DBImpl : public DB {
              const Slice& value) override;
   Status Delete(const WriteOptions&, const Slice& key) override;
   Status Write(const WriteOptions& options, WriteBatch* updates) override;
+
+  std::expected<std::string, Status> Get(const ReadOptions& options, const std::string_view key);
   Status Get(const ReadOptions& options, const Slice& key,
              std::string* value) override;
   Iterator* NewIterator(const ReadOptions&) override;

@@ -7,6 +7,8 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <expected>
+#include <string_view>
 
 #include "leveldb/export.h"
 #include "leveldb/iterator.h"
@@ -84,8 +86,17 @@ class LEVELDB_EXPORT DB {
   // a status for which Status::IsNotFound() returns true.
   //
   // May return some other Status on an error.
+  [[deprecated]]
   virtual Status Get(const ReadOptions& options, const Slice& key,
                      std::string* value) = 0;
+
+  // If the database contains an entry for "key" returns string.
+  //
+  // If there is no entry for "key" returns
+  // a status for which Status::IsNotFound() returns true.
+  //
+  // May return some other Status on an error.
+  virtual std::expected<std::string, Status> Get(const ReadOptions& options, const std::string_view key) = 0;
 
   // Return a heap-allocated iterator over the contents of the database.
   // The result of NewIterator() is initially invalid (caller must
