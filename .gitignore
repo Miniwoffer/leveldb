@@ -2,6 +2,8 @@
 *.sw*
 .vscode
 .DS_Store
+tags
+.cache
 
 # Build directory.
 build/
