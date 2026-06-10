@@ -36,7 +36,7 @@ class FilterBlockBuilder {
   FilterBlockBuilder& operator=(const FilterBlockBuilder&) = delete;
 
   void StartBlock(uint64_t block_offset);
-  void AddKey(const Slice& key);
+  void AddKey(const std::string_view& key);
   Slice Finish();
 
  private:

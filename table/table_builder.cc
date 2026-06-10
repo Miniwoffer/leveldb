@@ -10,6 +10,7 @@
 #include "leveldb/env.h"
 #include "leveldb/filter_policy.h"
 #include "leveldb/options.h"
+
 #include "table/block_builder.h"
 #include "table/filter_block.h"
 #include "table/format.h"
@@ -109,7 +110,7 @@ void TableBuilder::Add(const Slice& key, const Slice& value) {
   }
 
   if (r->filter_block != nullptr) {
-    r->filter_block->AddKey(key);
+    r->filter_block->AddKey(key.ToStringView());
   }
 
   r->last_key.assign(key.data(), key.size());

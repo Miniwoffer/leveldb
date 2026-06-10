@@ -27,8 +27,8 @@ void FilterBlockBuilder::StartBlock(uint64_t block_offset) {
   }
 }
 
-void FilterBlockBuilder::AddKey(const Slice& key) {
-  Slice k = key;
+void FilterBlockBuilder::AddKey(const std::string_view& key) {
+  auto k = key;
   start_.push_back(keys_.size());
   keys_.append(k.data(), k.size());
 }
