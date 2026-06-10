@@ -61,7 +61,7 @@ class BloomTest : public testing::Test {
     if (!keys_.empty()) {
       Build();
     }
-    return policy_->KeyMayMatch(s, filter_);
+    return policy_->KeyMayMatch(s.ToStringView(), filter_);
   }
 
   double FalsePositiveRate() {

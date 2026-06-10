@@ -10,7 +10,7 @@
 namespace leveldb {
 
 namespace {
-static uint32_t BloomHash(const Slice& key) {
+static uint32_t BloomHash(const std::string_view& key) {
   return Hash(key.data(), key.size(), 0xbc9f1d34);
 }
 
@@ -54,7 +54,8 @@ class BloomFilterPolicy : public FilterPolicy {
     }
   }
 
-  bool KeyMayMatch(const Slice& key, const Slice& bloom_filter) const override {
+  bool KeyMayMatch(const std::string_view& key,
+                   const std::string_view& bloom_filter) const override {
     const size_t len = bloom_filter.size();
     if (len < 2) return false;
 

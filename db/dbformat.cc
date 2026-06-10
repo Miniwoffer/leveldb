@@ -110,7 +110,8 @@ void InternalFilterPolicy::CreateFilter(const std::string_view* keys, int n,
   user_policy_->CreateFilter(keys, n, dst);
 }
 
-bool InternalFilterPolicy::KeyMayMatch(const Slice& key, const Slice& f) const {
+bool InternalFilterPolicy::KeyMayMatch(const std::string_view& key,
+                                       const std::string_view& f) const {
   return user_policy_->KeyMayMatch(ExtractUserKey(key), f);
 }
 

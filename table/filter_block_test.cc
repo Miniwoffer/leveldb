@@ -28,7 +28,8 @@ class TestHashFilter : public FilterPolicy {
     }
   }
 
-  bool KeyMayMatch(const Slice& key, const Slice& filter) const override {
+  bool KeyMayMatch(const std::string_view& key,
+                   const std::string_view& filter) const override {
     uint32_t h = Hash(key.data(), key.size(), 1);
     for (size_t i = 0; i + 4 <= filter.size(); i += 4) {
       if (h == DecodeFixed32(filter.data() + i)) {
