@@ -8,12 +8,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 #include "leveldb/comparator.h"
 #include "leveldb/db.h"
 #include "leveldb/filter_policy.h"
 #include "leveldb/slice.h"
 #include "leveldb/table_builder.h"
+
 #include "util/coding.h"
 #include "util/logging.h"
 
@@ -97,6 +99,11 @@ inline Slice ExtractUserKey(const Slice& internal_key) {
   return Slice(internal_key.data(), internal_key.size() - 8);
 }
 
+inline std::string_view ExtractUserKey(const std::string_view& internal_key) {
+  assert(internal_key.size() >= 8);
+  return std::string_view{internal_key.data(), internal_key.size() - 8};
+}
+
 // A comparator for internal keys that uses a specified comparator for
 // the user key portion and breaks ties by decreasing sequence number.
 class InternalKeyComparator : public Comparator {
@@ -124,6 +131,8 @@ class InternalFilterPolicy : public FilterPolicy {
  public:
   explicit InternalFilterPolicy(const FilterPolicy* p) : user_policy_(p) {}
   const char* Name() const override;
+  virtual void CreateFilter(const std::string_view* keys, int n,
+                            std::string* dst) const override;
   void CreateFilter(const Slice* keys, int n, std::string* dst) const override;
   bool KeyMayMatch(const Slice& key, const Slice& filter) const override;
 };
@@ -151,7 +160,7 @@ class InternalKey {
     return rep_;
   }
 
-  Slice user_key() const { return ExtractUserKey(rep_); }
+  Slice user_key() const { return ExtractUserKey(Slice{rep_}); }
 
   void SetFrom(const ParsedInternalKey& p) {
     rep_.clear();

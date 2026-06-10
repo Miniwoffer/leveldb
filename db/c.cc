@@ -4,10 +4,9 @@
 
 #include "leveldb/c.h"
 
-#include <string.h>
-
 #include <cstdint>
 #include <cstdlib>
+#include <string.h>
 
 #include "leveldb/cache.h"
 #include "leveldb/comparator.h"
@@ -110,6 +109,20 @@ struct leveldb_filterpolicy_t : public FilterPolicy {
   ~leveldb_filterpolicy_t() override { (*destructor_)(state_); }
 
   const char* Name() const override { return (*name_)(state_); }
+
+  void CreateFilter(const std::string_view* keys, int n,
+                    std::string* dst) const override {
+    std::vector<const char*> key_pointers(n);
+    std::vector<size_t> key_sizes(n);
+    for (int i = 0; i < n; i++) {
+      key_pointers[i] = keys[i].data();
+      key_sizes[i] = keys[i].size();
+    }
+    size_t len;
+    char* filter = (*create_)(state_, &key_pointers[0], &key_sizes[0], n, &len);
+    dst->append(filter, len);
+    std::free(filter);
+  }
 
   void CreateFilter(const Slice* keys, int n, std::string* dst) const override {
     std::vector<const char*> key_pointers(n);

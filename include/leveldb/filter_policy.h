@@ -17,6 +17,7 @@
 #define STORAGE_LEVELDB_INCLUDE_FILTER_POLICY_H_
 
 #include <string>
+#include <string_view>
 
 #include "leveldb/export.h"
 
@@ -40,6 +41,9 @@ class LEVELDB_EXPORT FilterPolicy {
   //
   // Warning: do not change the initial contents of *dst.  Instead,
   // append the newly constructed filter to *dst.
+  virtual void CreateFilter(const std::string_view* keys, int n,
+                            std::string* dst) const = 0;
+
   virtual void CreateFilter(const Slice* keys, int n,
                             std::string* dst) const = 0;
 

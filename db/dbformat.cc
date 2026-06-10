@@ -65,7 +65,7 @@ int InternalKeyComparator::Compare(const Slice& akey, const Slice& bkey) const {
 void InternalKeyComparator::FindShortestSeparator(std::string* start,
                                                   const Slice& limit) const {
   // Attempt to shorten the user portion of the key
-  Slice user_start = ExtractUserKey(*start);
+  Slice user_start = ExtractUserKey(Slice{*start});
   Slice user_limit = ExtractUserKey(limit);
   std::string tmp(user_start.data(), user_start.size());
   user_comparator_->FindShortestSeparator(&tmp, user_limit);
@@ -82,7 +82,7 @@ void InternalKeyComparator::FindShortestSeparator(std::string* start,
 }
 
 void InternalKeyComparator::FindShortSuccessor(std::string* key) const {
-  Slice user_key = ExtractUserKey(*key);
+  Slice user_key = ExtractUserKey(Slice{*key});
   std::string tmp(user_key.data(), user_key.size());
   user_comparator_->FindShortSuccessor(&tmp);
   if (tmp.size() < user_key.size() &&
@@ -97,6 +97,18 @@ void InternalKeyComparator::FindShortSuccessor(std::string* key) const {
 }
 
 const char* InternalFilterPolicy::Name() const { return user_policy_->Name(); }
+
+void InternalFilterPolicy::CreateFilter(const std::string_view* keys, int n,
+                                        std::string* dst) const {
+  // We rely on the fact that the code in table.cc does not mind us
+  // adjusting keys[].
+  std::string_view* mkey = const_cast<std::string_view*>(keys);
+  for (int i = 0; i < n; i++) {
+    mkey[i] = ExtractUserKey(keys[i]);
+    // TODO(sanjay): Suppress dups?
+  }
+  user_policy_->CreateFilter(keys, n, dst);
+}
 
 void InternalFilterPolicy::CreateFilter(const Slice* keys, int n,
                                         std::string* dst) const {
