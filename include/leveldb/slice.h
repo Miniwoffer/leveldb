@@ -35,6 +35,8 @@ class LEVELDB_EXPORT Slice {
   // Create a slice that refers to the contents of "s"
   Slice(const std::string& s) : data_(s.data()), size_(s.size()) {}
 
+  Slice(const std::string_view& sv) : data_(sv.data()), size_(sv.size()) {}
+
   // Create a slice that refers to s[0,strlen(s)-1]
   Slice(const char* s) : data_(s), size_(strlen(s)) {}
 
@@ -75,7 +77,10 @@ class LEVELDB_EXPORT Slice {
   }
 
   // Return a string that contains the copy of the referenced data.
-  std::string ToString() const { return std::string(data_, size_); }
+  std::string ToString() const { return std::string{data_, size_}; }
+  std::string_view ToStringView() const {
+    return std::string_view{data_, size_};
+  }
 
   // Three-way comparison.  Returns value:
   //   <  0 iff "*this" <  "b",
