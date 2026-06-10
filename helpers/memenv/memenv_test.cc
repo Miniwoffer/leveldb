@@ -4,14 +4,16 @@
 
 #include "helpers/memenv/memenv.h"
 
+#include "db/db_impl.h"
 #include <string>
 #include <vector>
 
-#include "gtest/gtest.h"
-#include "db/db_impl.h"
 #include "leveldb/db.h"
 #include "leveldb/env.h"
+
 #include "util/testutil.h"
+
+#include "gtest/gtest.h"
 
 namespace leveldb {
 
@@ -228,9 +230,9 @@ TEST_F(MemEnvTest, DBTest) {
   }
 
   for (size_t i = 0; i < 3; ++i) {
-    std::string res;
-    ASSERT_LEVELDB_OK(db->Get(ReadOptions(), keys[i], &res));
-    ASSERT_TRUE(res == vals[i]);
+    auto res = db->Get(ReadOptions(), keys[i].ToStringView());
+    ASSERT_TRUE(res);
+    ASSERT_TRUE(*res == vals[i]);
   }
 
   Iterator* iterator = db->NewIterator(ReadOptions());
@@ -248,9 +250,9 @@ TEST_F(MemEnvTest, DBTest) {
   ASSERT_LEVELDB_OK(dbi->TEST_CompactMemTable());
 
   for (size_t i = 0; i < 3; ++i) {
-    std::string res;
-    ASSERT_LEVELDB_OK(db->Get(ReadOptions(), keys[i], &res));
-    ASSERT_TRUE(res == vals[i]);
+    auto res = db->Get(ReadOptions(), keys[i].ToStringView());
+    ASSERT_TRUE(res);
+    ASSERT_TRUE(*res == vals[i]);
   }
 
   delete db;
