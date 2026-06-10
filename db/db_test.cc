@@ -354,14 +354,15 @@ class DBTest : public testing::Test {
   std::string Get(const std::string& k, const Snapshot* snapshot = nullptr) {
     ReadOptions options;
     options.snapshot = snapshot;
-    std::string result;
-    Status s = db_->Get(options, k, &result);
-    if (s.IsNotFound()) {
-      result = "NOT_FOUND";
-    } else if (!s.ok()) {
-      result = s.ToString();
+    std::string_view key(k);
+    auto resp = db_->Get(options, k);
+    if (resp) {
+      return *resp;
     }
-    return result;
+    if (resp.error().IsNotFound()) {
+      return "NOT_FOUND";
+    }
+    return resp.error().ToString();
   }
 
   // Return a string that contains all key,value pairs in order,
@@ -583,6 +584,7 @@ TEST_F(DBTest, EmptyKey) {
     ASSERT_EQ("v2", Get(""));
   } while (ChangeOptions());
 }
+
 
 TEST_F(DBTest, EmptyValue) {
   do {
@@ -2124,6 +2126,10 @@ class ModelDB : public DB {
              std::string* value) override {
     assert(false);  // Not implemented
     return Status::NotFound(key);
+  }
+  std::expected<std::string, Status> Get(const ReadOptions& options, const std::string_view key) override {
+    assert(false);  // Not implemented
+    return std::unexpected(Status::NotFound(std::string(key)));
   }
   Iterator* NewIterator(const ReadOptions& options) override {
     if (options.snapshot == nullptr) {

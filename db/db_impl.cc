@@ -11,6 +11,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <expected>
 
 #include "db/builder.h"
 #include "db/db_iter.h"
@@ -1117,6 +1118,16 @@ int64_t DBImpl::TEST_MaxNextLevelOverlappingBytes() {
   MutexLock l(&mutex_);
   return versions_->MaxNextLevelOverlappingBytes();
 }
+std::expected<std::string, Status> DBImpl::Get(const ReadOptions& options, const std::string_view key) {
+  std::string val;
+  Slice slice(key.data(), key.length());
+  Status status = Get(options, slice, &val);
+  if(status.ok()) {
+	  return val;
+  }
+  return std::unexpected(status);
+}
+
 
 Status DBImpl::Get(const ReadOptions& options, const Slice& key,
                    std::string* value) {
