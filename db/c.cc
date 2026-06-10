@@ -4,10 +4,9 @@
 
 #include "leveldb/c.h"
 
-#include <string.h>
-
 #include <cstdint>
 #include <cstdlib>
+#include <string.h>
 
 #include "leveldb/cache.h"
 #include "leveldb/comparator.h"
@@ -111,7 +110,8 @@ struct leveldb_filterpolicy_t : public FilterPolicy {
 
   const char* Name() const override { return (*name_)(state_); }
 
-  void CreateFilter(const Slice* keys, int n, std::string* dst) const override {
+  void CreateFilter(const std::string_view* keys, int n,
+                    std::string* dst) const override {
     std::vector<const char*> key_pointers(n);
     std::vector<size_t> key_sizes(n);
     for (int i = 0; i < n; i++) {
@@ -124,7 +124,8 @@ struct leveldb_filterpolicy_t : public FilterPolicy {
     std::free(filter);
   }
 
-  bool KeyMayMatch(const Slice& key, const Slice& filter) const override {
+  bool KeyMayMatch(const std::string_view& key,
+                   const std::string_view& filter) const override {
     return (*key_match_)(state_, key.data(), key.size(), filter.data(),
                          filter.size());
   }
@@ -475,10 +476,13 @@ leveldb_filterpolicy_t* leveldb_filterpolicy_create_bloom(int bits_per_key) {
 
     ~Wrapper() { delete rep_; }
     const char* Name() const { return rep_->Name(); }
-    void CreateFilter(const Slice* keys, int n, std::string* dst) const {
+
+    void CreateFilter(const std::string_view* keys, int n,
+                      std::string* dst) const {
       return rep_->CreateFilter(keys, n, dst);
     }
-    bool KeyMayMatch(const Slice& key, const Slice& filter) const {
+    bool KeyMayMatch(const std::string_view& key,
+                     const std::string_view& filter) const {
       return rep_->KeyMayMatch(key, filter);
     }
 
