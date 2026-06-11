@@ -110,6 +110,24 @@ struct leveldb_filterpolicy_t : public FilterPolicy {
 
   const char* Name() const override { return (*name_)(state_); }
 
+  void CreateFilter(const std::vector<std::string_view>& keys,
+                    std::string* dst) const override {
+    std::vector<const char*> key_pointers;
+    std::vector<size_t> key_sizes;
+    key_pointers.reserve(keys.size());
+    key_sizes.reserve(keys.size());
+
+    for (auto& key : keys) {
+      key_pointers.push_back(key.data());
+      key_sizes.push_back(key.size());
+    }
+    size_t len;
+    char* filter =
+        (*create_)(state_, &key_pointers[0], &key_sizes[0], keys.size(), &len);
+    dst->append(filter, len);
+    std::free(filter);
+  }
+
   void CreateFilter(const std::string_view* keys, int n,
                     std::string* dst) const override {
     std::vector<const char*> key_pointers(n);
@@ -479,6 +497,10 @@ leveldb_filterpolicy_t* leveldb_filterpolicy_create_bloom(int bits_per_key) {
     void CreateFilter(const std::string_view* keys, int n,
                       std::string* dst) const {
       return rep_->CreateFilter(keys, n, dst);
+    }
+    void CreateFilter(const std::vector<std::string_view> keys,
+                      std::string* dst) const {
+      return rep_->CreateFilter(keys, dst);
     }
     bool KeyMayMatch(const std::string_view key,
                      const std::string_view filter) const {

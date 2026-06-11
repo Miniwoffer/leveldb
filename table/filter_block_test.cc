@@ -20,6 +20,14 @@ class TestHashFilter : public FilterPolicy {
  public:
   const char* Name() const override { return "TestHashFilter"; }
 
+  void CreateFilter(const std::vector<std::string_view>& keys,
+                    std::string* dst) const override {
+    for (const auto& key : keys) {
+      uint32_t h = Hash(key.data(), key.size(), 1);
+      PutFixed32(dst, h);
+    }
+  }
+
   void CreateFilter(const std::string_view* keys, int n,
                     std::string* dst) const override {
     for (int i = 0; i < n; i++) {

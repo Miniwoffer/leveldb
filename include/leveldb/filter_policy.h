@@ -18,6 +18,7 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "leveldb/export.h"
 
@@ -41,8 +42,9 @@ class LEVELDB_EXPORT FilterPolicy {
   //
   // Warning: do not change the initial contents of *dst.  Instead,
   // append the newly constructed filter to *dst.
-  // TODO: Replace C-style arrays with proper containers
   virtual void CreateFilter(const std::string_view* keys, int n,
+                            std::string* dst) const = 0;
+  virtual void CreateFilter(const std::vector<std::string_view>& keys,
                             std::string* dst) const = 0;
 
   // "filter" contains the data appended by a preceding call to
