@@ -38,8 +38,7 @@ class BloomTest : public testing::Test {
       key_slices.push_back(std::string_view{keys_[i]});
     }
     filter_.clear();
-    policy_->CreateFilter(&key_slices[0], static_cast<int>(key_slices.size()),
-                          &filter_);
+    policy_->CreateFilter(key_slices, &filter_);
     keys_.clear();
     if (kVerbose >= 2) DumpFilter();
   }

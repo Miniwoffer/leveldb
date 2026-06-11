@@ -131,8 +131,6 @@ class InternalFilterPolicy : public FilterPolicy {
  public:
   explicit InternalFilterPolicy(const FilterPolicy* p) : user_policy_(p) {}
   const char* Name() const override;
-  virtual void CreateFilter(const std::string_view* keys, int n,
-                            std::string* dst) const override;
   void CreateFilter(const std::vector<std::string_view>& keys,
                     std::string* dst) const override;
   bool KeyMayMatch(const std::string_view key,
