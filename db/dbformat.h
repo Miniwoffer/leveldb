@@ -99,7 +99,7 @@ inline Slice ExtractUserKey(const Slice& internal_key) {
   return Slice(internal_key.data(), internal_key.size() - 8);
 }
 
-inline std::string_view ExtractUserKey(const std::string_view& internal_key) {
+inline std::string_view ExtractUserKey(const std::string_view internal_key) {
   assert(internal_key.size() >= 8);
   return std::string_view{internal_key.data(), internal_key.size() - 8};
 }
@@ -133,8 +133,8 @@ class InternalFilterPolicy : public FilterPolicy {
   const char* Name() const override;
   virtual void CreateFilter(const std::string_view* keys, int n,
                             std::string* dst) const override;
-  bool KeyMayMatch(const std::string_view& key,
-                   const std::string_view& filter) const override;
+  bool KeyMayMatch(const std::string_view key,
+                   const std::string_view filter) const override;
 };
 
 // Modules in this directory should keep internal keys wrapped inside
