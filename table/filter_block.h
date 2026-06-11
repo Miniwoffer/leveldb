@@ -36,7 +36,7 @@ class FilterBlockBuilder {
   FilterBlockBuilder& operator=(const FilterBlockBuilder&) = delete;
 
   void StartBlock(uint64_t block_offset);
-  void AddKey(const std::string_view& key);
+  void AddKey(const std::string_view key);
   Slice Finish();
 
  private:
@@ -54,7 +54,7 @@ class FilterBlockReader {
  public:
   // REQUIRES: "contents" and *policy must stay live while *this is live.
   FilterBlockReader(const FilterPolicy* policy, const Slice& contents);
-  bool KeyMayMatch(uint64_t block_offset, const std::string_view& key);
+  bool KeyMayMatch(uint64_t block_offset, const std::string_view key);
 
  private:
   const FilterPolicy* policy_;

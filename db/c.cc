@@ -124,8 +124,8 @@ struct leveldb_filterpolicy_t : public FilterPolicy {
     std::free(filter);
   }
 
-  bool KeyMayMatch(const std::string_view& key,
-                   const std::string_view& filter) const override {
+  bool KeyMayMatch(const std::string_view key,
+                   const std::string_view filter) const override {
     return (*key_match_)(state_, key.data(), key.size(), filter.data(),
                          filter.size());
   }
@@ -480,8 +480,8 @@ leveldb_filterpolicy_t* leveldb_filterpolicy_create_bloom(int bits_per_key) {
                       std::string* dst) const {
       return rep_->CreateFilter(keys, n, dst);
     }
-    bool KeyMayMatch(const std::string_view& key,
-                     const std::string_view& filter) const {
+    bool KeyMayMatch(const std::string_view key,
+                     const std::string_view filter) const {
       return rep_->KeyMayMatch(key, filter);
     }
 

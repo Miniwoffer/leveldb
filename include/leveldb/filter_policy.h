@@ -27,7 +27,7 @@ class Slice;
 
 class LEVELDB_EXPORT FilterPolicy {
  public:
-  virtual ~FilterPolicy();
+  virtual ~FilterPolicy() = default;
 
   // Return the name of this policy.  Note that if the filter encoding
   // changes in an incompatible way, the name returned by this method
@@ -41,6 +41,7 @@ class LEVELDB_EXPORT FilterPolicy {
   //
   // Warning: do not change the initial contents of *dst.  Instead,
   // append the newly constructed filter to *dst.
+  // TODO: Replace C-style arrays with proper containers
   virtual void CreateFilter(const std::string_view* keys, int n,
                             std::string* dst) const = 0;
 
@@ -49,8 +50,8 @@ class LEVELDB_EXPORT FilterPolicy {
   // the key was in the list of keys passed to CreateFilter().
   // This method may return true or false if the key was not on the
   // list, but it should aim to return false with a high probability.
-  virtual bool KeyMayMatch(const std::string_view& key,
-                           const std::string_view& filter) const = 0;
+  virtual bool KeyMayMatch(const std::string_view key,
+                           const std::string_view filter) const = 0;
   // virtual bool KeyMayMatch(const Slice& key, const Slice& filter) const = 0;
 };
 

@@ -27,10 +27,9 @@ void FilterBlockBuilder::StartBlock(uint64_t block_offset) {
   }
 }
 
-void FilterBlockBuilder::AddKey(const std::string_view& key) {
-  auto k = key;
+void FilterBlockBuilder::AddKey(const std::string_view key) {
   start_.push_back(keys_.size());
-  keys_.append(k.data(), k.size());
+  keys_.append(key.data(), key.size());
 }
 
 Slice FilterBlockBuilder::Finish() {
@@ -89,7 +88,7 @@ FilterBlockReader::FilterBlockReader(const FilterPolicy* policy,
 }
 
 bool FilterBlockReader::KeyMayMatch(uint64_t block_offset,
-                                    const std::string_view& key) {
+                                    const std::string_view key) {
   uint64_t index = block_offset >> base_lg_;
   if (index < num_) {
     uint32_t start = DecodeFixed32(offset_ + index * 4);
