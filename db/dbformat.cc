@@ -6,6 +6,7 @@
 
 #include <cstdio>
 #include <sstream>
+#include <string_view>
 
 #include "port/port.h"
 #include "util/coding.h"
@@ -116,7 +117,7 @@ bool InternalFilterPolicy::KeyMayMatch(const std::string_view key,
   return user_policy_->KeyMayMatch(ExtractUserKey(key), f);
 }
 
-LookupKey::LookupKey(const Slice& user_key, SequenceNumber s) {
+LookupKey::LookupKey(const std::string_view user_key, SequenceNumber s) {
   size_t usize = user_key.size();
   size_t needed = usize + 13;  // A conservative estimate
   char* dst;

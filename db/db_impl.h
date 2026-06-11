@@ -5,17 +5,18 @@
 #ifndef STORAGE_LEVELDB_DB_DB_IMPL_H_
 #define STORAGE_LEVELDB_DB_DB_IMPL_H_
 
-#include <atomic>
-#include <deque>
-#include <set>
-#include <string>
-#include <expected>
-
 #include "db/dbformat.h"
 #include "db/log_writer.h"
 #include "db/snapshot.h"
+#include <atomic>
+#include <deque>
+#include <expected>
+#include <set>
+#include <string>
+
 #include "leveldb/db.h"
 #include "leveldb/env.h"
+
 #include "port/port.h"
 #include "port/thread_annotations.h"
 
@@ -42,9 +43,8 @@ class DBImpl : public DB {
   Status Delete(const WriteOptions&, const Slice& key) override;
   Status Write(const WriteOptions& options, WriteBatch* updates) override;
 
-  std::expected<std::string, Status> Get(const ReadOptions& options, const std::string_view key) override;
-  Status Get(const ReadOptions& options, const Slice& key,
-             std::string* value) override;
+  std::expected<std::string, Status> Get(const ReadOptions& options,
+                                         const std::string_view key) override;
   Iterator* NewIterator(const ReadOptions&) override;
   const Snapshot* GetSnapshot() override;
   void ReleaseSnapshot(const Snapshot* snapshot) override;
