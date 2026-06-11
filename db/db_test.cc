@@ -2123,11 +2123,6 @@ class ModelDB : public DB {
   Status Delete(const WriteOptions& o, const Slice& key) override {
     return DB::Delete(o, key);
   }
-  Status Get(const ReadOptions& options, const Slice& key,
-             std::string* value) override {
-    assert(false);  // Not implemented
-    return Status::NotFound(key);
-  }
   std::expected<std::string, Status> Get(const ReadOptions& options,
                                          const std::string_view key) override {
     assert(false);  // Not implemented

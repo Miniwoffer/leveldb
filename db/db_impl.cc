@@ -4,15 +4,6 @@
 
 #include "db/db_impl.h"
 
-#include <algorithm>
-#include <atomic>
-#include <cstdint>
-#include <cstdio>
-#include <set>
-#include <string>
-#include <vector>
-#include <expected>
-
 #include "db/builder.h"
 #include "db/db_iter.h"
 #include "db/dbformat.h"
@@ -23,11 +14,21 @@
 #include "db/table_cache.h"
 #include "db/version_set.h"
 #include "db/write_batch_internal.h"
+#include <algorithm>
+#include <atomic>
+#include <cstdint>
+#include <cstdio>
+#include <expected>
+#include <set>
+#include <string>
+#include <vector>
+
 #include "leveldb/db.h"
 #include "leveldb/env.h"
 #include "leveldb/status.h"
 #include "leveldb/table.h"
 #include "leveldb/table_builder.h"
+
 #include "port/port.h"
 #include "table/block.h"
 #include "table/merger.h"
@@ -1118,19 +1119,10 @@ int64_t DBImpl::TEST_MaxNextLevelOverlappingBytes() {
   MutexLock l(&mutex_);
   return versions_->MaxNextLevelOverlappingBytes();
 }
-std::expected<std::string, Status> DBImpl::Get(const ReadOptions& options, const std::string_view key) {
+std::expected<std::string, Status> DBImpl::Get(const ReadOptions& options,
+                                               const std::string_view key) {
   std::string val;
   Slice slice(key.data(), key.length());
-  Status status = Get(options, slice, &val);
-  if(status.ok()) {
-	  return val;
-  }
-  return std::unexpected(status);
-}
-
-
-Status DBImpl::Get(const ReadOptions& options, const Slice& key,
-                   std::string* value) {
   Status s;
   MutexLock l(&mutex_);
   SequenceNumber snapshot;
@@ -1156,12 +1148,12 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
     mutex_.Unlock();
     // First look in the memtable, then in the immutable memtable (if any).
     LookupKey lkey(key, snapshot);
-    if (mem->Get(lkey, value, &s)) {
-      // Done
-    } else if (imm != nullptr && imm->Get(lkey, value, &s)) {
-      // Done
+    if (auto ret = mem->Get(lkey); ret) {
+      return *ret;
+    } else if (imm != nullptr&&(ret = imm->Get(lkey)); ret) {
+      return *ret;
     } else {
-      s = current->Get(options, lkey, value, &stats);
+      s = current->Get(options, lkey, &val, &stats);
       have_stat_update = true;
     }
     mutex_.Lock();
@@ -1173,7 +1165,7 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
   mem->Unref();
   if (imm != nullptr) imm->Unref();
   current->Unref();
-  return s;
+  return std::unexpected(s);
 }
 
 Iterator* DBImpl::NewIterator(const ReadOptions& options) {

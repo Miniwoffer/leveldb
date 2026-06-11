@@ -194,7 +194,10 @@ class LookupKey {
  public:
   // Initialize *this for looking up user_key at a snapshot with
   // the specified sequence number.
+  [[deprecated]]
   LookupKey(const Slice& user_key, SequenceNumber sequence);
+
+  LookupKey(const std::string_view user_key, SequenceNumber sequence);
 
   LookupKey(const LookupKey&) = delete;
   LookupKey& operator=(const LookupKey&) = delete;
@@ -202,13 +205,19 @@ class LookupKey {
   ~LookupKey();
 
   // Return a key suitable for lookup in a MemTable.
-  Slice memtable_key() const { return Slice(start_, end_ - start_); }
+  std::string_view memtable_key() const {
+    return std::string_view(start_, end_ - start_);
+  }
 
   // Return an internal key (suitable for passing to an internal iterator)
-  Slice internal_key() const { return Slice(kstart_, end_ - kstart_); }
+  std::string_view internal_key() const {
+    return std::string_view(kstart_, end_ - kstart_);
+  }
 
   // Return the user key
-  Slice user_key() const { return Slice(kstart_, end_ - kstart_ - 8); }
+  std::string_view user_key() const {
+    return std::string_view(kstart_, end_ - kstart_ - 8);
+  }
 
  private:
   // We construct a char array of the form:

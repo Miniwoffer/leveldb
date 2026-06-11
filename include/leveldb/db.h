@@ -79,24 +79,14 @@ class LEVELDB_EXPORT DB {
   // Note: consider setting options.sync = true.
   virtual Status Write(const WriteOptions& options, WriteBatch* updates) = 0;
 
-  // If the database contains an entry for "key" store the
-  // corresponding value in *value and return OK.
-  //
-  // If there is no entry for "key" leave *value unchanged and return
-  // a status for which Status::IsNotFound() returns true.
-  //
-  // May return some other Status on an error.
-  [[deprecated]]
-  virtual Status Get(const ReadOptions& options, const Slice& key,
-                     std::string* value) = 0;
-
   // If the database contains an entry for "key" returns string.
   //
   // If there is no entry for "key" returns
   // a status for which Status::IsNotFound() returns true.
   //
   // May return some other Status on an error.
-  virtual std::expected<std::string, Status> Get(const ReadOptions& options, const std::string_view key) = 0;
+  virtual std::expected<std::string, Status> Get(
+      const ReadOptions& options, const std::string_view key) = 0;
 
   // Return a heap-allocated iterator over the contents of the database.
   // The result of NewIterator() is initially invalid (caller must

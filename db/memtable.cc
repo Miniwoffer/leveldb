@@ -3,10 +3,14 @@
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
 #include "db/memtable.h"
+
 #include "db/dbformat.h"
+#include <optional>
+
 #include "leveldb/comparator.h"
 #include "leveldb/env.h"
 #include "leveldb/iterator.h"
+
 #include "util/coding.h"
 
 namespace leveldb {
@@ -99,7 +103,8 @@ void MemTable::Add(SequenceNumber s, ValueType type, const Slice& key,
   table_.Insert(buf);
 }
 
-bool MemTable::Get(const LookupKey& key, std::string* value, Status* s) {
+std::optional<std::expected<std::string, Status>> MemTable::Get(
+    const LookupKey& key) {
   Slice memkey = key.memtable_key();
   Table::Iterator iter(&table_);
   iter.Seek(memkey.data());
@@ -122,17 +127,14 @@ bool MemTable::Get(const LookupKey& key, std::string* value, Status* s) {
       const uint64_t tag = DecodeFixed64(key_ptr + key_length - 8);
       switch (static_cast<ValueType>(tag & 0xff)) {
         case kTypeValue: {
-          Slice v = GetLengthPrefixedSlice(key_ptr + key_length);
-          value->assign(v.data(), v.size());
-          return true;
+          return GetLengthPrefixedSlice(key_ptr + key_length).ToString();
         }
         case kTypeDeletion:
-          *s = Status::NotFound(Slice());
-          return true;
+          return std::unexpected(Status::NotFound(Slice()));
       }
     }
   }
-  return false;
+  return std::nullopt;
 }
 
 }  // namespace leveldb
