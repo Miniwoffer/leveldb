@@ -102,25 +102,13 @@ void InternalFilterPolicy::CreateFilter(
     const std::vector<std::string_view>& keys, std::string* dst) const {
   // We rely on the fact that the code in table.cc does not mind us
   // adjusting keys[].
-  std::vector<std::string_view> mkeys =
+  std::vector<std::string_view>& mkeys =
       const_cast<std::vector<std::string_view>&>(keys);
   for (auto& mkey : mkeys) {
     mkey = ExtractUserKey(mkey);
     // TODO(sanjay): Suppress dups?
   }
   user_policy_->CreateFilter(keys, dst);
-}
-
-void InternalFilterPolicy::CreateFilter(const std::string_view* keys, int n,
-                                        std::string* dst) const {
-  // We rely on the fact that the code in table.cc does not mind us
-  // adjusting keys[].
-  std::string_view* mkey = const_cast<std::string_view*>(keys);
-  for (int i = 0; i < n; i++) {
-    mkey[i] = ExtractUserKey(keys[i]);
-    // TODO(sanjay): Suppress dups?
-  }
-  user_policy_->CreateFilter(keys, n, dst);
 }
 
 bool InternalFilterPolicy::KeyMayMatch(const std::string_view key,

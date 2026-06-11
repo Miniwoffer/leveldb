@@ -1945,10 +1945,12 @@ TEST_F(DBTest, BloomFilter) {
   const int N = 10000;
   for (int i = 0; i < N; i++) {
     ASSERT_LEVELDB_OK(Put(Key(i), Key(i)));
+    ASSERT_EQ(Key(i), Get(Key(i)));
   }
   Compact("a", "z");
   for (int i = 0; i < N; i += 100) {
     ASSERT_LEVELDB_OK(Put(Key(i), Key(i)));
+    ASSERT_EQ(Key(i), Get(Key(i)));
   }
   dbfull()->TEST_CompactMemTable();
 

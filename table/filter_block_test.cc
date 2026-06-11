@@ -28,14 +28,6 @@ class TestHashFilter : public FilterPolicy {
     }
   }
 
-  void CreateFilter(const std::string_view* keys, int n,
-                    std::string* dst) const override {
-    for (int i = 0; i < n; i++) {
-      uint32_t h = Hash(keys[i].data(), keys[i].size(), 1);
-      PutFixed32(dst, h);
-    }
-  }
-
   bool KeyMayMatch(const std::string_view key,
                    const std::string_view filter) const override {
     uint32_t h = Hash(key.data(), key.size(), 1);

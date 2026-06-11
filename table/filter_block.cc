@@ -67,7 +67,7 @@ void FilterBlockBuilder::GenerateFilter() {
 
   // Generate filter for current set of keys and append to result_.
   filter_offsets_.push_back(result_.size());
-  policy_->CreateFilter(&tmp_keys_[0], static_cast<int>(num_keys), &result_);
+  policy_->CreateFilter(tmp_keys_, &result_);
 
   tmp_keys_.clear();
   keys_.clear();

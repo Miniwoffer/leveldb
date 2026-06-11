@@ -42,39 +42,10 @@ class BloomFilterPolicy : public FilterPolicy {
     dst->resize(init_size + bytes, 0);
     dst->push_back(static_cast<char>(k_));  // Remember # of probes in filter
     char* array = &(*dst)[init_size];
-    for (const auto key : keys) {
+    for (const auto& key : keys) {
       // Use double-hashing to generate a sequence of hash values.
       // See analysis in [Kirsch,Mitzenmacher 2006].
       uint32_t h = BloomHash(key);
-      const uint32_t delta = (h >> 17) | (h << 15);  // Rotate right 17 bits
-      for (size_t j = 0; j < k_; j++) {
-        const uint32_t bitpos = h % bits;
-        array[bitpos / 8] |= (1 << (bitpos % 8));
-        h += delta;
-      }
-    }
-  }
-
-  void CreateFilter(const std::string_view* keys, int n,
-                    std::string* dst) const override {
-    // Compute bloom filter size (in both bits and bytes)
-    size_t bits = n * bits_per_key_;
-
-    // For small n, we can see a very high false positive rate.  Fix it
-    // by enforcing a minimum bloom filter length.
-    if (bits < 64) bits = 64;
-
-    size_t bytes = (bits + 7) / 8;
-    bits = bytes * 8;
-
-    const size_t init_size = dst->size();
-    dst->resize(init_size + bytes, 0);
-    dst->push_back(static_cast<char>(k_));  // Remember # of probes in filter
-    char* array = &(*dst)[init_size];
-    for (int i = 0; i < n; i++) {
-      // Use double-hashing to generate a sequence of hash values.
-      // See analysis in [Kirsch,Mitzenmacher 2006].
-      uint32_t h = BloomHash(keys[i]);
       const uint32_t delta = (h >> 17) | (h << 15);  // Rotate right 17 bits
       for (size_t j = 0; j < k_; j++) {
         const uint32_t bitpos = h % bits;
@@ -105,7 +76,9 @@ class BloomFilterPolicy : public FilterPolicy {
     const uint32_t delta = (h >> 17) | (h << 15);  // Rotate right 17 bits
     for (size_t j = 0; j < k; j++) {
       const uint32_t bitpos = h % bits;
-      if ((array[bitpos / 8] & (1 << (bitpos % 8))) == 0) return false;
+      if ((array[bitpos / 8] & (1 << (bitpos % 8))) == 0) {
+        return false;
+      }
       h += delta;
     }
     return true;
