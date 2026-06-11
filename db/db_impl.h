@@ -42,7 +42,7 @@ class DBImpl : public DB {
   Status Delete(const WriteOptions&, const Slice& key) override;
   Status Write(const WriteOptions& options, WriteBatch* updates) override;
 
-  std::expected<std::string, Status> Get(const ReadOptions& options, const std::string_view key);
+  std::expected<std::string, Status> Get(const ReadOptions& options, const std::string_view key) override;
   Status Get(const ReadOptions& options, const Slice& key,
              std::string* value) override;
   Iterator* NewIterator(const ReadOptions&) override;
