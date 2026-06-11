@@ -23,15 +23,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: [clang]
+        compiler: [gcc]
         os: [ubuntu-latest]
         optimized: [true]
 
     env:
       CMAKE_BUILD_DIR: ${{ github.workspace }}/build
       CMAKE_BUILD_TYPE: ${{ matrix.optimized && 'RelWithDebInfo' || 'Debug' }}
-      CC: clang
-      CXX: clang++
+      CC: gcc
+      CXX: g++
       BINARY_SUFFIX: ''
       BINARY_PATH: >-
         ${{ format(
