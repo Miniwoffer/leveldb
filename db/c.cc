@@ -480,7 +480,7 @@ leveldb_filterpolicy_t* leveldb_filterpolicy_create_bloom(int bits_per_key) {
     ~Wrapper() { delete rep_; }
     const char* Name() const { return rep_->Name(); }
 
-    void CreateFilter(const std::vector<std::string_view> keys,
+    void CreateFilter(const std::vector<std::string_view>& keys,
                       std::string* dst) const {
       return rep_->CreateFilter(keys, dst);
     }
