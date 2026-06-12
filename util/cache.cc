@@ -15,8 +15,6 @@
 
 namespace leveldb {
 
-Cache::~Cache() {}
-
 namespace {
 
 // LRU cache implementation
@@ -76,7 +74,7 @@ class HandleTable {
     return *FindPointer(key, hash);
   }
 
-  LRUHandle* Insert(LRUHandle* h) {
+  std::optional<LRUHandle*> Insert(LRUHandle* h) {
     LRUHandle** ptr = FindPointer(h->key(), h->hash);
     LRUHandle* old = *ptr;
     h->next_hash = (old == nullptr ? nullptr : old->next_hash);
@@ -88,18 +86,20 @@ class HandleTable {
         // average linked list length (<= 1).
         Resize();
       }
+      return {};
     }
     return old;
   }
 
-  LRUHandle* Remove(const Slice& key, uint32_t hash) {
+  std::optional<LRUHandle*> Remove(const Slice& key, uint32_t hash) {
     LRUHandle** ptr = FindPointer(key, hash);
     LRUHandle* result = *ptr;
     if (result != nullptr) {
       *ptr = result->next_hash;
       --elems_;
+      return result;
     }
-    return result;
+    return {};
   }
 
  private:
@@ -157,10 +157,11 @@ class LRUCache {
   void SetCapacity(size_t capacity) { capacity_ = capacity; }
 
   // Like Cache methods, but with an extra "hash" parameter.
-  Cache::Handle* Insert(const Slice& key, uint32_t hash, void* value,
-                        size_t charge,
-                        void (*deleter)(const Slice& key, void* value));
-  Cache::Handle* Lookup(const Slice& key, uint32_t hash);
+  std::optional<Cache::Handle*> Insert(const Slice& key, uint32_t hash,
+                                       void* value, size_t charge,
+                                       void (*deleter)(const Slice& key,
+                                                       void* value));
+  std::optional<Cache::Handle*> Lookup(const Slice& key, uint32_t hash);
   void Release(Cache::Handle* handle);
   void Erase(const Slice& key, uint32_t hash);
   void Prune();
@@ -250,13 +251,15 @@ void LRUCache::LRU_Append(LRUHandle* list, LRUHandle* e) {
   e->next->prev = e;
 }
 
-Cache::Handle* LRUCache::Lookup(const Slice& key, uint32_t hash) {
+std::optional<Cache::Handle*> LRUCache::Lookup(const Slice& key,
+                                               uint32_t hash) {
   MutexLock l(&mutex_);
   LRUHandle* e = table_.Lookup(key, hash);
   if (e != nullptr) {
     Ref(e);
+    return reinterpret_cast<Cache::Handle*>(e);
   }
-  return reinterpret_cast<Cache::Handle*>(e);
+  return {};
 }
 
 void LRUCache::Release(Cache::Handle* handle) {
@@ -264,10 +267,10 @@ void LRUCache::Release(Cache::Handle* handle) {
   Unref(reinterpret_cast<LRUHandle*>(handle));
 }
 
-Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
-                                size_t charge,
-                                void (*deleter)(const Slice& key,
-                                                void* value)) {
+std::optional<Cache::Handle*> LRUCache::Insert(const Slice& key, uint32_t hash,
+                                               void* value, size_t charge,
+                                               void (*deleter)(const Slice& key,
+                                                               void* value)) {
   MutexLock l(&mutex_);
 
   LRUHandle* e =
@@ -286,7 +289,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
     e->in_cache = true;
     LRU_Append(&in_use_, e);
     usage_ += charge;
-    FinishErase(table_.Insert(e));
+    FinishErase(table_.Insert(e).value_or(nullptr));
   } else {  // don't cache. (capacity_==0 is supported and turns off caching.)
     // next is read by key() in an assert, so it must be initialized
     e->next = nullptr;
@@ -294,7 +297,8 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
   while (usage_ > capacity_ && lru_.next != &lru_) {
     LRUHandle* old = lru_.next;
     assert(old->refs == 1);
-    bool erased = FinishErase(table_.Remove(old->key(), old->hash));
+    bool erased =
+        FinishErase(table_.Remove(old->key(), old->hash).value_or(nullptr));
     if (!erased) {  // to avoid unused variable when compiled NDEBUG
       assert(erased);
     }
@@ -318,7 +322,7 @@ bool LRUCache::FinishErase(LRUHandle* e) {
 
 void LRUCache::Erase(const Slice& key, uint32_t hash) {
   MutexLock l(&mutex_);
-  FinishErase(table_.Remove(key, hash));
+  FinishErase(table_.Remove(key, hash).value_or(nullptr));
 }
 
 void LRUCache::Prune() {
@@ -326,7 +330,8 @@ void LRUCache::Prune() {
   while (lru_.next != &lru_) {
     LRUHandle* e = lru_.next;
     assert(e->refs == 1);
-    bool erased = FinishErase(table_.Remove(e->key(), e->hash));
+    bool erased =
+        FinishErase(table_.Remove(e->key(), e->hash).value_or(nullptr));
     if (!erased) {  // to avoid unused variable when compiled NDEBUG
       assert(erased);
     }
@@ -356,12 +361,13 @@ class ShardedLRUCache : public Cache {
     }
   }
   ~ShardedLRUCache() override {}
-  Handle* Insert(const Slice& key, void* value, size_t charge,
-                 void (*deleter)(const Slice& key, void* value)) override {
+  std::optional<Handle*> Insert(const Slice& key, void* value, size_t charge,
+                                void (*deleter)(const Slice& key,
+                                                void* value)) override {
     const uint32_t hash = HashSlice(key);
     return shard_[Shard(hash)].Insert(key, hash, value, charge, deleter);
   }
-  Handle* Lookup(const Slice& key) override {
+  std::optional<Handle*> Lookup(const Slice& key) override {
     const uint32_t hash = HashSlice(key);
     return shard_[Shard(hash)].Lookup(key, hash);
   }

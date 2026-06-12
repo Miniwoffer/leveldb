@@ -19,6 +19,7 @@
 #define STORAGE_LEVELDB_INCLUDE_CACHE_H_
 
 #include <cstdint>
+#include <optional>
 
 #include "leveldb/export.h"
 #include "leveldb/slice.h"
@@ -40,7 +41,7 @@ class LEVELDB_EXPORT Cache {
 
   // Destroys all existing entries by calling the "deleter"
   // function that was passed to the constructor.
-  virtual ~Cache();
+  virtual ~Cache() = default;
 
   // Opaque handle to an entry stored in the cache.
   struct Handle {};
@@ -54,15 +55,18 @@ class LEVELDB_EXPORT Cache {
   //
   // When the inserted entry is no longer needed, the key and
   // value will be passed to "deleter".
-  virtual Handle* Insert(const Slice& key, void* value, size_t charge,
-                         void (*deleter)(const Slice& key, void* value)) = 0;
+  virtual std::optional<Handle*> Insert(const Slice& key, void* value,
+                                        size_t charge,
+                                        void (*deleter)(const Slice& key,
+                                                        void* value)) = 0;
 
   // If the cache has no mapping for "key", returns nullptr.
   //
   // Else return a handle that corresponds to the mapping.  The caller
   // must call this->Release(handle) when the returned mapping is no
   // longer needed.
-  virtual Handle* Lookup(const Slice& key) = 0;
+  virtual std::optional<Handle*> Lookup(const Slice& key) = 0;
+  // virtual Handle* Lookup(const Slice& key) = 0;
 
   // Release a mapping returned by a previous Lookup().
   // REQUIRES: handle must not have been released yet.

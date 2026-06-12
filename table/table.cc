@@ -156,7 +156,7 @@ Iterator* Table::BlockReader(void* arg, const ReadOptions& options,
   Table* table = reinterpret_cast<Table*>(arg);
   Cache* block_cache = table->rep_->options.block_cache;
   Block* block = nullptr;
-  Cache::Handle* cache_handle = nullptr;
+  std::optional<Cache::Handle*> cache_handle;
 
   BlockHandle handle;
   Slice input = index_value;
@@ -171,9 +171,9 @@ Iterator* Table::BlockReader(void* arg, const ReadOptions& options,
       EncodeFixed64(cache_key_buffer, table->rep_->cache_id);
       EncodeFixed64(cache_key_buffer + 8, handle.offset());
       Slice key(cache_key_buffer, sizeof(cache_key_buffer));
-      cache_handle = block_cache->Lookup(key);
-      if (cache_handle != nullptr) {
-        block = reinterpret_cast<Block*>(block_cache->Value(cache_handle));
+
+      if (cache_handle = block_cache->Lookup(key)) {
+        block = reinterpret_cast<Block*>(block_cache->Value(*cache_handle));
       } else {
         s = ReadBlock(table->rep_->file, options, handle, &contents);
         if (s.ok()) {
@@ -195,10 +195,10 @@ Iterator* Table::BlockReader(void* arg, const ReadOptions& options,
   Iterator* iter;
   if (block != nullptr) {
     iter = block->NewIterator(table->rep_->options.comparator);
-    if (cache_handle == nullptr) {
+    if (!cache_handle) {
       iter->RegisterCleanup(&DeleteBlock, block, nullptr);
     } else {
-      iter->RegisterCleanup(&ReleaseBlock, block_cache, cache_handle);
+      iter->RegisterCleanup(&ReleaseBlock, block_cache, *cache_handle);
     }
   } else {
     iter = NewErrorIterator(s);

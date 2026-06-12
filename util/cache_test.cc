@@ -6,8 +6,9 @@
 
 #include <vector>
 
-#include "gtest/gtest.h"
 #include "util/coding.h"
+
+#include "gtest/gtest.h"
 
 namespace leveldb {
 
@@ -41,20 +42,23 @@ class CacheTest : public testing::Test {
   ~CacheTest() { delete cache_; }
 
   int Lookup(int key) {
-    Cache::Handle* handle = cache_->Lookup(EncodeKey(key));
-    const int r = (handle == nullptr) ? -1 : DecodeValue(cache_->Value(handle));
-    if (handle != nullptr) {
-      cache_->Release(handle);
+    if (auto handle = cache_->Lookup(EncodeKey(key))) {
+      const int r = DecodeValue(cache_->Value(*handle));
+      cache_->Release(*handle);
+      return r;
     }
-    return r;
+    return -1;
   }
 
   void Insert(int key, int value, int charge = 1) {
-    cache_->Release(cache_->Insert(EncodeKey(key), EncodeValue(value), charge,
-                                   &CacheTest::Deleter));
+    if (auto handle = cache_->Insert(EncodeKey(key), EncodeValue(value), charge,
+                                     &CacheTest::Deleter)) {
+      cache_->Release(*handle);
+    }
   }
 
-  Cache::Handle* InsertAndReturnHandle(int key, int value, int charge = 1) {
+  std::optional<Cache::Handle*> InsertAndReturnHandle(int key, int value,
+                                                      int charge = 1) {
     return cache_->Insert(EncodeKey(key), EncodeValue(value), charge,
                           &CacheTest::Deleter);
   }
@@ -62,6 +66,7 @@ class CacheTest : public testing::Test {
   void Erase(int key) { cache_->Erase(EncodeKey(key)); }
   static CacheTest* current_;
 };
+
 CacheTest* CacheTest::current_;
 
 TEST_F(CacheTest, HitAndMiss) {
@@ -108,15 +113,17 @@ TEST_F(CacheTest, Erase) {
 
 TEST_F(CacheTest, EntriesArePinned) {
   Insert(100, 101);
-  Cache::Handle* h1 = cache_->Lookup(EncodeKey(100));
-  ASSERT_EQ(101, DecodeValue(cache_->Value(h1)));
+  auto h1 = cache_->Lookup(EncodeKey(100));
+  ASSERT_TRUE(h1);
+  ASSERT_EQ(101, DecodeValue(cache_->Value(*h1)));
 
   Insert(100, 102);
-  Cache::Handle* h2 = cache_->Lookup(EncodeKey(100));
-  ASSERT_EQ(102, DecodeValue(cache_->Value(h2)));
+  auto h2 = cache_->Lookup(EncodeKey(100));
+  ASSERT_TRUE(h2);
+  ASSERT_EQ(102, DecodeValue(cache_->Value(*h2)));
   ASSERT_EQ(0, deleted_keys_.size());
 
-  cache_->Release(h1);
+  cache_->Release(*h1);
   ASSERT_EQ(1, deleted_keys_.size());
   ASSERT_EQ(100, deleted_keys_[0]);
   ASSERT_EQ(101, deleted_values_[0]);
@@ -125,7 +132,7 @@ TEST_F(CacheTest, EntriesArePinned) {
   ASSERT_EQ(-1, Lookup(100));
   ASSERT_EQ(1, deleted_keys_.size());
 
-  cache_->Release(h2);
+  cache_->Release(*h2);
   ASSERT_EQ(2, deleted_keys_.size());
   ASSERT_EQ(100, deleted_keys_[1]);
   ASSERT_EQ(102, deleted_values_[1]);
@@ -135,7 +142,8 @@ TEST_F(CacheTest, EvictionPolicy) {
   Insert(100, 101);
   Insert(200, 201);
   Insert(300, 301);
-  Cache::Handle* h = cache_->Lookup(EncodeKey(300));
+  auto h = cache_->Lookup(EncodeKey(300));
+  ASSERT_TRUE(h);
 
   // Frequently used entry must be kept around,
   // as must things that are still in use.
@@ -147,14 +155,16 @@ TEST_F(CacheTest, EvictionPolicy) {
   ASSERT_EQ(101, Lookup(100));
   ASSERT_EQ(-1, Lookup(200));
   ASSERT_EQ(301, Lookup(300));
-  cache_->Release(h);
+  cache_->Release(*h);
 }
 
 TEST_F(CacheTest, UseExceedsCacheSize) {
   // Overfill the cache, keeping handles on all inserted entries.
   std::vector<Cache::Handle*> h;
   for (int i = 0; i < kCacheSize + 100; i++) {
-    h.push_back(InsertAndReturnHandle(1000 + i, 2000 + i));
+    auto handle = InsertAndReturnHandle(1000 + i, 2000 + i);
+    ASSERT_TRUE(handle);
+    h.push_back(*handle);
   }
 
   // Check that all the entries can be found in the cache.
@@ -204,10 +214,10 @@ TEST_F(CacheTest, Prune) {
   Insert(1, 100);
   Insert(2, 200);
 
-  Cache::Handle* handle = cache_->Lookup(EncodeKey(1));
+  std::optional<Cache::Handle*> handle = cache_->Lookup(EncodeKey(1));
   ASSERT_TRUE(handle);
   cache_->Prune();
-  cache_->Release(handle);
+  cache_->Release(*handle);
 
   ASSERT_EQ(100, Lookup(1));
   ASSERT_EQ(-1, Lookup(2));
