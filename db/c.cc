@@ -190,8 +190,11 @@ void leveldb_close(leveldb_t* db) {
 void leveldb_put(leveldb_t* db, const leveldb_writeoptions_t* options,
                  const char* key, size_t keylen, const char* val, size_t vallen,
                  char** errptr) {
-  SaveError(errptr,
-            db->rep->Put(options->rep, Slice(key, keylen), Slice(val, vallen)));
+  auto resp = db->rep->Put(options->rep, std::string_view(key, keylen),
+                           std::string_view(val, vallen));
+  if (!resp) {
+    SaveError(errptr, resp.error());
+  }
 }
 
 void leveldb_delete(leveldb_t* db, const leveldb_writeoptions_t* options,
