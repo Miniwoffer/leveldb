@@ -2,11 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
-#include "gtest/gtest.h"
 #include "db/db_impl.h"
+#include <string_view>
+
 #include "leveldb/cache.h"
 #include "leveldb/db.h"
+
 #include "util/testutil.h"
+
+#include "gtest/gtest.h"
 
 namespace leveldb {
 
@@ -62,7 +66,8 @@ void AutoCompactTest::DoReads(int n) {
 
   // Fill database
   for (int i = 0; i < kCount; i++) {
-    ASSERT_LEVELDB_OK(db_->Put(WriteOptions(), Key(i), value));
+    ASSERT_TRUE(db_->Put(WriteOptions(), std::string_view(Key(i)),
+                         std::string_view(value)));
   }
   ASSERT_LEVELDB_OK(dbi->TEST_CompactMemTable());
 

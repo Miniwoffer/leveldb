@@ -48,7 +48,9 @@ class LEVELDB_EXPORT WriteBatch {
   ~WriteBatch();
 
   // Store the mapping "key->value" in the database.
+  [[deprecated]]
   void Put(const Slice& key, const Slice& value);
+  void Put(const std::string_view key, const std::string_view value);
 
   // If the database contains a mapping for "key", erase it.  Else do nothing.
   void Delete(const Slice& key);

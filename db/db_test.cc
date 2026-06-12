@@ -10,7 +10,9 @@
 #include "db/write_batch_internal.h"
 #include <atomic>
 #include <cinttypes>
+#include <expected>
 #include <string>
+#include <string_view>
 
 #include "leveldb/cache.h"
 #include "leveldb/env.h"
@@ -347,7 +349,8 @@ class DBTest : public testing::Test {
     return DB::Open(opts, dbname_, &db_);
   }
 
-  Status Put(const std::string& k, const std::string& v) {
+  std::expected<void, Status> Put(const std::string_view k,
+                                  const std::string_view v) {
     return db_->Put(WriteOptions(), k, v);
   }
 
@@ -580,30 +583,30 @@ TEST_F(DBTest, Empty) {
 
 TEST_F(DBTest, EmptyKey) {
   do {
-    ASSERT_LEVELDB_OK(Put("", "v1"));
+    ASSERT_TRUE(Put("", "v1"));
     ASSERT_EQ("v1", Get(""));
-    ASSERT_LEVELDB_OK(Put("", "v2"));
+    ASSERT_TRUE(Put("", "v2"));
     ASSERT_EQ("v2", Get(""));
   } while (ChangeOptions());
 }
 
 TEST_F(DBTest, EmptyValue) {
   do {
-    ASSERT_LEVELDB_OK(Put("key", "v1"));
+    ASSERT_TRUE(Put("key", "v1"));
     ASSERT_EQ("v1", Get("key"));
-    ASSERT_LEVELDB_OK(Put("key", ""));
+    ASSERT_TRUE(Put("key", ""));
     ASSERT_EQ("", Get("key"));
-    ASSERT_LEVELDB_OK(Put("key", "v2"));
+    ASSERT_TRUE(Put("key", "v2"));
     ASSERT_EQ("v2", Get("key"));
   } while (ChangeOptions());
 }
 
 TEST_F(DBTest, ReadWrite) {
   do {
-    ASSERT_LEVELDB_OK(Put("foo", "v1"));
+    ASSERT_TRUE(Put("foo", "v1"));
     ASSERT_EQ("v1", Get("foo"));
-    ASSERT_LEVELDB_OK(Put("bar", "v2"));
-    ASSERT_LEVELDB_OK(Put("foo", "v3"));
+    ASSERT_TRUE(Put("bar", "v2"));
+    ASSERT_TRUE(Put("foo", "v3"));
     ASSERT_EQ("v3", Get("foo"));
     ASSERT_EQ("v2", Get("bar"));
   } while (ChangeOptions());
@@ -611,9 +614,9 @@ TEST_F(DBTest, ReadWrite) {
 
 TEST_F(DBTest, PutDeleteGet) {
   do {
-    ASSERT_LEVELDB_OK(db_->Put(WriteOptions(), "foo", "v1"));
+    ASSERT_TRUE(db_->Put(WriteOptions(), std::string_view("foo"), "v1"));
     ASSERT_EQ("v1", Get("foo"));
-    ASSERT_LEVELDB_OK(db_->Put(WriteOptions(), "foo", "v2"));
+    ASSERT_TRUE(db_->Put(WriteOptions(), std::string_view("foo"), "v2"));
     ASSERT_EQ("v2", Get("foo"));
     ASSERT_LEVELDB_OK(db_->Delete(WriteOptions(), "foo"));
     ASSERT_EQ("NOT_FOUND", Get("foo"));
@@ -627,13 +630,15 @@ TEST_F(DBTest, GetFromImmutableLayer) {
     options.write_buffer_size = 100000;  // Small write buffer
     Reopen(&options);
 
-    ASSERT_LEVELDB_OK(Put("foo", "v1"));
+    ASSERT_TRUE(Put("foo", "v1"));
     ASSERT_EQ("v1", Get("foo"));
 
     // Block sync calls.
     env_->delay_data_sync_.store(true, std::memory_order_release);
-    Put("k1", std::string(100000, 'x'));  // Fill memtable.
-    Put("k2", std::string(100000, 'y'));  // Trigger compaction.
+    ASSERT_TRUE(Put(std::string_view("k1"),
+                    std::string(100000, 'x')));  // Fill memtable.
+    ASSERT_TRUE(Put(std::string_view("k2"),
+                    std::string(100000, 'y')));  // Trigger compaction.
     ASSERT_EQ("v1", Get("foo"));
     // Release sync calls.
     env_->delay_data_sync_.store(false, std::memory_order_release);
@@ -642,7 +647,7 @@ TEST_F(DBTest, GetFromImmutableLayer) {
 
 TEST_F(DBTest, GetFromVersions) {
   do {
-    ASSERT_LEVELDB_OK(Put("foo", "v1"));
+    ASSERT_TRUE(Put("foo", "v1"));
     dbfull()->TEST_CompactMemTable();
     ASSERT_EQ("v1", Get("foo"));
   } while (ChangeOptions());
@@ -650,7 +655,7 @@ TEST_F(DBTest, GetFromVersions) {
 
 TEST_F(DBTest, GetMemUsage) {
   do {
-    ASSERT_LEVELDB_OK(Put("foo", "v1"));
+    ASSERT_TRUE(Put("foo", "v1"));
     std::string val;
     ASSERT_TRUE(db_->GetProperty("leveldb.approximate-memory-usage", &val));
     int mem_usage = std::stoi(val);
@@ -664,9 +669,9 @@ TEST_F(DBTest, GetSnapshot) {
     // Try with both a short key and a long key
     for (int i = 0; i < 2; i++) {
       std::string key = (i == 0) ? std::string("foo") : std::string(200, 'x');
-      ASSERT_LEVELDB_OK(Put(key, "v1"));
+      ASSERT_TRUE(Put(key, "v1"));
       const Snapshot* s1 = db_->GetSnapshot();
-      ASSERT_LEVELDB_OK(Put(key, "v2"));
+      ASSERT_TRUE(Put(key, "v2"));
       ASSERT_EQ("v2", Get(key));
       ASSERT_EQ("v1", Get(key, s1));
       dbfull()->TEST_CompactMemTable();
@@ -682,11 +687,11 @@ TEST_F(DBTest, GetIdenticalSnapshots) {
     // Try with both a short key and a long key
     for (int i = 0; i < 2; i++) {
       std::string key = (i == 0) ? std::string("foo") : std::string(200, 'x');
-      ASSERT_LEVELDB_OK(Put(key, "v1"));
+      ASSERT_TRUE(Put(key, "v1"));
       const Snapshot* s1 = db_->GetSnapshot();
       const Snapshot* s2 = db_->GetSnapshot();
       const Snapshot* s3 = db_->GetSnapshot();
-      ASSERT_LEVELDB_OK(Put(key, "v2"));
+      ASSERT_TRUE(Put(key, "v2"));
       ASSERT_EQ("v2", Get(key));
       ASSERT_EQ("v1", Get(key, s1));
       ASSERT_EQ("v1", Get(key, s2));
@@ -707,8 +712,8 @@ TEST_F(DBTest, IterateOverEmptySnapshot) {
     const Snapshot* snapshot = db_->GetSnapshot();
     ReadOptions read_options;
     read_options.snapshot = snapshot;
-    ASSERT_LEVELDB_OK(Put("foo", "v1"));
-    ASSERT_LEVELDB_OK(Put("foo", "v2"));
+    ASSERT_TRUE(Put("foo", "v1"));
+    ASSERT_TRUE(Put("foo", "v2"));
 
     Iterator* iterator1 = db_->NewIterator(read_options);
     iterator1->SeekToFirst();
@@ -732,10 +737,10 @@ TEST_F(DBTest, GetLevel0Ordering) {
     // below generates two level-0 files where the earlier one comes
     // before the later one in the level-0 file list since the earlier
     // one has a smaller "smallest" key.
-    ASSERT_LEVELDB_OK(Put("bar", "b"));
-    ASSERT_LEVELDB_OK(Put("foo", "v1"));
+    ASSERT_TRUE(Put("bar", "b"));
+    ASSERT_TRUE(Put("foo", "v1"));
     dbfull()->TEST_CompactMemTable();
-    ASSERT_LEVELDB_OK(Put("foo", "v2"));
+    ASSERT_TRUE(Put("foo", "v2"));
     dbfull()->TEST_CompactMemTable();
     ASSERT_EQ("v2", Get("foo"));
   } while (ChangeOptions());
@@ -743,10 +748,10 @@ TEST_F(DBTest, GetLevel0Ordering) {
 
 TEST_F(DBTest, GetOrderedByLevels) {
   do {
-    ASSERT_LEVELDB_OK(Put("foo", "v1"));
+    ASSERT_TRUE(Put("foo", "v1"));
     Compact("a", "z");
     ASSERT_EQ("v1", Get("foo"));
-    ASSERT_LEVELDB_OK(Put("foo", "v2"));
+    ASSERT_TRUE(Put("foo", "v2"));
     ASSERT_EQ("v2", Get("foo"));
     dbfull()->TEST_CompactMemTable();
     ASSERT_EQ("v2", Get("foo"));
@@ -756,11 +761,11 @@ TEST_F(DBTest, GetOrderedByLevels) {
 TEST_F(DBTest, GetPicksCorrectFile) {
   do {
     // Arrange to have multiple files in a non-level-0 level.
-    ASSERT_LEVELDB_OK(Put("a", "va"));
+    ASSERT_TRUE(Put("a", "va"));
     Compact("a", "b");
-    ASSERT_LEVELDB_OK(Put("x", "vx"));
+    ASSERT_TRUE(Put("x", "vx"));
     Compact("x", "y");
-    ASSERT_LEVELDB_OK(Put("f", "vf"));
+    ASSERT_TRUE(Put("f", "vf"));
     Compact("f", "g");
     ASSERT_EQ("va", Get("a"));
     ASSERT_EQ("vf", Get("f"));
@@ -822,7 +827,7 @@ TEST_F(DBTest, IterEmpty) {
 }
 
 TEST_F(DBTest, IterSingle) {
-  ASSERT_LEVELDB_OK(Put("a", "va"));
+  ASSERT_TRUE(Put("a", "va"));
   Iterator* iter = db_->NewIterator(ReadOptions());
 
   iter->SeekToFirst();
@@ -860,9 +865,9 @@ TEST_F(DBTest, IterSingle) {
 }
 
 TEST_F(DBTest, IterMulti) {
-  ASSERT_LEVELDB_OK(Put("a", "va"));
-  ASSERT_LEVELDB_OK(Put("b", "vb"));
-  ASSERT_LEVELDB_OK(Put("c", "vc"));
+  ASSERT_TRUE(Put("a", "va"));
+  ASSERT_TRUE(Put("b", "vb"));
+  ASSERT_TRUE(Put("c", "vc"));
   Iterator* iter = db_->NewIterator(ReadOptions());
 
   iter->SeekToFirst();
@@ -917,10 +922,10 @@ TEST_F(DBTest, IterMulti) {
   ASSERT_EQ(IterStatus(iter), "b->vb");
 
   // Make sure iter stays at snapshot
-  ASSERT_LEVELDB_OK(Put("a", "va2"));
-  ASSERT_LEVELDB_OK(Put("a2", "va3"));
-  ASSERT_LEVELDB_OK(Put("b", "vb2"));
-  ASSERT_LEVELDB_OK(Put("c", "vc2"));
+  ASSERT_TRUE(Put("a", "va2"));
+  ASSERT_TRUE(Put("a2", "va3"));
+  ASSERT_TRUE(Put("b", "vb2"));
+  ASSERT_TRUE(Put("c", "vc2"));
   ASSERT_LEVELDB_OK(Delete("b"));
   iter->SeekToFirst();
   ASSERT_EQ(IterStatus(iter), "a->va");
@@ -943,11 +948,11 @@ TEST_F(DBTest, IterMulti) {
 }
 
 TEST_F(DBTest, IterSmallAndLargeMix) {
-  ASSERT_LEVELDB_OK(Put("a", "va"));
-  ASSERT_LEVELDB_OK(Put("b", std::string(100000, 'b')));
-  ASSERT_LEVELDB_OK(Put("c", "vc"));
-  ASSERT_LEVELDB_OK(Put("d", std::string(100000, 'd')));
-  ASSERT_LEVELDB_OK(Put("e", std::string(100000, 'e')));
+  ASSERT_TRUE(Put("a", "va"));
+  ASSERT_TRUE(Put("b", std::string(100000, 'b')));
+  ASSERT_TRUE(Put("c", "vc"));
+  ASSERT_TRUE(Put("d", std::string(100000, 'd')));
+  ASSERT_TRUE(Put("e", std::string(100000, 'e')));
 
   Iterator* iter = db_->NewIterator(ReadOptions());
 
@@ -982,9 +987,9 @@ TEST_F(DBTest, IterSmallAndLargeMix) {
 
 TEST_F(DBTest, IterMultiWithDelete) {
   do {
-    ASSERT_LEVELDB_OK(Put("a", "va"));
-    ASSERT_LEVELDB_OK(Put("b", "vb"));
-    ASSERT_LEVELDB_OK(Put("c", "vc"));
+    ASSERT_TRUE(Put("a", "va"));
+    ASSERT_TRUE(Put("b", "vb"));
+    ASSERT_TRUE(Put("c", "vc"));
     ASSERT_LEVELDB_OK(Delete("b"));
     ASSERT_EQ("NOT_FOUND", Get("b"));
 
@@ -999,9 +1004,9 @@ TEST_F(DBTest, IterMultiWithDelete) {
 
 TEST_F(DBTest, IterMultiWithDeleteAndCompaction) {
   do {
-    ASSERT_LEVELDB_OK(Put("b", "vb"));
-    ASSERT_LEVELDB_OK(Put("c", "vc"));
-    ASSERT_LEVELDB_OK(Put("a", "va"));
+    ASSERT_TRUE(Put("b", "vb"));
+    ASSERT_TRUE(Put("c", "vc"));
+    ASSERT_TRUE(Put("a", "va"));
     dbfull()->TEST_CompactMemTable();
     ASSERT_LEVELDB_OK(Delete("b"));
     ASSERT_EQ("NOT_FOUND", Get("b"));
@@ -1019,20 +1024,20 @@ TEST_F(DBTest, IterMultiWithDeleteAndCompaction) {
 
 TEST_F(DBTest, Recover) {
   do {
-    ASSERT_LEVELDB_OK(Put("foo", "v1"));
-    ASSERT_LEVELDB_OK(Put("baz", "v5"));
+    ASSERT_TRUE(Put("foo", "v1"));
+    ASSERT_TRUE(Put("baz", "v5"));
 
     Reopen();
     ASSERT_EQ("v1", Get("foo"));
 
     ASSERT_EQ("v1", Get("foo"));
     ASSERT_EQ("v5", Get("baz"));
-    ASSERT_LEVELDB_OK(Put("bar", "v2"));
-    ASSERT_LEVELDB_OK(Put("foo", "v3"));
+    ASSERT_TRUE(Put("bar", "v2"));
+    ASSERT_TRUE(Put("foo", "v3"));
 
     Reopen();
     ASSERT_EQ("v3", Get("foo"));
-    ASSERT_LEVELDB_OK(Put("foo", "v4"));
+    ASSERT_TRUE(Put("foo", "v4"));
     ASSERT_EQ("v4", Get("foo"));
     ASSERT_EQ("v2", Get("bar"));
     ASSERT_EQ("v5", Get("baz"));
@@ -1041,11 +1046,11 @@ TEST_F(DBTest, Recover) {
 
 TEST_F(DBTest, RecoveryWithEmptyLog) {
   do {
-    ASSERT_LEVELDB_OK(Put("foo", "v1"));
-    ASSERT_LEVELDB_OK(Put("foo", "v2"));
+    ASSERT_TRUE(Put("foo", "v1"));
+    ASSERT_TRUE(Put("foo", "v2"));
     Reopen();
     Reopen();
-    ASSERT_LEVELDB_OK(Put("foo", "v3"));
+    ASSERT_TRUE(Put("foo", "v3"));
     Reopen();
     ASSERT_EQ("v3", Get("foo"));
   } while (ChangeOptions());
@@ -1061,12 +1066,10 @@ TEST_F(DBTest, RecoverDuringMemtableCompaction) {
     Reopen(&options);
 
     // Trigger a long memtable compaction and reopen the database during it
-    ASSERT_LEVELDB_OK(Put("foo", "v1"));  // Goes to 1st log file
-    ASSERT_LEVELDB_OK(
-        Put("big1", std::string(10000000, 'x')));  // Fills memtable
-    ASSERT_LEVELDB_OK(
-        Put("big2", std::string(1000, 'y')));  // Triggers compaction
-    ASSERT_LEVELDB_OK(Put("bar", "v2"));       // Goes to new log file
+    ASSERT_TRUE(Put("foo", "v1"));  // Goes to 1st log file
+    ASSERT_TRUE(Put("big1", std::string(10000000, 'x')));  // Fills memtable
+    ASSERT_TRUE(Put("big2", std::string(1000, 'y')));  // Triggers compaction
+    ASSERT_TRUE(Put("bar", "v2"));                     // Goes to new log file
 
     Reopen(&options);
     ASSERT_EQ("v1", Get("foo"));
@@ -1091,7 +1094,7 @@ TEST_F(DBTest, MinorCompactionsHappen) {
 
   int starting_num_tables = TotalTableFiles();
   for (int i = 0; i < N; i++) {
-    ASSERT_LEVELDB_OK(Put(Key(i), Key(i) + std::string(1000, 'v')));
+    ASSERT_TRUE(Put(Key(i), Key(i) + std::string(1000, 'v')));
   }
   int ending_num_tables = TotalTableFiles();
   ASSERT_GT(ending_num_tables, starting_num_tables);
@@ -1111,10 +1114,10 @@ TEST_F(DBTest, RecoverWithLargeLog) {
   {
     Options options = CurrentOptions();
     Reopen(&options);
-    ASSERT_LEVELDB_OK(Put("big1", std::string(200000, '1')));
-    ASSERT_LEVELDB_OK(Put("big2", std::string(200000, '2')));
-    ASSERT_LEVELDB_OK(Put("small3", std::string(10, '3')));
-    ASSERT_LEVELDB_OK(Put("small4", std::string(10, '4')));
+    ASSERT_TRUE(Put("big1", std::string(200000, '1')));
+    ASSERT_TRUE(Put("big2", std::string(200000, '2')));
+    ASSERT_TRUE(Put("small3", std::string(10, '3')));
+    ASSERT_TRUE(Put("small4", std::string(10, '4')));
     ASSERT_EQ(NumTableFilesAtLevel(0), 0);
   }
 
@@ -1143,7 +1146,7 @@ TEST_F(DBTest, CompactionsGenerateMultipleFiles) {
   std::vector<std::string> values;
   for (int i = 0; i < 80; i++) {
     values.push_back(RandomString(&rnd, 100000));
-    ASSERT_LEVELDB_OK(Put(Key(i), values[i]));
+    ASSERT_TRUE(Put(Key(i), values[i]));
   }
 
   // Reopening moves updates to level-0
@@ -1244,7 +1247,7 @@ TEST_F(DBTest, ApproximateSizes) {
     static const int S2 = 105000;  // Allow some expansion from metadata
     Random rnd(301);
     for (int i = 0; i < N; i++) {
-      ASSERT_LEVELDB_OK(Put(Key(i), RandomString(&rnd, S1)));
+      ASSERT_TRUE(Put(Key(i), RandomString(&rnd, S1)));
     }
 
     // 0 because GetApproximateSizes() does not account for memtable space
@@ -1293,14 +1296,14 @@ TEST_F(DBTest, ApproximateSizes_MixOfSmallAndLarge) {
 
     Random rnd(301);
     std::string big1 = RandomString(&rnd, 100000);
-    ASSERT_LEVELDB_OK(Put(Key(0), RandomString(&rnd, 10000)));
-    ASSERT_LEVELDB_OK(Put(Key(1), RandomString(&rnd, 10000)));
-    ASSERT_LEVELDB_OK(Put(Key(2), big1));
-    ASSERT_LEVELDB_OK(Put(Key(3), RandomString(&rnd, 10000)));
-    ASSERT_LEVELDB_OK(Put(Key(4), big1));
-    ASSERT_LEVELDB_OK(Put(Key(5), RandomString(&rnd, 10000)));
-    ASSERT_LEVELDB_OK(Put(Key(6), RandomString(&rnd, 300000)));
-    ASSERT_LEVELDB_OK(Put(Key(7), RandomString(&rnd, 10000)));
+    ASSERT_TRUE(Put(Key(0), RandomString(&rnd, 10000)));
+    ASSERT_TRUE(Put(Key(1), RandomString(&rnd, 10000)));
+    ASSERT_TRUE(Put(Key(2), big1));
+    ASSERT_TRUE(Put(Key(3), RandomString(&rnd, 10000)));
+    ASSERT_TRUE(Put(Key(4), big1));
+    ASSERT_TRUE(Put(Key(5), RandomString(&rnd, 10000)));
+    ASSERT_TRUE(Put(Key(6), RandomString(&rnd, 300000)));
+    ASSERT_TRUE(Put(Key(7), RandomString(&rnd, 10000)));
 
     if (options.reuse_logs) {
       // Need to force a memtable compaction since recovery does not do so.
@@ -1337,8 +1340,7 @@ TEST_F(DBTest, IteratorPinsRef) {
   // Write to force compactions
   Put("foo", "newvalue1");
   for (int i = 0; i < 100; i++) {
-    ASSERT_LEVELDB_OK(
-        Put(Key(i), Key(i) + std::string(100000, 'v')));  // 100K values
+    ASSERT_TRUE(Put(Key(i), Key(i) + std::string(100000, 'v')));  // 100K values
   }
   Put("foo", "newvalue2");
 
@@ -1472,8 +1474,8 @@ TEST_F(DBTest, OverlapInLevel0) {
 
     // Fill levels 1 and 2 to disable the pushing of new memtables to levels >
     // 0.
-    ASSERT_LEVELDB_OK(Put("100", "v100"));
-    ASSERT_LEVELDB_OK(Put("999", "v999"));
+    ASSERT_TRUE(Put("100", "v100"));
+    ASSERT_TRUE(Put("999", "v999"));
     dbfull()->TEST_CompactMemTable();
     ASSERT_LEVELDB_OK(Delete("100"));
     ASSERT_LEVELDB_OK(Delete("999"));
@@ -1484,12 +1486,12 @@ TEST_F(DBTest, OverlapInLevel0) {
     //  files[0]  200 .. 900
     //  files[1]  300 .. 500
     // Note that files are sorted by smallest key.
-    ASSERT_LEVELDB_OK(Put("300", "v300"));
-    ASSERT_LEVELDB_OK(Put("500", "v500"));
+    ASSERT_TRUE(Put("300", "v300"));
+    ASSERT_TRUE(Put("500", "v500"));
     dbfull()->TEST_CompactMemTable();
-    ASSERT_LEVELDB_OK(Put("200", "v200"));
-    ASSERT_LEVELDB_OK(Put("600", "v600"));
-    ASSERT_LEVELDB_OK(Put("900", "v900"));
+    ASSERT_TRUE(Put("200", "v200"));
+    ASSERT_TRUE(Put("600", "v600"));
+    ASSERT_TRUE(Put("900", "v900"));
     dbfull()->TEST_CompactMemTable();
     ASSERT_EQ("2,1,1", FilesPerLevel());
 
@@ -1510,14 +1512,14 @@ TEST_F(DBTest, OverlapInLevel0) {
 
 TEST_F(DBTest, L0_CompactionBug_Issue44_a) {
   Reopen();
-  ASSERT_LEVELDB_OK(Put("b", "v"));
+  ASSERT_TRUE(Put("b", "v"));
   Reopen();
   ASSERT_LEVELDB_OK(Delete("b"));
   ASSERT_LEVELDB_OK(Delete("a"));
   Reopen();
   ASSERT_LEVELDB_OK(Delete("a"));
   Reopen();
-  ASSERT_LEVELDB_OK(Put("a", "v"));
+  ASSERT_TRUE(Put("a", "v"));
   Reopen();
   Reopen();
   ASSERT_EQ("(a->v)", Contents());
@@ -1556,7 +1558,7 @@ TEST_F(DBTest, Fflush_Issue474) {
   Random rnd(test::RandomSeed());
   for (int i = 0; i < kNum; i++) {
     std::fflush(nullptr);
-    ASSERT_LEVELDB_OK(Put(RandomKey(&rnd), RandomString(&rnd, 100)));
+    ASSERT_TRUE(Put(RandomKey(&rnd), RandomString(&rnd, 100)));
   }
 }
 
@@ -1617,8 +1619,8 @@ TEST_F(DBTest, CustomComparator) {
   new_options.filter_policy = nullptr;   // Cannot use bloom filters
   new_options.write_buffer_size = 1000;  // Compact more often
   DestroyAndReopen(&new_options);
-  ASSERT_LEVELDB_OK(Put("[10]", "ten"));
-  ASSERT_LEVELDB_OK(Put("[0x14]", "twenty"));
+  ASSERT_TRUE(Put("[10]", "ten"));
+  ASSERT_TRUE(Put("[0x14]", "twenty"));
   for (int i = 0; i < 2; i++) {
     ASSERT_EQ("ten", Get("[10]"));
     ASSERT_EQ("ten", Get("[0xa]"));
@@ -1633,7 +1635,7 @@ TEST_F(DBTest, CustomComparator) {
     for (int i = 0; i < 1000; i++) {
       char buf[100];
       std::snprintf(buf, sizeof(buf), "[%d]", i * 10);
-      ASSERT_LEVELDB_OK(Put(buf, buf));
+      ASSERT_TRUE(Put(buf, buf));
     }
     Compact("[0]", "[1000000]");
   }
@@ -1782,7 +1784,7 @@ TEST_F(DBTest, NoSpace) {
   options.env = env_;
   Reopen(&options);
 
-  ASSERT_LEVELDB_OK(Put("foo", "v1"));
+  ASSERT_TRUE(Put("foo", "v1"));
   ASSERT_EQ("v1", Get("foo"));
   Compact("a", "z");
   const int num_files = CountFiles();
@@ -1802,14 +1804,14 @@ TEST_F(DBTest, NonWritableFileSystem) {
   options.write_buffer_size = 1000;
   options.env = env_;
   Reopen(&options);
-  ASSERT_LEVELDB_OK(Put("foo", "v1"));
+  ASSERT_TRUE(Put("foo", "v1"));
   // Force errors for new files.
   env_->non_writable_.store(true, std::memory_order_release);
   std::string big(100000, 'x');
   int errors = 0;
   for (int i = 0; i < 20; i++) {
     std::fprintf(stderr, "iter %d; errors %d\n", i, errors);
-    if (!Put("foo", big).ok()) {
+    if (!Put("foo", big)) {
       errors++;
       DelayMilliseconds(100);
     }
@@ -1829,12 +1831,12 @@ TEST_F(DBTest, WriteSyncError) {
 
   // (b) Normal write should succeed
   WriteOptions w;
-  ASSERT_LEVELDB_OK(db_->Put(w, "k1", "v1"));
+  ASSERT_TRUE(db_->Put(w, std::string_view("k1"), "v1"));
   ASSERT_EQ("v1", Get("k1"));
 
   // (c) Do a sync write; should fail
   w.sync = true;
-  ASSERT_TRUE(!db_->Put(w, "k2", "v2").ok());
+  ASSERT_TRUE(!db_->Put(w, std::string_view("k2"), "v2"));
   ASSERT_EQ("v1", Get("k1"));
   ASSERT_EQ("NOT_FOUND", Get("k2"));
 
@@ -1843,7 +1845,7 @@ TEST_F(DBTest, WriteSyncError) {
 
   // (e) Do a non-sync write; should fail
   w.sync = false;
-  ASSERT_TRUE(!db_->Put(w, "k3", "v3").ok());
+  ASSERT_TRUE(!db_->Put(w, std::string_view("k3"), "v3"));
   ASSERT_EQ("v1", Get("k1"));
   ASSERT_EQ("NOT_FOUND", Get("k2"));
   ASSERT_EQ("NOT_FOUND", Get("k3"));
@@ -1868,7 +1870,7 @@ TEST_F(DBTest, ManifestWriteError) {
     options.create_if_missing = true;
     options.error_if_exists = false;
     DestroyAndReopen(&options);
-    ASSERT_LEVELDB_OK(Put("foo", "bar"));
+    ASSERT_TRUE(Put("foo", "bar"));
     ASSERT_EQ("bar", Get("foo"));
 
     // Memtable compaction (will succeed)
@@ -1890,7 +1892,7 @@ TEST_F(DBTest, ManifestWriteError) {
 }
 
 TEST_F(DBTest, MissingSSTFile) {
-  ASSERT_LEVELDB_OK(Put("foo", "bar"));
+  ASSERT_TRUE(Put("foo", "bar"));
   ASSERT_EQ("bar", Get("foo"));
 
   // Dump the memtable to disk.
@@ -1907,7 +1909,7 @@ TEST_F(DBTest, MissingSSTFile) {
 }
 
 TEST_F(DBTest, StillReadSST) {
-  ASSERT_LEVELDB_OK(Put("foo", "bar"));
+  ASSERT_TRUE(Put("foo", "bar"));
   ASSERT_EQ("bar", Get("foo"));
 
   // Dump the memtable to disk.
@@ -1923,11 +1925,11 @@ TEST_F(DBTest, StillReadSST) {
 }
 
 TEST_F(DBTest, FilesDeletedAfterCompaction) {
-  ASSERT_LEVELDB_OK(Put("foo", "v2"));
+  ASSERT_TRUE(Put("foo", "v2"));
   Compact("a", "z");
   const int num_files = CountFiles();
   for (int i = 0; i < 10; i++) {
-    ASSERT_LEVELDB_OK(Put("foo", "v2"));
+    ASSERT_TRUE(Put("foo", "v2"));
     Compact("a", "z");
   }
   ASSERT_EQ(CountFiles(), num_files);
@@ -1944,12 +1946,12 @@ TEST_F(DBTest, BloomFilter) {
   // Populate multiple layers
   const int N = 10000;
   for (int i = 0; i < N; i++) {
-    ASSERT_LEVELDB_OK(Put(Key(i), Key(i)));
+    ASSERT_TRUE(Put(Key(i), Key(i)));
     ASSERT_EQ(Key(i), Get(Key(i)));
   }
   Compact("a", "z");
   for (int i = 0; i < N; i += 100) {
-    ASSERT_LEVELDB_OK(Put(Key(i), Key(i)));
+    ASSERT_TRUE(Put(Key(i), Key(i)));
     ASSERT_EQ(Key(i), Get(Key(i)));
   }
   dbfull()->TEST_CompactMemTable();
@@ -1996,15 +1998,15 @@ TEST_F(DBTest, LogCloseError) {
   env_->log_file_close_.store(true, std::memory_order_release);
 
   std::string value(kValueSize, 'x');
-  Status s;
-  for (int i = 0; i < kWriteCount && s.ok(); i++) {
+  std::expected<void, Status> s;
+  for (int i = 0; i < kWriteCount && s; i++) {
     s = Put(Key(i), value);
   }
-  ASSERT_TRUE(!s.ok()) << "succeeded even after log file Close failure";
+  ASSERT_TRUE(!s) << "succeeded even after log file Close failure";
 
   // Future writes should also fail after an earlier error.
   s = Put("hello", "world");
-  ASSERT_TRUE(!s.ok()) << "write succeeded after log file Close failure";
+  ASSERT_TRUE(!s) << "write succeeded after log file Close failure";
 
   env_->log_file_close_.store(false, std::memory_order_release);
 }
@@ -2118,6 +2120,11 @@ class ModelDB : public DB {
   explicit ModelDB(const Options& options) : options_(options) {}
   ~ModelDB() override = default;
   Status Put(const WriteOptions& o, const Slice& k, const Slice& v) override {
+    return DB::Put(o, k, v);
+  }
+  std::expected<void, Status> Put(const WriteOptions& o,
+                                  const std::string_view k,
+                                  const std::string_view v) override {
     return DB::Put(o, k, v);
   }
   Status Delete(const WriteOptions& o, const Slice& key) override {
@@ -2310,8 +2317,8 @@ TEST_F(DBTest, Randomized) {
         k = RandomKey(&rnd);
         v = RandomString(
             &rnd, rnd.OneIn(20) ? 100 + rnd.Uniform(100) : rnd.Uniform(8));
-        ASSERT_LEVELDB_OK(model.Put(WriteOptions(), k, v));
-        ASSERT_LEVELDB_OK(db_->Put(WriteOptions(), k, v));
+        ASSERT_TRUE(model.Put(WriteOptions(), std::string_view(k), v));
+        ASSERT_TRUE(db_->Put(WriteOptions(), std::string_view(k), v));
 
       } else if (p < 90) {  // Delete
         k = RandomKey(&rnd);
@@ -2330,7 +2337,7 @@ TEST_F(DBTest, Randomized) {
           }
           if (rnd.OneIn(2)) {
             v = RandomString(&rnd, rnd.Uniform(10));
-            b.Put(k, v);
+            b.Put(std::string_view(k), v);
           } else {
             b.Delete(k);
           }

@@ -4,23 +4,25 @@
 
 #include "leveldb/table.h"
 
-#include <map>
-#include <string>
-
-#include "gtest/gtest.h"
 #include "db/dbformat.h"
 #include "db/memtable.h"
 #include "db/write_batch_internal.h"
+#include <map>
+#include <string>
+
 #include "leveldb/db.h"
 #include "leveldb/env.h"
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
 #include "leveldb/table_builder.h"
+
 #include "table/block.h"
 #include "table/block_builder.h"
 #include "table/format.h"
 #include "util/random.h"
 #include "util/testutil.h"
+
+#include "gtest/gtest.h"
 
 namespace leveldb {
 
@@ -340,7 +342,7 @@ class DBConstructor : public Constructor {
     NewDB();
     for (const auto& kvp : data) {
       WriteBatch batch;
-      batch.Put(kvp.first, kvp.second);
+      batch.Put(std::string_view(kvp.first), kvp.second);
       EXPECT_TRUE(db_->Write(WriteOptions(), &batch).ok());
     }
     return Status::OK();
@@ -728,10 +730,10 @@ TEST(MemTableTest, Simple) {
   memtable->Ref();
   WriteBatch batch;
   WriteBatchInternal::SetSequence(&batch, 100);
-  batch.Put(std::string("k1"), std::string("v1"));
-  batch.Put(std::string("k2"), std::string("v2"));
-  batch.Put(std::string("k3"), std::string("v3"));
-  batch.Put(std::string("largekey"), std::string("vlarge"));
+  batch.Put(std::string_view("k1"), std::string("v1"));
+  batch.Put(std::string_view("k2"), std::string("v2"));
+  batch.Put(std::string_view("k3"), std::string("v3"));
+  batch.Put(std::string_view("largekey"), std::string("vlarge"));
   ASSERT_TRUE(WriteBatchInternal::InsertInto(&batch, memtable).ok());
 
   Iterator* iter = memtable->NewIterator();

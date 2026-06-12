@@ -6,6 +6,7 @@
 #include "db/filename.h"
 #include "db/version_set.h"
 #include "db/write_batch_internal.h"
+#include <string_view>
 
 #include "leveldb/db.h"
 #include "leveldb/env.h"
@@ -70,7 +71,8 @@ class RecoveryTest : public testing::Test {
     ASSERT_EQ(1, NumLogs());
   }
 
-  Status Put(const std::string& k, const std::string& v) {
+  std::expected<void, Status> Put(const std::string_view k,
+                                  const std::string_view v) {
     return db_->Put(WriteOptions(), k, v);
   }
 
@@ -142,7 +144,8 @@ class RecoveryTest : public testing::Test {
   void CompactMemTable() { dbfull()->TEST_CompactMemTable(); }
 
   // Directly construct a log file that sets key to val.
-  void MakeLogFile(uint64_t lognum, SequenceNumber seq, Slice key, Slice val) {
+  void MakeLogFile(uint64_t lognum, SequenceNumber seq,
+                   const std::string_view key, std::string_view val) {
     std::string fname = LogFileName(dbname_, lognum);
     WritableFile* file;
     ASSERT_LEVELDB_OK(env_->NewWritableFile(fname, &file));
@@ -167,7 +170,7 @@ TEST_F(RecoveryTest, ManifestReused) {
                  "skipping test because env does not support appending\n");
     return;
   }
-  ASSERT_LEVELDB_OK(Put("foo", "bar"));
+  ASSERT_TRUE(Put("foo", "bar"));
   Close();
   std::string old_manifest = ManifestFileName();
   Open();
@@ -184,7 +187,7 @@ TEST_F(RecoveryTest, LargeManifestCompacted) {
                  "skipping test because env does not support appending\n");
     return;
   }
-  ASSERT_LEVELDB_OK(Put("foo", "bar"));
+  ASSERT_TRUE(Put("foo", "bar"));
   Close();
   std::string old_manifest = ManifestFileName();
 
@@ -211,7 +214,7 @@ TEST_F(RecoveryTest, LargeManifestCompacted) {
 }
 
 TEST_F(RecoveryTest, NoLogFiles) {
-  ASSERT_LEVELDB_OK(Put("foo", "bar"));
+  ASSERT_TRUE(Put("foo", "bar"));
   ASSERT_EQ(1, RemoveLogFiles());
   Open();
   ASSERT_EQ("NOT_FOUND", Get("foo"));
@@ -226,7 +229,7 @@ TEST_F(RecoveryTest, LogFileReuse) {
     return;
   }
   for (int i = 0; i < 2; i++) {
-    ASSERT_LEVELDB_OK(Put("foo", "bar"));
+    ASSERT_TRUE(Put("foo", "bar"));
     if (i == 0) {
       // Compact to ensure current log is empty
       CompactMemTable();
@@ -256,7 +259,7 @@ TEST_F(RecoveryTest, MultipleMemTables) {
   for (int i = 0; i < kNum; i++) {
     char buf[100];
     std::snprintf(buf, sizeof(buf), "%050d", i);
-    ASSERT_LEVELDB_OK(Put(buf, buf));
+    ASSERT_TRUE(Put(buf, buf));
   }
   ASSERT_EQ(0, NumTables());
   Close();
@@ -280,7 +283,7 @@ TEST_F(RecoveryTest, MultipleMemTables) {
 }
 
 TEST_F(RecoveryTest, MultipleLogFiles) {
-  ASSERT_LEVELDB_OK(Put("foo", "bar"));
+  ASSERT_TRUE(Put("foo", "bar"));
   Close();
   ASSERT_EQ(1, NumLogs());
 
@@ -326,7 +329,7 @@ TEST_F(RecoveryTest, MultipleLogFiles) {
 }
 
 TEST_F(RecoveryTest, ManifestMissing) {
-  ASSERT_LEVELDB_OK(Put("foo", "bar"));
+  ASSERT_TRUE(Put("foo", "bar"));
   Close();
   RemoveManifestFile();
 
