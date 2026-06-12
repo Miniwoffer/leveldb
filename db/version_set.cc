@@ -4,16 +4,19 @@
 
 #include "db/version_set.h"
 
-#include <algorithm>
-#include <cstdio>
-
 #include "db/filename.h"
 #include "db/log_reader.h"
 #include "db/log_writer.h"
 #include "db/memtable.h"
 #include "db/table_cache.h"
+#include <algorithm>
+#include <cstdio>
+#include <expected>
+#include <tuple>
+
 #include "leveldb/env.h"
 #include "leveldb/table_builder.h"
+
 #include "table/merger.h"
 #include "table/two_level_iterator.h"
 #include "util/coding.h"
@@ -321,10 +324,14 @@ void Version::ForEachOverlapping(Slice user_key, Slice internal_key, void* arg,
   }
 }
 
-Status Version::Get(const ReadOptions& options, const LookupKey& k,
-                    std::string* value, GetStats* stats) {
-  stats->seek_file = nullptr;
-  stats->seek_file_level = -1;
+std::tuple<std::expected<std::string, Status>, Version::GetStats> Version::Get(
+    const ReadOptions& options, const LookupKey& k) {
+  std::string str;
+  GetStats stats;
+  Status s;
+
+  stats.seek_file = nullptr;
+  stats.seek_file_level = -1;
 
   struct State {
     Saver saver;
@@ -381,7 +388,7 @@ Status Version::Get(const ReadOptions& options, const LookupKey& k,
 
   State state;
   state.found = false;
-  state.stats = stats;
+  state.stats = &stats;
   state.last_file_read = nullptr;
   state.last_file_read_level = -1;
 
@@ -392,11 +399,20 @@ Status Version::Get(const ReadOptions& options, const LookupKey& k,
   state.saver.state = kNotFound;
   state.saver.ucmp = vset_->icmp_.user_comparator();
   state.saver.user_key = k.user_key();
-  state.saver.value = value;
+  state.saver.value = &str;
 
   ForEachOverlapping(state.saver.user_key, state.ikey, &state, &State::Match);
 
-  return state.found ? state.s : Status::NotFound(Slice());
+  if (!state.found) {
+    s = Status::NotFound("");
+  } else {
+    s = state.s;
+  }
+
+  if (s.ok()) {
+    return {str, stats};
+  }
+  return {std::unexpected(s), stats};
 }
 
 bool Version::UpdateStats(const GetStats& stats) {
