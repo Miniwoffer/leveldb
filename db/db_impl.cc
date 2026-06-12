@@ -38,6 +38,8 @@
 #include "util/logging.h"
 #include "util/mutexlock.h"
 
+#include "gtest/gtest.h"
+
 namespace leveldb {
 
 const int kNumNonTableCacheFiles = 10;
@@ -1196,10 +1198,6 @@ void DBImpl::ReleaseSnapshot(const Snapshot* snapshot) {
 }
 
 // Convenience methods
-Status DBImpl::Put(const WriteOptions& o, const Slice& key, const Slice& val) {
-  return DB::Put(o, key, val);
-}
-
 std::expected<void, Status> DBImpl::Put(const WriteOptions& o,
                                         const std::string_view key,
                                         const std::string_view val) {
@@ -1493,12 +1491,6 @@ void DBImpl::GetApproximateSizes(const Range* range, int n, uint64_t* sizes) {
 
 // Default implementations of convenience methods that subclasses of DB
 // can call if they wish
-Status DB::Put(const WriteOptions& opt, const Slice& key, const Slice& value) {
-  WriteBatch batch;
-  // batch.Put(key, value);
-  return Write(opt, &batch);
-}
-
 std::expected<void, Status> DB::Put(const WriteOptions& opt,
                                     const std::string_view key,
                                     const std::string_view value) {

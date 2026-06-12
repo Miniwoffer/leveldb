@@ -717,14 +717,14 @@ TEST_F(DBTest, IterateOverEmptySnapshot) {
 
     Iterator* iterator1 = db_->NewIterator(read_options);
     iterator1->SeekToFirst();
-    ASSERT_TRUE(!iterator1->Valid());
+    ASSERT_FALSE(iterator1->Valid());
     delete iterator1;
 
     dbfull()->TEST_CompactMemTable();
 
     Iterator* iterator2 = db_->NewIterator(read_options);
     iterator2->SeekToFirst();
-    ASSERT_TRUE(!iterator2->Valid());
+    ASSERT_FALSE(iterator2->Valid());
     delete iterator2;
 
     db_->ReleaseSnapshot(snapshot);
@@ -1349,7 +1349,7 @@ TEST_F(DBTest, IteratorPinsRef) {
   ASSERT_EQ("foo", iter->key().ToString());
   ASSERT_EQ("hello", iter->value().ToString());
   iter->Next();
-  ASSERT_TRUE(!iter->Valid());
+  ASSERT_FALSE(iter->Valid());
   delete iter;
 }
 
@@ -1580,7 +1580,7 @@ TEST_F(DBTest, ComparatorCheck) {
   Options new_options = CurrentOptions();
   new_options.comparator = &cmp;
   Status s = TryReopen(&new_options);
-  ASSERT_TRUE(!s.ok());
+  ASSERT_FALSE(s.ok());
   ASSERT_TRUE(s.ToString().find("comparator") != std::string::npos)
       << s.ToString();
 }
@@ -1718,7 +1718,7 @@ TEST_F(DBTest, DestroyEmptyDir) {
   std::string dbname = testing::TempDir() + "db_empty_dir";
   TestEnv env(Env::Default());
   env.RemoveDir(dbname);
-  ASSERT_TRUE(!env.FileExists(dbname));
+  ASSERT_FALSE(env.FileExists(dbname));
 
   Options opts;
   opts.env = &env;
@@ -1736,7 +1736,7 @@ TEST_F(DBTest, DestroyEmptyDir) {
   ASSERT_EQ(2, children.size());
 #endif  // defined(LEVELDB_PLATFORM_CHROMIUM)
   ASSERT_LEVELDB_OK(DestroyDB(dbname, opts));
-  ASSERT_TRUE(!env.FileExists(dbname));
+  ASSERT_FALSE(env.FileExists(dbname));
 
   // Should also be destroyed if Env is filtering out dot files.
   env.SetIgnoreDotFiles(true);
@@ -1745,13 +1745,13 @@ TEST_F(DBTest, DestroyEmptyDir) {
   ASSERT_LEVELDB_OK(env.GetChildren(dbname, &children));
   ASSERT_EQ(0, children.size());
   ASSERT_LEVELDB_OK(DestroyDB(dbname, opts));
-  ASSERT_TRUE(!env.FileExists(dbname));
+  ASSERT_FALSE(env.FileExists(dbname));
 }
 
 TEST_F(DBTest, DestroyOpenDB) {
   std::string dbname = testing::TempDir() + "open_db_dir";
   env_->RemoveDir(dbname);
-  ASSERT_TRUE(!env_->FileExists(dbname));
+  ASSERT_FALSE(env_->FileExists(dbname));
 
   Options opts;
   opts.create_if_missing = true;
@@ -1761,7 +1761,7 @@ TEST_F(DBTest, DestroyOpenDB) {
 
   // Must fail to destroy an open db.
   ASSERT_TRUE(env_->FileExists(dbname));
-  ASSERT_TRUE(!DestroyDB(dbname, Options()).ok());
+  ASSERT_FALSE(DestroyDB(dbname, Options()).ok());
   ASSERT_TRUE(env_->FileExists(dbname));
 
   delete db;
@@ -1769,13 +1769,13 @@ TEST_F(DBTest, DestroyOpenDB) {
 
   // Should succeed destroying a closed db.
   ASSERT_LEVELDB_OK(DestroyDB(dbname, Options()));
-  ASSERT_TRUE(!env_->FileExists(dbname));
+  ASSERT_FALSE(env_->FileExists(dbname));
 }
 
 TEST_F(DBTest, Locking) {
   DB* db2 = nullptr;
   Status s = DB::Open(CurrentOptions(), dbname_, &db2);
-  ASSERT_TRUE(!s.ok()) << "Locking did not prevent re-opening db";
+  ASSERT_FALSE(s.ok()) << "Locking did not prevent re-opening db";
 }
 
 // Check that number of files does not grow when we are out of space
@@ -1836,7 +1836,7 @@ TEST_F(DBTest, WriteSyncError) {
 
   // (c) Do a sync write; should fail
   w.sync = true;
-  ASSERT_TRUE(!db_->Put(w, std::string_view("k2"), "v2"));
+  ASSERT_FALSE(db_->Put(w, std::string_view("k2"), "v2"));
   ASSERT_EQ("v1", Get("k1"));
   ASSERT_EQ("NOT_FOUND", Get("k2"));
 
@@ -1845,7 +1845,7 @@ TEST_F(DBTest, WriteSyncError) {
 
   // (e) Do a non-sync write; should fail
   w.sync = false;
-  ASSERT_TRUE(!db_->Put(w, std::string_view("k3"), "v3"));
+  ASSERT_FALSE(db_->Put(w, std::string_view("k3"), "v3"));
   ASSERT_EQ("v1", Get("k1"));
   ASSERT_EQ("NOT_FOUND", Get("k2"));
   ASSERT_EQ("NOT_FOUND", Get("k3"));
@@ -1904,7 +1904,7 @@ TEST_F(DBTest, MissingSSTFile) {
   Options options = CurrentOptions();
   options.paranoid_checks = true;
   Status s = TryReopen(&options);
-  ASSERT_TRUE(!s.ok());
+  ASSERT_FALSE(s.ok());
   ASSERT_TRUE(s.ToString().find("issing") != std::string::npos) << s.ToString();
 }
 
@@ -2002,11 +2002,11 @@ TEST_F(DBTest, LogCloseError) {
   for (int i = 0; i < kWriteCount && s; i++) {
     s = Put(Key(i), value);
   }
-  ASSERT_TRUE(!s) << "succeeded even after log file Close failure";
+  ASSERT_FALSE(s) << "succeeded even after log file Close failure";
 
   // Future writes should also fail after an earlier error.
   s = Put("hello", "world");
-  ASSERT_TRUE(!s) << "write succeeded after log file Close failure";
+  ASSERT_FALSE(s) << "write succeeded after log file Close failure";
 
   env_->log_file_close_.store(false, std::memory_order_release);
 }
@@ -2050,7 +2050,8 @@ static void MTThreadBody(void* arg) {
       // We add some padding for force compactions.
       std::snprintf(valbuf, sizeof(valbuf), "%d.%d.%-1000d", key, id,
                     static_cast<int>(counter));
-      ASSERT_LEVELDB_OK(db->Put(WriteOptions(), Slice(keybuf), Slice(valbuf)));
+      ASSERT_TRUE(db->Put(WriteOptions(), std::string_view(keybuf),
+                          std::string_view(valbuf)));
     } else {
       // Read a value and verify that it matches the pattern written above.
       auto s = db->Get(ReadOptions(), keybuf);
@@ -2119,9 +2120,7 @@ class ModelDB : public DB {
 
   explicit ModelDB(const Options& options) : options_(options) {}
   ~ModelDB() override = default;
-  Status Put(const WriteOptions& o, const Slice& k, const Slice& v) override {
-    return DB::Put(o, k, v);
-  }
+
   std::expected<void, Status> Put(const WriteOptions& o,
                                   const std::string_view k,
                                   const std::string_view v) override {
@@ -2159,8 +2158,9 @@ class ModelDB : public DB {
     class Handler : public WriteBatch::Handler {
      public:
       KVMap* map_;
-      void Put(const Slice& key, const Slice& value) override {
-        (*map_)[key.ToString()] = value.ToString();
+      void Put(const std::string_view key,
+               const std::string_view value) override {
+        (*map_)[std::string(key)] = std::string(value);
       }
       void Delete(const Slice& key) override { map_->erase(key.ToString()); }
     };
