@@ -72,9 +72,6 @@ class Version {
   // Lookup the value for key.  If found, store it in *val and
   // return OK.  Else return a non-OK status.  Fills *stats.
   // REQUIRES: lock is not held
-  Status Get_(const ReadOptions&, const LookupKey& key, std::string* val,
-              GetStats* stats);
-
   std::tuple<std::expected<std::string, Status>, GetStats> Get(
       const ReadOptions& options, const LookupKey& k);
   // Adds "stats" into the current state.  Returns true if a new
