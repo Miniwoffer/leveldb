@@ -1121,9 +1121,6 @@ int64_t DBImpl::TEST_MaxNextLevelOverlappingBytes() {
 }
 std::expected<std::string, Status> DBImpl::Get(const ReadOptions& options,
                                                const std::string_view key) {
-  std::string val;
-  Slice slice(key.data(), key.length());
-  Status s;
   MutexLock l(&mutex_);
   SequenceNumber snapshot;
   if (options.snapshot != nullptr) {
@@ -1140,32 +1137,32 @@ std::expected<std::string, Status> DBImpl::Get(const ReadOptions& options,
   if (imm != nullptr) imm->Ref();
   current->Ref();
 
-  bool have_stat_update = false;
-  Version::GetStats stats;
+  std::optional<Version::GetStats> stats;
 
+  std::expected<std::string, Status> ret;
   // Unlock while reading from files and memtables
   {
     mutex_.Unlock();
     // First look in the memtable, then in the immutable memtable (if any).
     LookupKey lkey(key, snapshot);
-    if (auto ret = mem->Get(lkey); ret) {
-      return *ret;
-    } else if (imm != nullptr&&(ret = imm->Get(lkey)); ret) {
-      return *ret;
+
+    if (auto ret_ = mem->Get(lkey)) {
+      ret = *ret_;
+    } else if (imm != nullptr && (ret_ = imm->Get(lkey))) {
+      ret = *ret_;
     } else {
-      s = current->Get(options, lkey, &val, &stats);
-      have_stat_update = true;
+      std::tie(ret, stats) = current->Get(options, lkey);
     }
     mutex_.Lock();
   }
 
-  if (have_stat_update && current->UpdateStats(stats)) {
+  if (stats && current->UpdateStats(*stats)) {
     MaybeScheduleCompaction();
   }
   mem->Unref();
   if (imm != nullptr) imm->Unref();
   current->Unref();
-  return std::unexpected(s);
+  return ret;
 }
 
 Iterator* DBImpl::NewIterator(const ReadOptions& options) {

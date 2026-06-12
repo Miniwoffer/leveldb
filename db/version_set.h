@@ -15,12 +15,12 @@
 #ifndef STORAGE_LEVELDB_DB_VERSION_SET_H_
 #define STORAGE_LEVELDB_DB_VERSION_SET_H_
 
+#include "db/dbformat.h"
+#include "db/version_edit.h"
 #include <map>
 #include <set>
 #include <vector>
 
-#include "db/dbformat.h"
-#include "db/version_edit.h"
 #include "port/port.h"
 #include "port/thread_annotations.h"
 
@@ -72,9 +72,11 @@ class Version {
   // Lookup the value for key.  If found, store it in *val and
   // return OK.  Else return a non-OK status.  Fills *stats.
   // REQUIRES: lock is not held
-  Status Get(const ReadOptions&, const LookupKey& key, std::string* val,
-             GetStats* stats);
+  Status Get_(const ReadOptions&, const LookupKey& key, std::string* val,
+              GetStats* stats);
 
+  std::tuple<std::expected<std::string, Status>, GetStats> Get(
+      const ReadOptions& options, const LookupKey& k);
   // Adds "stats" into the current state.  Returns true if a new
   // compaction may need to be triggered, false otherwise.
   // REQUIRES: lock is held

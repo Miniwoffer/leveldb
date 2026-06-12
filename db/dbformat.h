@@ -194,9 +194,6 @@ class LookupKey {
  public:
   // Initialize *this for looking up user_key at a snapshot with
   // the specified sequence number.
-  [[deprecated]]
-  LookupKey(const Slice& user_key, SequenceNumber sequence);
-
   LookupKey(const std::string_view user_key, SequenceNumber sequence);
 
   LookupKey(const LookupKey&) = delete;
