@@ -5,8 +5,10 @@
 #include "db/table_cache.h"
 
 #include "db/filename.h"
+
 #include "leveldb/env.h"
 #include "leveldb/table.h"
+
 #include "util/coding.h"
 
 namespace leveldb {
@@ -44,8 +46,9 @@ Status TableCache::FindTable(uint64_t file_number, uint64_t file_size,
   char buf[sizeof(file_number)];
   EncodeFixed64(buf, file_number);
   Slice key(buf, sizeof(buf));
-  *handle = cache_->Lookup(key);
-  if (*handle == nullptr) {
+  if (auto lookup_res = cache_->Lookup(key)) {
+    *handle = *lookup_res;
+  } else {
     std::string fname = TableFileName(dbname_, file_number);
     RandomAccessFile* file = nullptr;
     Table* table = nullptr;
@@ -69,7 +72,7 @@ Status TableCache::FindTable(uint64_t file_number, uint64_t file_size,
       TableAndFile* tf = new TableAndFile;
       tf->file = file;
       tf->table = table;
-      *handle = cache_->Insert(key, tf, 1, &DeleteEntry);
+      *handle = cache_->Insert(key, tf, 1, &DeleteEntry).value_or(nullptr);
     }
   }
   return s;
