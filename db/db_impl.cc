@@ -38,8 +38,6 @@
 #include "util/logging.h"
 #include "util/mutexlock.h"
 
-#include "gtest/gtest.h"
-
 namespace leveldb {
 
 const int kNumNonTableCacheFiles = 10;
