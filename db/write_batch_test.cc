@@ -2,12 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
-#include "gtest/gtest.h"
 #include "db/memtable.h"
 #include "db/write_batch_internal.h"
+#include <string_view>
+
 #include "leveldb/db.h"
 #include "leveldb/env.h"
+
 #include "util/logging.h"
+
+#include "gtest/gtest.h"
 
 namespace leveldb {
 
@@ -59,9 +63,9 @@ TEST(WriteBatchTest, Empty) {
 
 TEST(WriteBatchTest, Multiple) {
   WriteBatch batch;
-  batch.Put(Slice("foo"), Slice("bar"));
+  batch.Put(std::string_view("foo"), std::string_view("bar"));
   batch.Delete(Slice("box"));
-  batch.Put(Slice("baz"), Slice("boo"));
+  batch.Put(std::string_view("baz"), std::string_view("boo"));
   WriteBatchInternal::SetSequence(&batch, 100);
   ASSERT_EQ(100, WriteBatchInternal::Sequence(&batch));
   ASSERT_EQ(3, WriteBatchInternal::Count(&batch));
@@ -74,7 +78,7 @@ TEST(WriteBatchTest, Multiple) {
 
 TEST(WriteBatchTest, Corruption) {
   WriteBatch batch;
-  batch.Put(Slice("foo"), Slice("bar"));
+  batch.Put(std::string_view("foo"), std::string_view("bar"));
   batch.Delete(Slice("box"));
   WriteBatchInternal::SetSequence(&batch, 200);
   Slice contents = WriteBatchInternal::Contents(&batch);
@@ -92,11 +96,11 @@ TEST(WriteBatchTest, Append) {
   WriteBatchInternal::SetSequence(&b2, 300);
   b1.Append(b2);
   ASSERT_EQ("", PrintContents(&b1));
-  b2.Put("a", "va");
+  b2.Put(std::string_view("a"), "va");
   b1.Append(b2);
   ASSERT_EQ("Put(a, va)@200", PrintContents(&b1));
   b2.Clear();
-  b2.Put("b", "vb");
+  b2.Put(std::string_view("b"), "vb");
   b1.Append(b2);
   ASSERT_EQ(
       "Put(a, va)@200"
@@ -116,11 +120,11 @@ TEST(WriteBatchTest, ApproximateSize) {
   WriteBatch batch;
   size_t empty_size = batch.ApproximateSize();
 
-  batch.Put(Slice("foo"), Slice("bar"));
+  batch.Put(std::string_view("foo"), std::string_view("bar"));
   size_t one_key_size = batch.ApproximateSize();
   ASSERT_LT(empty_size, one_key_size);
 
-  batch.Put(Slice("baz"), Slice("boo"));
+  batch.Put(std::string_view("baz"), std::string_view("boo"));
   size_t two_keys_size = batch.ApproximateSize();
   ASSERT_LT(one_key_size, two_keys_size);
 

@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <string.h>
+#include <string_view>
 
 #include "leveldb/cache.h"
 #include "leveldb/comparator.h"
@@ -335,7 +336,7 @@ void leveldb_writebatch_clear(leveldb_writebatch_t* b) { b->rep.Clear(); }
 
 void leveldb_writebatch_put(leveldb_writebatch_t* b, const char* key,
                             size_t klen, const char* val, size_t vlen) {
-  b->rep.Put(Slice(key, klen), Slice(val, vlen));
+  b->rep.Put(std::string_view(key, klen), std::string_view(val, vlen));
 }
 
 void leveldb_writebatch_delete(leveldb_writebatch_t* b, const char* key,

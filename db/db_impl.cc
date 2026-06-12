@@ -21,6 +21,7 @@
 #include <expected>
 #include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "leveldb/db.h"
@@ -1199,6 +1200,12 @@ Status DBImpl::Put(const WriteOptions& o, const Slice& key, const Slice& val) {
   return DB::Put(o, key, val);
 }
 
+std::expected<void, Status> DBImpl::Put(const WriteOptions& o,
+                                        const std::string_view key,
+                                        const std::string_view val) {
+  return DB::Put(o, key, val);
+}
+
 Status DBImpl::Delete(const WriteOptions& options, const Slice& key) {
   return DB::Delete(options, key);
 }
@@ -1488,8 +1495,21 @@ void DBImpl::GetApproximateSizes(const Range* range, int n, uint64_t* sizes) {
 // can call if they wish
 Status DB::Put(const WriteOptions& opt, const Slice& key, const Slice& value) {
   WriteBatch batch;
-  batch.Put(key, value);
+  // batch.Put(key, value);
   return Write(opt, &batch);
+}
+
+std::expected<void, Status> DB::Put(const WriteOptions& opt,
+                                    const std::string_view key,
+                                    const std::string_view value) {
+  WriteBatch batch;
+  batch.Put(key, value);
+
+  auto resp = Write(opt, &batch);
+  if (resp.ok()) {
+    return {};
+  }
+  return std::unexpected(resp);
 }
 
 Status DB::Delete(const WriteOptions& opt, const Slice& key) {

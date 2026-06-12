@@ -18,7 +18,9 @@
 #include "db/dbformat.h"
 #include "db/memtable.h"
 #include "db/write_batch_internal.h"
+
 #include "leveldb/db.h"
+
 #include "util/coding.h"
 
 namespace leveldb {
@@ -96,6 +98,13 @@ void WriteBatchInternal::SetSequence(WriteBatch* b, SequenceNumber seq) {
 }
 
 void WriteBatch::Put(const Slice& key, const Slice& value) {
+  WriteBatchInternal::SetCount(this, WriteBatchInternal::Count(this) + 1);
+  rep_.push_back(static_cast<char>(kTypeValue));
+  PutLengthPrefixedSlice(&rep_, key);
+  PutLengthPrefixedSlice(&rep_, value);
+}
+
+void WriteBatch::Put(const std::string_view key, const std::string_view value) {
   WriteBatchInternal::SetCount(this, WriteBatchInternal::Count(this) + 1);
   rep_.push_back(static_cast<char>(kTypeValue));
   PutLengthPrefixedSlice(&rep_, key);

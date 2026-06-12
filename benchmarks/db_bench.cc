@@ -5,6 +5,7 @@
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
+#include <string_view>
 #include <sys/types.h>
 
 #include "leveldb/cache.h"
@@ -183,13 +184,13 @@ class RandomGenerator {
     pos_ = 0;
   }
 
-  Slice Generate(size_t len) {
+  std::string_view Generate(size_t len) {
     if (pos_ + len > data_.size()) {
       pos_ = 0;
       assert(len < data_.size());
     }
     pos_ += len;
-    return Slice(data_.data() + pos_ - len, len);
+    return std::string_view(data_.data() + pos_ - len, len);
   }
 };
 
@@ -208,6 +209,9 @@ class KeyBuffer {
   }
 
   Slice slice() const { return Slice(buffer_, FLAGS_key_prefix + 16); }
+  std::string_view string_view() const {
+    return std::string_view(buffer_, FLAGS_key_prefix + 16);
+  }
 
  private:
   char buffer_[1024];
@@ -852,7 +856,7 @@ class Benchmark {
       for (int j = 0; j < entries_per_batch_; j++) {
         const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
         key.Set(k);
-        batch.Put(key.slice(), gen.Generate(value_size_));
+        batch.Put(key.string_view(), gen.Generate(value_size_));
         bytes += value_size_ + key.slice().size();
         thread->stats.FinishedSingleOp();
       }

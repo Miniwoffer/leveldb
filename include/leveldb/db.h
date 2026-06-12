@@ -68,6 +68,13 @@ class LEVELDB_EXPORT DB {
   virtual Status Put(const WriteOptions& options, const Slice& key,
                      const Slice& value) = 0;
 
+  // Set the database entry for "key" to "value".  Returns OK on success,
+  // and a non-OK status on error.
+  // Note: consider setting options.sync = true.
+  virtual std::expected<void, Status> Put(const WriteOptions& options,
+                                          const std::string_view key,
+                                          const std::string_view value) = 0;
+
   // Remove the database entry (if any) for "key".  Returns OK on
   // success, and a non-OK status on error.  It is not an error if "key"
   // did not exist in the database.

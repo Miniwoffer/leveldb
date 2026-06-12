@@ -6,6 +6,7 @@
 #include "db/filename.h"
 #include "db/log_format.h"
 #include "db/version_set.h"
+#include <string_view>
 #include <sys/types.h>
 
 #include "leveldb/cache.h"
@@ -61,7 +62,7 @@ class CorruptionTest : public testing::Test {
     WriteBatch batch;
     for (int i = 0; i < n; i++) {
       // if ((i % 100) == 0) std::fprintf(stderr, "@ %d of %d\n", i, n);
-      Slice key = Key(i, &key_space);
+      std::string_view key = Key(i, &key_space);
       batch.Clear();
       batch.Put(key, Value(i, &value_space));
       WriteOptions options;
@@ -170,17 +171,17 @@ class CorruptionTest : public testing::Test {
   }
 
   // Return the ith key
-  Slice Key(int i, std::string* storage) {
+  std::string_view Key(int i, std::string* storage) {
     char buf[100];
     std::snprintf(buf, sizeof(buf), "%016d", i);
     storage->assign(buf, strlen(buf));
-    return Slice(*storage);
+    return std::string_view(*storage);
   }
 
   // Return the value to associate with the specified key
-  Slice Value(int k, std::string* storage) {
+  std::string_view Value(int k, std::string* storage) {
     Random r(k);
-    return test::RandomString(&r, kValueSize, storage);
+    return test::RandomString(&r, kValueSize, storage).ToStringView();
   }
 
   test::ErrorEnv env_;
@@ -271,11 +272,12 @@ TEST_F(CorruptionTest, MissingDescriptor) {
 }
 
 TEST_F(CorruptionTest, SequenceNumberRecovery) {
-  ASSERT_LEVELDB_OK(db_->Put(WriteOptions(), "foo", "v1"));
-  ASSERT_LEVELDB_OK(db_->Put(WriteOptions(), "foo", "v2"));
-  ASSERT_LEVELDB_OK(db_->Put(WriteOptions(), "foo", "v3"));
-  ASSERT_LEVELDB_OK(db_->Put(WriteOptions(), "foo", "v4"));
-  ASSERT_LEVELDB_OK(db_->Put(WriteOptions(), "foo", "v5"));
+  std::string_view key("foo");
+  ASSERT_TRUE(db_->Put(WriteOptions(), key, "v1"));
+  ASSERT_TRUE(db_->Put(WriteOptions(), key, "v2"));
+  ASSERT_TRUE(db_->Put(WriteOptions(), key, "v3"));
+  ASSERT_TRUE(db_->Put(WriteOptions(), key, "v4"));
+  ASSERT_TRUE(db_->Put(WriteOptions(), key, "v5"));
   RepairDB();
   Reopen();
 
@@ -284,7 +286,7 @@ TEST_F(CorruptionTest, SequenceNumberRecovery) {
   ASSERT_EQ("v5", *resp);
   // Write something.  If sequence number was not recovered properly,
   // it will be hidden by an earlier write.
-  ASSERT_LEVELDB_OK(db_->Put(WriteOptions(), "foo", "v6"));
+  ASSERT_TRUE(db_->Put(WriteOptions(), key, "v6"));
 
   resp = db_->Get(ReadOptions(), "foo");
   ASSERT_TRUE(resp);
@@ -297,7 +299,7 @@ TEST_F(CorruptionTest, SequenceNumberRecovery) {
 }
 
 TEST_F(CorruptionTest, CorruptedDescriptor) {
-  ASSERT_LEVELDB_OK(db_->Put(WriteOptions(), "foo", "hello"));
+  ASSERT_TRUE(db_->Put(WriteOptions(), std::string_view("foo"), "hello"));
   DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
   dbi->TEST_CompactMemTable();
   dbi->TEST_CompactRange(0, nullptr, nullptr);
@@ -347,8 +349,8 @@ TEST_F(CorruptionTest, CompactionInputErrorParanoid) {
 
   // Write must fail because of corrupted table
   std::string tmp1, tmp2;
-  Status s = db_->Put(WriteOptions(), Key(5, &tmp1), Value(5, &tmp2));
-  ASSERT_TRUE(!s.ok()) << "write did not fail in corrupted paranoid db";
+  auto s = db_->Put(WriteOptions(), Key(5, &tmp1), Value(5, &tmp2));
+  ASSERT_TRUE(!s) << "write did not fail in corrupted paranoid db";
 }
 
 TEST_F(CorruptionTest, UnrelatedKeys) {
@@ -358,16 +360,15 @@ TEST_F(CorruptionTest, UnrelatedKeys) {
   Corrupt(kTableFile, 100, 1);
 
   std::string tmp1, tmp2;
-  ASSERT_LEVELDB_OK(
-      db_->Put(WriteOptions(), Key(1000, &tmp1), Value(1000, &tmp2)));
-  auto resp = db_->Get(ReadOptions(), Key(1000, &tmp1).ToStringView());
+  ASSERT_TRUE(db_->Put(WriteOptions(), Key(1000, &tmp1), Value(1000, &tmp2)));
+  auto resp = db_->Get(ReadOptions(), Key(1000, &tmp1));
   ASSERT_TRUE(resp);
-  ASSERT_EQ(Value(1000, &tmp2).ToString(), *resp);
+  ASSERT_EQ(Value(1000, &tmp2), *resp);
 
   dbi->TEST_CompactMemTable();
-  resp = db_->Get(ReadOptions(), Key(1000, &tmp1).ToStringView());
+  resp = db_->Get(ReadOptions(), Key(1000, &tmp1));
   ASSERT_TRUE(resp);
-  ASSERT_EQ(Value(1000, &tmp2).ToString(), *resp);
+  ASSERT_EQ(Value(1000, &tmp2), *resp);
 }
 
 }  // namespace leveldb
