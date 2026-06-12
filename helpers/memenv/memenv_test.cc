@@ -6,6 +6,7 @@
 
 #include "db/db_impl.h"
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "leveldb/db.h"
@@ -221,16 +222,16 @@ TEST_F(MemEnvTest, DBTest) {
   options.env = env_;
   DB* db;
 
-  const Slice keys[] = {Slice("aaa"), Slice("bbb"), Slice("ccc")};
-  const Slice vals[] = {Slice("foo"), Slice("bar"), Slice("baz")};
+  const std::string_view keys[] = {{"aaa"}, {"bbb"}, {"ccc"}};
+  const std::string_view vals[] = {{"foo"}, {"bar"}, {"baz"}};
 
   ASSERT_LEVELDB_OK(DB::Open(options, "/dir/db", &db));
   for (size_t i = 0; i < 3; ++i) {
-    ASSERT_LEVELDB_OK(db->Put(WriteOptions(), keys[i], vals[i]));
+    ASSERT_TRUE(db->Put(WriteOptions(), keys[i], vals[i]));
   }
 
   for (size_t i = 0; i < 3; ++i) {
-    auto res = db->Get(ReadOptions(), keys[i].ToStringView());
+    auto res = db->Get(ReadOptions(), keys[i]);
     ASSERT_TRUE(res);
     ASSERT_TRUE(*res == vals[i]);
   }
@@ -250,7 +251,7 @@ TEST_F(MemEnvTest, DBTest) {
   ASSERT_LEVELDB_OK(dbi->TEST_CompactMemTable());
 
   for (size_t i = 0; i < 3; ++i) {
-    auto res = db->Get(ReadOptions(), keys[i].ToStringView());
+    auto res = db->Get(ReadOptions(), keys[i]);
     ASSERT_TRUE(res);
     ASSERT_TRUE(*res == vals[i]);
   }
