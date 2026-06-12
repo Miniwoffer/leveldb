@@ -128,7 +128,7 @@ class CorruptionTest : public testing::Test {
         picked_number = number;
       }
     }
-    ASSERT_TRUE(!fname.empty()) << filetype;
+    ASSERT_FALSE(fname.empty()) << filetype;
 
     uint64_t file_size;
     ASSERT_LEVELDB_OK(env_.target()->GetFileSize(fname, &file_size));
@@ -207,7 +207,7 @@ TEST_F(CorruptionTest, Recovery) {
 TEST_F(CorruptionTest, RecoverWriteError) {
   env_.writable_file_error_ = true;
   Status s = TryReopen();
-  ASSERT_TRUE(!s.ok());
+  ASSERT_FALSE(s.ok());
 }
 
 TEST_F(CorruptionTest, NewFileErrorDuringWrite) {
@@ -221,7 +221,7 @@ TEST_F(CorruptionTest, NewFileErrorDuringWrite) {
     batch.Put("a", Value(100, &value_storage));
     s = db_->Write(WriteOptions(), &batch);
   }
-  ASSERT_TRUE(!s.ok());
+  ASSERT_FALSE(s.ok());
   ASSERT_GE(env_.num_writable_file_errors_, 1);
   env_.writable_file_error_ = false;
   Reopen();
@@ -306,7 +306,7 @@ TEST_F(CorruptionTest, CorruptedDescriptor) {
 
   Corrupt(kDescriptorFile, 0, 1000);
   Status s = TryReopen();
-  ASSERT_TRUE(!s.ok());
+  ASSERT_FALSE(s.ok());
 
   RepairDB();
   Reopen();
@@ -350,7 +350,7 @@ TEST_F(CorruptionTest, CompactionInputErrorParanoid) {
   // Write must fail because of corrupted table
   std::string tmp1, tmp2;
   auto s = db_->Put(WriteOptions(), Key(5, &tmp1), Value(5, &tmp2));
-  ASSERT_TRUE(!s) << "write did not fail in corrupted paranoid db";
+  ASSERT_FALSE(s) << "write did not fail in corrupted paranoid db";
 }
 
 TEST_F(CorruptionTest, UnrelatedKeys) {

@@ -65,12 +65,6 @@ class LEVELDB_EXPORT DB {
   // Set the database entry for "key" to "value".  Returns OK on success,
   // and a non-OK status on error.
   // Note: consider setting options.sync = true.
-  virtual Status Put(const WriteOptions& options, const Slice& key,
-                     const Slice& value) = 0;
-
-  // Set the database entry for "key" to "value".  Returns OK on success,
-  // and a non-OK status on error.
-  // Note: consider setting options.sync = true.
   virtual std::expected<void, Status> Put(const WriteOptions& options,
                                           const std::string_view key,
                                           const std::string_view value) = 0;

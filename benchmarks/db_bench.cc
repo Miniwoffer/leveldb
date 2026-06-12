@@ -1016,10 +1016,10 @@ class Benchmark {
 
         const int k = thread->rand.Uniform(FLAGS_num);
         key.Set(k);
-        Status s =
-            db_->Put(write_options_, key.slice(), gen.Generate(value_size_));
-        if (!s.ok()) {
-          std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+        auto s = db_->Put(write_options_, key.string_view(),
+                          gen.Generate(value_size_));
+        if (!s) {
+          std::fprintf(stderr, "put error: %s\n", s.error().ToString().c_str());
           std::exit(1);
         }
       }

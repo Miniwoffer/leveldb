@@ -38,9 +38,6 @@ class DBImpl : public DB {
   ~DBImpl() override;
 
   // Implementations of the DB interface
-  Status Put(const WriteOptions&, const Slice& key,
-             const Slice& value) override;
-
   std::expected<void, Status> Put(const WriteOptions& options,
                                   const std::string_view key,
                                   const std::string_view value) override;
