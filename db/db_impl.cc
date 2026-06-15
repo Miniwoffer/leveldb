@@ -1202,7 +1202,8 @@ std::expected<void, Status> DBImpl::Put(const WriteOptions& o,
   return DB::Put(o, key, val);
 }
 
-Status DBImpl::Delete(const WriteOptions& options, const Slice& key) {
+std::expected<void, Status> DBImpl::Delete(const WriteOptions& options,
+                                           const std::string_view key) {
   return DB::Delete(options, key);
 }
 
@@ -1502,10 +1503,15 @@ std::expected<void, Status> DB::Put(const WriteOptions& opt,
   return std::unexpected(resp);
 }
 
-Status DB::Delete(const WriteOptions& opt, const Slice& key) {
+std::expected<void, Status> DB::Delete(const WriteOptions& opt,
+                                       const std::string_view key) {
   WriteBatch batch;
   batch.Delete(key);
-  return Write(opt, &batch);
+  auto ret = Write(opt, &batch);
+  if (ret.ok()) {
+    return {};
+  }
+  return std::unexpected(ret);
 }
 
 DB::~DB() = default;

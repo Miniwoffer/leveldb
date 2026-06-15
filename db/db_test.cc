@@ -17,6 +17,7 @@
 #include "leveldb/cache.h"
 #include "leveldb/env.h"
 #include "leveldb/filter_policy.h"
+#include "leveldb/status.h"
 #include "leveldb/table.h"
 
 #include "port/port.h"
@@ -354,7 +355,9 @@ class DBTest : public testing::Test {
     return db_->Put(WriteOptions(), k, v);
   }
 
-  Status Delete(const std::string& k) { return db_->Delete(WriteOptions(), k); }
+  std::expected<void, Status> Delete(const std::string_view& k) {
+    return db_->Delete(WriteOptions(), k);
+  }
 
   std::string Get(const std::string& k, const Snapshot* snapshot = nullptr) {
     ReadOptions options;
@@ -618,7 +621,7 @@ TEST_F(DBTest, PutDeleteGet) {
     ASSERT_EQ("v1", Get("foo"));
     ASSERT_TRUE(db_->Put(WriteOptions(), std::string_view("foo"), "v2"));
     ASSERT_EQ("v2", Get("foo"));
-    ASSERT_LEVELDB_OK(db_->Delete(WriteOptions(), "foo"));
+    ASSERT_TRUE(db_->Delete(WriteOptions(), std::string_view("foo")));
     ASSERT_EQ("NOT_FOUND", Get("foo"));
   } while (ChangeOptions());
 }
@@ -926,7 +929,7 @@ TEST_F(DBTest, IterMulti) {
   ASSERT_TRUE(Put("a2", "va3"));
   ASSERT_TRUE(Put("b", "vb2"));
   ASSERT_TRUE(Put("c", "vc2"));
-  ASSERT_LEVELDB_OK(Delete("b"));
+  ASSERT_TRUE(Delete("b"));
   iter->SeekToFirst();
   ASSERT_EQ(IterStatus(iter), "a->va");
   iter->Next();
@@ -990,7 +993,7 @@ TEST_F(DBTest, IterMultiWithDelete) {
     ASSERT_TRUE(Put("a", "va"));
     ASSERT_TRUE(Put("b", "vb"));
     ASSERT_TRUE(Put("c", "vc"));
-    ASSERT_LEVELDB_OK(Delete("b"));
+    ASSERT_TRUE(Delete("b"));
     ASSERT_EQ("NOT_FOUND", Get("b"));
 
     Iterator* iter = db_->NewIterator(ReadOptions());
@@ -1008,7 +1011,7 @@ TEST_F(DBTest, IterMultiWithDeleteAndCompaction) {
     ASSERT_TRUE(Put("c", "vc"));
     ASSERT_TRUE(Put("a", "va"));
     dbfull()->TEST_CompactMemTable();
-    ASSERT_LEVELDB_OK(Delete("b"));
+    ASSERT_TRUE(Delete("b"));
     ASSERT_EQ("NOT_FOUND", Get("b"));
 
     Iterator* iter = db_->NewIterator(ReadOptions());
@@ -1477,8 +1480,8 @@ TEST_F(DBTest, OverlapInLevel0) {
     ASSERT_TRUE(Put("100", "v100"));
     ASSERT_TRUE(Put("999", "v999"));
     dbfull()->TEST_CompactMemTable();
-    ASSERT_LEVELDB_OK(Delete("100"));
-    ASSERT_LEVELDB_OK(Delete("999"));
+    ASSERT_TRUE(Delete("100"));
+    ASSERT_TRUE(Delete("999"));
     dbfull()->TEST_CompactMemTable();
     ASSERT_EQ("0,1,1", FilesPerLevel());
 
@@ -1503,7 +1506,7 @@ TEST_F(DBTest, OverlapInLevel0) {
     // Do a memtable compaction.  Before bug-fix, the compaction would
     // not detect the overlap with level-0 files and would incorrectly place
     // the deletion in a deeper level.
-    ASSERT_LEVELDB_OK(Delete("600"));
+    ASSERT_TRUE(Delete("600"));
     dbfull()->TEST_CompactMemTable();
     ASSERT_EQ("3", FilesPerLevel());
     ASSERT_EQ("NOT_FOUND", Get("600"));
@@ -1514,10 +1517,10 @@ TEST_F(DBTest, L0_CompactionBug_Issue44_a) {
   Reopen();
   ASSERT_TRUE(Put("b", "v"));
   Reopen();
-  ASSERT_LEVELDB_OK(Delete("b"));
-  ASSERT_LEVELDB_OK(Delete("a"));
+  ASSERT_TRUE(Delete("b"));
+  ASSERT_TRUE(Delete("a"));
   Reopen();
-  ASSERT_LEVELDB_OK(Delete("a"));
+  ASSERT_TRUE(Delete("a"));
   Reopen();
   ASSERT_TRUE(Put("a", "v"));
   Reopen();
@@ -2126,7 +2129,9 @@ class ModelDB : public DB {
                                   const std::string_view v) override {
     return DB::Put(o, k, v);
   }
-  Status Delete(const WriteOptions& o, const Slice& key) override {
+
+  std::expected<void, Status> Delete(const WriteOptions& o,
+                                     const std::string_view key) override {
     return DB::Delete(o, key);
   }
   std::expected<std::string, Status> Get(const ReadOptions& options,
@@ -2162,7 +2167,9 @@ class ModelDB : public DB {
                const std::string_view value) override {
         (*map_)[std::string(key)] = std::string(value);
       }
-      void Delete(const Slice& key) override { map_->erase(key.ToString()); }
+      void Delete(const std::string_view key) override {
+        map_->erase(std::string(key));
+      }
     };
     Handler handler;
     handler.map_ = &map_;
@@ -2322,8 +2329,8 @@ TEST_F(DBTest, Randomized) {
 
       } else if (p < 90) {  // Delete
         k = RandomKey(&rnd);
-        ASSERT_LEVELDB_OK(model.Delete(WriteOptions(), k));
-        ASSERT_LEVELDB_OK(db_->Delete(WriteOptions(), k));
+        ASSERT_TRUE(model.Delete(WriteOptions(), std::string_view(k)));
+        ASSERT_TRUE(db_->Delete(WriteOptions(), std::string_view(k)));
 
       } else {  // Multi-element batch
         WriteBatch b;

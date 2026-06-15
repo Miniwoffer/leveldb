@@ -983,7 +983,7 @@ class Benchmark {
       for (int j = 0; j < entries_per_batch_; j++) {
         const int k = seq ? i + j : (thread->rand.Uniform(FLAGS_num));
         key.Set(k);
-        batch.Delete(key.slice());
+        batch.Delete(key.string_view());
         thread->stats.FinishedSingleOp();
       }
       s = db_->Write(write_options_, &batch);

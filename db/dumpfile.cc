@@ -10,6 +10,7 @@
 #include "db/version_edit.h"
 #include "db/write_batch_internal.h"
 #include <cstdio>
+#include <string_view>
 
 #include "leveldb/env.h"
 #include "leveldb/iterator.h"
@@ -83,7 +84,7 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
     r += "'\n";
     dst_->Append(r);
   }
-  void Delete(const Slice& key) override {
+  void Delete(const std::string_view key) override {
     std::string r = "  del '";
     AppendEscapedStringTo(&r, key);
     r += "'\n";
