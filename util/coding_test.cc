@@ -177,17 +177,20 @@ TEST(Coding, Strings) {
   PutLengthPrefixedSlice(&s, Slice("bar"));
   PutLengthPrefixedSlice(&s, Slice(std::string(200, 'x')));
 
-  Slice input(s);
-  Slice v;
-  ASSERT_TRUE(GetLengthPrefixedSlice(&input, &v));
-  ASSERT_EQ("", v.ToString());
-  ASSERT_TRUE(GetLengthPrefixedSlice(&input, &v));
-  ASSERT_EQ("foo", v.ToString());
-  ASSERT_TRUE(GetLengthPrefixedSlice(&input, &v));
-  ASSERT_EQ("bar", v.ToString());
-  ASSERT_TRUE(GetLengthPrefixedSlice(&input, &v));
-  ASSERT_EQ(std::string(200, 'x'), v.ToString());
-  ASSERT_EQ("", input.ToString());
+  std::string_view input(s);
+  auto v = GetLengthPrefixedSlice(input);
+  ASSERT_TRUE(v);
+  ASSERT_EQ("", v);
+  v = GetLengthPrefixedSlice(input);
+  ASSERT_TRUE(v);
+  ASSERT_EQ("foo", v);
+  v = GetLengthPrefixedSlice(input);
+  ASSERT_TRUE(v);
+  ASSERT_EQ("bar", v);
+  v = GetLengthPrefixedSlice(input);
+  ASSERT_TRUE(v);
+  ASSERT_EQ(std::string(200, 'x'), v);
+  ASSERT_TRUE(input.empty());
 }
 
 }  // namespace leveldb

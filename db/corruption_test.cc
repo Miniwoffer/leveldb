@@ -49,7 +49,13 @@ class CorruptionTest : public testing::Test {
     return DB::Open(options_, dbname_, &db_);
   }
 
-  void Reopen() { ASSERT_LEVELDB_OK(TryReopen()); }
+  void Reopen() {
+    auto ret = TryReopen();
+    if (!ret.ok()) {
+      FAIL() << ret.ToString();
+    }
+    ASSERT_LEVELDB_OK(ret);
+  }
 
   void RepairDB() {
     delete db_;

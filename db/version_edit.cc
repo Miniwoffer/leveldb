@@ -5,6 +5,7 @@
 #include "db/version_edit.h"
 
 #include "db/version_set.h"
+
 #include "util/coding.h"
 
 namespace leveldb {
@@ -85,9 +86,12 @@ void VersionEdit::EncodeTo(std::string* dst) const {
 }
 
 static bool GetInternalKey(Slice* input, InternalKey* dst) {
-  Slice str;
-  if (GetLengthPrefixedSlice(input, &str)) {
-    return dst->DecodeFrom(str);
+  std::string_view input_ = input->ToStringView();
+  auto str = GetLengthPrefixedSlice(input_);
+  *input = Slice(input_.data(), input_.length());
+  if (str) {
+    // TODO: remove convertion hack
+    return dst->DecodeFrom(*str);
   } else {
     return false;
   }
@@ -118,14 +122,17 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
 
   while (msg == nullptr && GetVarint32(&input, &tag)) {
     switch (tag) {
-      case kComparator:
-        if (GetLengthPrefixedSlice(&input, &str)) {
-          comparator_ = str.ToString();
+      case kComparator: {
+        std::string_view input_ = input.ToStringView();
+        auto name = GetLengthPrefixedSlice(input_);
+        input = Slice(input_.data(), input_.length());
+        if (name) {
+          comparator_ = *name;
           has_comparator_ = true;
         } else {
           msg = "comparator name";
         }
-        break;
+      } break;
 
       case kLogNumber:
         if (GetVarint64(&input, &log_number_)) {

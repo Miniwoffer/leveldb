@@ -42,34 +42,37 @@ void WriteBatch::Clear() {
 size_t WriteBatch::ApproximateSize() const { return rep_.size(); }
 
 Status WriteBatch::Iterate(Handler* handler) const {
-  Slice input(rep_);
+  std::string_view input(rep_);
   if (input.size() < kHeader) {
     return Status::Corruption("malformed WriteBatch (too small)");
   }
 
   input.remove_prefix(kHeader);
-  Slice key, value;
   int found = 0;
   while (!input.empty()) {
     found++;
     char tag = input[0];
     input.remove_prefix(1);
     switch (tag) {
-      case kTypeValue:
-        if (GetLengthPrefixedSlice(&input, &key) &&
-            GetLengthPrefixedSlice(&input, &value)) {
-          handler->Put(key.ToStringView(), value.ToStringView());
-        } else {
+      case kTypeValue: {
+        auto key = GetLengthPrefixedSlice(input);
+        if (!key) {
           return Status::Corruption("bad WriteBatch Put");
         }
-        break;
-      case kTypeDeletion:
-        if (GetLengthPrefixedSlice(&input, &key)) {
-          handler->Delete(key.ToStringView());
-        } else {
+        auto value = GetLengthPrefixedSlice(input);
+        if (!value) {
+          return Status::Corruption("bad WriteBatch Put");
+        }
+
+        handler->Put(*key, *value);
+      } break;
+      case kTypeDeletion: {
+        auto key = GetLengthPrefixedSlice(input);
+        if (!key) {
           return Status::Corruption("bad WriteBatch Delete");
         }
-        break;
+        handler->Delete(*key);
+      } break;
       default:
         return Status::Corruption("unknown WriteBatch tag");
     }
