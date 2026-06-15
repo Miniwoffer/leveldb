@@ -220,7 +220,7 @@ char* leveldb_get(leveldb_t* db, const leveldb_readoptions_t* options,
     result = CopyString(*s);
   } else {
     *vallen = 0;
-    if (!s.error().IsNotFound()) {
+    if (!(s.error().IsNotFound() || s.error().IsDeleted())) {
       SaveError(errptr, s.error());
     }
   }

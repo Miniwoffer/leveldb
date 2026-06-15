@@ -55,6 +55,9 @@ class LEVELDB_EXPORT Status {
   static Status InsertionFailed(const Slice& msg, const Slice& msg2 = Slice()) {
     return Status(kInsertionFailed, msg, msg2);
   }
+  static Status Deleted(const Slice& msg, const Slice& msg2 = Slice()) {
+    return Status(kDeleted, msg, msg2);
+  }
 
   // Returns true iff the status indicates success.
   bool ok() const { return (state_ == nullptr); }
@@ -76,6 +79,8 @@ class LEVELDB_EXPORT Status {
 
   bool IsInsertionFailed() const { return code() == kInsertionFailed; }
 
+  bool IsDeleted() const { return code() == kDeleted; }
+
   // Return a string representation of this status suitable for printing.
   // Returns the string "OK" for success.
   std::string ToString() const;
@@ -88,7 +93,8 @@ class LEVELDB_EXPORT Status {
     kNotSupported = 3,
     kInvalidArgument = 4,
     kIOError = 5,
-    kInsertionFailed = 6
+    kInsertionFailed = 6,
+    kDeleted = 7
   };
 
   Code code() const {

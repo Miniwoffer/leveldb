@@ -42,9 +42,11 @@ class TableCache {
 
   // If a seek to internal key "k" in specified file finds an entry,
   // call (*handle_result)(arg, found_key, found_value).
-  Status Get(const ReadOptions& options, uint64_t file_number,
-             uint64_t file_size, const Slice& k, void* arg,
-             void (*handle_result)(void*, const Slice&, const Slice&));
+  std::expected<std::string, Status> Get(
+      const ReadOptions& options, uint64_t file_number, uint64_t file_size,
+      const Slice& k, void* arg,
+      std::expected<std::string, Status> (*handle_result)(void*, const Slice&,
+                                                          const Slice&));
 
   // Evict any entry for the specified file number
   void Evict(uint64_t file_number);
@@ -52,9 +54,6 @@ class TableCache {
  private:
   std::expected<Cache::Handle*, Status> FindTable(uint64_t file_number,
                                                   uint64_t file_size);
-
-  [[deprecated]]
-  Status FindTable(uint64_t file_number, uint64_t file_size, Cache::Handle**);
 
   Env* const env_;
   const std::string dbname_;

@@ -16,16 +16,16 @@ static void StartPhase(const char* name) {
   phase = name;
 }
 
-#define CheckNoError(err)                                               \
-  if ((err) != NULL) {                                                  \
+#define CheckNoError(err)                                                 \
+  if ((err) != NULL) {                                                    \
     fprintf(stderr, "%s:%d: %s: %s\n", __FILE__, __LINE__, phase, (err)); \
-    abort();                                                            \
+    abort();                                                              \
   }
 
-#define CheckCondition(cond)                                            \
-  if (!(cond)) {                                                        \
+#define CheckCondition(cond)                                              \
+  if (!(cond)) {                                                          \
     fprintf(stderr, "%s:%d: %s: %s\n", __FILE__, __LINE__, phase, #cond); \
-    abort();                                                            \
+    abort();                                                              \
   }
 
 static void CheckEqual(const char* expected, const char* v, size_t n) {
@@ -36,10 +36,8 @@ static void CheckEqual(const char* expected, const char* v, size_t n) {
     // ok
     return;
   } else {
-    fprintf(stderr, "%s: expected '%s', got '%s'\n",
-            phase,
-            (expected ? expected : "(null)"),
-            (v ? v : "(null"));
+    fprintf(stderr, "%s: expected '%s', got '%s'\n", phase,
+            (expected ? expected : "(null)"), (v ? v : "(null"));
     abort();
   }
 }
@@ -51,11 +49,8 @@ static void Free(char** ptr) {
   }
 }
 
-static void CheckGet(
-    leveldb_t* db,
-    const leveldb_readoptions_t* options,
-    const char* key,
-    const char* expected) {
+static void CheckGet(leveldb_t* db, const leveldb_readoptions_t* options,
+                     const char* key, const char* expected) {
   char* err = NULL;
   size_t val_len;
   char* val;
@@ -65,8 +60,8 @@ static void CheckGet(
   Free(&val);
 }
 
-static void CheckIter(leveldb_iterator_t* iter,
-                      const char* key, const char* val) {
+static void CheckIter(leveldb_iterator_t* iter, const char* key,
+                      const char* val) {
   size_t len;
   const char* str;
   str = leveldb_iter_key(iter, &len);
@@ -76,10 +71,9 @@ static void CheckIter(leveldb_iterator_t* iter,
 }
 
 // Callback from leveldb_writebatch_iterate()
-static void CheckPut(void* ptr,
-                     const char* k, size_t klen,
-                     const char* v, size_t vlen) {
-  int* state = (int*) ptr;
+static void CheckPut(void* ptr, const char* k, size_t klen, const char* v,
+                     size_t vlen) {
+  int* state = (int*)ptr;
   CheckCondition(*state < 2);
   switch (*state) {
     case 0:
@@ -96,40 +90,36 @@ static void CheckPut(void* ptr,
 
 // Callback from leveldb_writebatch_iterate()
 static void CheckDel(void* ptr, const char* k, size_t klen) {
-  int* state = (int*) ptr;
+  int* state = (int*)ptr;
   CheckCondition(*state == 2);
   CheckEqual("bar", k, klen);
   (*state)++;
 }
 
-static void CmpDestroy(void* arg) { }
+static void CmpDestroy(void* arg) {}
 
-static int CmpCompare(void* arg, const char* a, size_t alen,
-                      const char* b, size_t blen) {
+static int CmpCompare(void* arg, const char* a, size_t alen, const char* b,
+                      size_t blen) {
   int n = (alen < blen) ? alen : blen;
   int r = memcmp(a, b, n);
   if (r == 0) {
-    if (alen < blen) r = -1;
-    else if (alen > blen) r = +1;
+    if (alen < blen)
+      r = -1;
+    else if (alen > blen)
+      r = +1;
   }
   return r;
 }
 
-static const char* CmpName(void* arg) {
-  return "foo";
-}
+static const char* CmpName(void* arg) { return "foo"; }
 
 // Custom filter policy
 static uint8_t fake_filter_result = 1;
-static void FilterDestroy(void* arg) { }
-static const char* FilterName(void* arg) {
-  return "TestFilter";
-}
-static char* FilterCreate(
-    void* arg,
-    const char* const* key_array, const size_t* key_length_array,
-    int num_keys,
-    size_t* filter_length) {
+static void FilterDestroy(void* arg) {}
+static const char* FilterName(void* arg) { return "TestFilter"; }
+static char* FilterCreate(void* arg, const char* const* key_array,
+                          const size_t* key_length_array, int num_keys,
+                          size_t* filter_length) {
   *filter_length = 4;
   char* result = malloc(4);
   memcpy(result, "fake", 4);
@@ -273,10 +263,10 @@ int main(int argc, char** argv) {
     char keybuf[100];
     char valbuf[100];
     uint64_t sizes[2];
-    const char* start[2] = { "a", "k00000000000000010000" };
-    size_t start_len[2] = { 1, 21 };
-    const char* limit[2] = { "k00000000000000010000", "z" };
-    size_t limit_len[2] = { 21, 1 };
+    const char* start[2] = {"a", "k00000000000000010000"};
+    size_t start_len[2] = {1, 21};
+    const char* limit[2] = {"k00000000000000010000", "z"};
+    size_t limit_len[2] = {21, 1};
     leveldb_writeoptions_set_sync(woptions, 0);
     for (i = 0; i < n; i++) {
       snprintf(keybuf, sizeof(keybuf), "k%020d", i);
@@ -334,8 +324,8 @@ int main(int argc, char** argv) {
     CheckNoError(err);
     leveldb_filterpolicy_t* policy;
     if (run == 0) {
-      policy = leveldb_filterpolicy_create(
-          NULL, FilterDestroy, FilterCreate, FilterKeyMatch, FilterName);
+      policy = leveldb_filterpolicy_create(NULL, FilterDestroy, FilterCreate,
+                                           FilterKeyMatch, FilterName);
     } else {
       policy = leveldb_filterpolicy_create_bloom(10);
     }
