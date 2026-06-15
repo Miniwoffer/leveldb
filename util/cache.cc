@@ -275,6 +275,9 @@ std::optional<Cache::Handle*> LRUCache::Insert(const Slice& key, uint32_t hash,
 
   LRUHandle* e =
       reinterpret_cast<LRUHandle*>(malloc(sizeof(LRUHandle) - 1 + key.size()));
+  if (!e) {
+    return {};
+  }
   e->value = value;
   e->deleter = deleter;
   e->charge = charge;

@@ -7,12 +7,14 @@
 #ifndef STORAGE_LEVELDB_DB_TABLE_CACHE_H_
 #define STORAGE_LEVELDB_DB_TABLE_CACHE_H_
 
+#include "db/dbformat.h"
 #include <cstdint>
+#include <expected>
 #include <string>
 
-#include "db/dbformat.h"
 #include "leveldb/cache.h"
 #include "leveldb/table.h"
+
 #include "port/port.h"
 
 namespace leveldb {
@@ -48,6 +50,10 @@ class TableCache {
   void Evict(uint64_t file_number);
 
  private:
+  std::expected<Cache::Handle*, Status> FindTable(uint64_t file_number,
+                                                  uint64_t file_size);
+
+  [[deprecated]]
   Status FindTable(uint64_t file_number, uint64_t file_size, Cache::Handle**);
 
   Env* const env_;
