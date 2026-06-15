@@ -6,8 +6,9 @@
 
 #include <utility>
 
-#include "gtest/gtest.h"
 #include "leveldb/slice.h"
+
+#include "gtest/gtest.h"
 
 namespace leveldb {
 
@@ -20,11 +21,11 @@ TEST(Status, MoveConstructor) {
   }
 
   {
-    Status status = Status::NotFound("custom NotFound status message");
+    Status status = Status::NotFound("custom Not found status message");
     Status status2 = std::move(status);
 
     ASSERT_TRUE(status2.IsNotFound());
-    ASSERT_EQ("NotFound: custom NotFound status message", status2.ToString());
+    ASSERT_EQ("Not found: custom Not found status message", status2.ToString());
   }
 
   {

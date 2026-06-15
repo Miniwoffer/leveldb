@@ -249,32 +249,30 @@ void Version::AddIterators(const ReadOptions& options,
 
 // Callback from TableCache::Get()
 namespace {
-enum SaverState {
-  kNotFound,
-  kFound,
-  kDeleted,
-  kCorrupt,
-};
 struct Saver {
-  SaverState state;
   const Comparator* ucmp;
   Slice user_key;
-  std::string* value;
 };
 }  // namespace
-static void SaveValue(void* arg, const Slice& ikey, const Slice& v) {
+
+static std::expected<std::string, Status> SaveValue(void* arg,
+                                                    const Slice& ikey,
+                                                    const Slice& v) {
   Saver* s = reinterpret_cast<Saver*>(arg);
   ParsedInternalKey parsed_key;
   if (!ParseInternalKey(ikey, &parsed_key)) {
-    s->state = kCorrupt;
-  } else {
-    if (s->ucmp->Compare(parsed_key.user_key, s->user_key) == 0) {
-      s->state = (parsed_key.type == kTypeValue) ? kFound : kDeleted;
-      if (s->state == kFound) {
-        s->value->assign(v.data(), v.size());
-      }
-    }
+    return std::unexpected(
+        Status::Corruption("corrcupted key for ", s->user_key));
   }
+
+  if (s->ucmp->Compare(parsed_key.user_key, s->user_key) == 0) {
+    if (parsed_key.type == kTypeValue) {
+      return v.ToString();
+    }
+    return std::unexpected(Status::Deleted(s->user_key));
+  }
+
+  return std::unexpected(Status::NotFound(s->user_key));
 }
 
 static bool NewestFirst(FileMetaData* a, FileMetaData* b) {
@@ -326,10 +324,7 @@ void Version::ForEachOverlapping(Slice user_key, Slice internal_key, void* arg,
 
 std::tuple<std::expected<std::string, Status>, Version::GetStats> Version::Get(
     const ReadOptions& options, const LookupKey& k) {
-  std::string str;
   GetStats stats;
-  Status s;
-
   stats.seek_file = nullptr;
   stats.seek_file_level = -1;
 
@@ -344,6 +339,7 @@ std::tuple<std::expected<std::string, Status>, Version::GetStats> Version::Get(
     VersionSet* vset;
     Status s;
     bool found;
+    std::string value;
 
     static bool Match(void* arg, int level, FileMetaData* f) {
       State* state = reinterpret_cast<State*>(arg);
@@ -358,26 +354,16 @@ std::tuple<std::expected<std::string, Status>, Version::GetStats> Version::Get(
       state->last_file_read = f;
       state->last_file_read_level = level;
 
-      state->s = state->vset->table_cache_->Get(*state->options, f->number,
-                                                f->file_size, state->ikey,
-                                                &state->saver, SaveValue);
-      if (!state->s.ok()) {
+      if (auto res = state->vset->table_cache_->Get(*state->options, f->number,
+                                                    f->file_size, state->ikey,
+                                                    &state->saver, SaveValue)) {
         state->found = true;
+        state->value = res.value();
         return false;
-      }
-      switch (state->saver.state) {
-        case kNotFound:
-          return true;  // Keep searching in other files
-        case kFound:
-          state->found = true;
-          return false;
-        case kDeleted:
-          return false;
-        case kCorrupt:
-          state->s =
-              Status::Corruption("corrupted key for ", state->saver.user_key);
-          state->found = true;
-          return false;
+      } else {
+        state->s = res.error();
+        state->found = state->s.IsCorruption();
+        return state->s.IsNotFound();
       }
 
       // Not reached. Added to avoid false compilation warnings of
@@ -388,6 +374,7 @@ std::tuple<std::expected<std::string, Status>, Version::GetStats> Version::Get(
 
   State state;
   state.found = false;
+  state.s = Status::NotFound(Slice());
   state.stats = &stats;
   state.last_file_read = nullptr;
   state.last_file_read_level = -1;
@@ -396,23 +383,16 @@ std::tuple<std::expected<std::string, Status>, Version::GetStats> Version::Get(
   state.ikey = k.internal_key();
   state.vset = vset_;
 
-  state.saver.state = kNotFound;
   state.saver.ucmp = vset_->icmp_.user_comparator();
   state.saver.user_key = k.user_key();
-  state.saver.value = &str;
 
   ForEachOverlapping(state.saver.user_key, state.ikey, &state, &State::Match);
 
-  if (!state.found) {
-    s = Status::NotFound("");
-  } else {
-    s = state.s;
+  if (state.found) {
+    return {state.value, stats};
   }
 
-  if (s.ok()) {
-    return {str, stats};
-  }
-  return {std::unexpected(s), stats};
+  return {std::unexpected(state.s), stats};
 }
 
 bool Version::UpdateStats(const GetStats& stats) {

@@ -6,6 +6,8 @@
 #define STORAGE_LEVELDB_INCLUDE_TABLE_H_
 
 #include <cstdint>
+#include <expected>
+#include <string>
 
 #include "leveldb/export.h"
 #include "leveldb/iterator.h"
@@ -69,10 +71,11 @@ class LEVELDB_EXPORT Table {
   // Calls (*handle_result)(arg, ...) with the entry found after a call
   // to Seek(key).  May not make such a call if filter policy says
   // that key is not present.
-  Status InternalGet(const ReadOptions&, const Slice& key, void* arg,
-                     void (*handle_result)(void* arg, const Slice& k,
-                                           const Slice& v));
-
+  std::expected<std::string, Status> InternalGet(
+      const ReadOptions&, const Slice& key, void* arg,
+      std::expected<std::string, Status> (*handle_result)(void* arg,
+                                                          const Slice& k,
+                                                          const Slice& v));
   void ReadMeta(const Footer& footer);
   void ReadFilter(const Slice& filter_handle_value);
 

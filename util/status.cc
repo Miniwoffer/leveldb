@@ -46,7 +46,7 @@ std::string Status::ToString() const {
         type = "OK";
         break;
       case kNotFound:
-        type = "NotFound: ";
+        type = "Not found: ";
         break;
       case kCorruption:
         type = "Corruption: ";
@@ -62,6 +62,9 @@ std::string Status::ToString() const {
         break;
       case kInsertionFailed:
         type = "Insertion failed: ";
+        break;
+      case kDeleted:
+        type = "Deleted: ";
         break;
       default:
         std::snprintf(tmp, sizeof(tmp),

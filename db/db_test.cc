@@ -367,7 +367,7 @@ class DBTest : public testing::Test {
     if (resp) {
       return *resp;
     }
-    if (resp.error().IsNotFound()) {
+    if (resp.error().IsNotFound() || resp.error().IsDeleted()) {
       return "NOT_FOUND";
     }
     return resp.error().ToString();

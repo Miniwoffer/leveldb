@@ -83,44 +83,6 @@ std::expected<Cache::Handle*, Status> TableCache::FindTable(
   }
 }
 
-Status TableCache::FindTable(uint64_t file_number, uint64_t file_size,
-                             Cache::Handle** handle) {
-  Status s;
-  char buf[sizeof(file_number)];
-  EncodeFixed64(buf, file_number);
-  Slice key(buf, sizeof(buf));
-  if (auto lookup_res = cache_->Lookup(key)) {
-    *handle = *lookup_res;
-  } else {
-    std::string fname = TableFileName(dbname_, file_number);
-    RandomAccessFile* file = nullptr;
-    Table* table = nullptr;
-    s = env_->NewRandomAccessFile(fname, &file);
-    if (!s.ok()) {
-      std::string old_fname = SSTTableFileName(dbname_, file_number);
-      if (env_->NewRandomAccessFile(old_fname, &file).ok()) {
-        s = Status::OK();
-      }
-    }
-    if (s.ok()) {
-      s = Table::Open(options_, file, file_size, &table);
-    }
-
-    if (!s.ok()) {
-      assert(table == nullptr);
-      delete file;
-      // We do not cache error results so that if the error is transient,
-      // or somebody repairs the file, we recover automatically.
-    } else {
-      TableAndFile* tf = new TableAndFile;
-      tf->file = file;
-      tf->table = table;
-      *handle = cache_->Insert(key, tf, 1, &DeleteEntry).value_or(nullptr);
-    }
-  }
-  return s;
-}
-
 Iterator* TableCache::NewIterator(const ReadOptions& options,
                                   uint64_t file_number, uint64_t file_size,
                                   Table** tableptr) {
@@ -142,17 +104,18 @@ Iterator* TableCache::NewIterator(const ReadOptions& options,
   }
 }
 
-Status TableCache::Get(const ReadOptions& options, uint64_t file_number,
-                       uint64_t file_size, const Slice& k, void* arg,
-                       void (*handle_result)(void*, const Slice&,
-                                             const Slice&)) {
+std::expected<std::string, Status> TableCache::Get(
+    const ReadOptions& options, uint64_t file_number, uint64_t file_size,
+    const Slice& k, void* arg,
+    std::expected<std::string, Status> (*handle_result)(void*, const Slice&,
+                                                        const Slice&)) {
   if (auto handle = FindTable(file_number, file_size)) {
     Table* t = reinterpret_cast<TableAndFile*>(cache_->Value(*handle))->table;
-    Status s = t->InternalGet(options, k, arg, handle_result);
+    auto res = t->InternalGet(options, k, arg, handle_result);
     cache_->Release(*handle);
-    return s;
+    return res;
   } else {
-    return handle.error();
+    return std::unexpected(handle.error());
   }
 }
 

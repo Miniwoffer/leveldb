@@ -212,9 +212,11 @@ Iterator* Table::NewIterator(const ReadOptions& options) const {
       &Table::BlockReader, const_cast<Table*>(this), options);
 }
 
-Status Table::InternalGet(const ReadOptions& options, const Slice& k, void* arg,
-                          void (*handle_result)(void*, const Slice&,
-                                                const Slice&)) {
+std::expected<std::string, Status> Table::InternalGet(
+    const ReadOptions& options, const Slice& k, void* arg,
+    std::expected<std::string, Status> (*handle_result)(void*, const Slice&,
+                                                        const Slice&)) {
+  std::expected<std::string, Status> res;
   Status s;
   Iterator* iiter = rep_->index_block->NewIterator(rep_->options.comparator);
   iiter->Seek(k);
@@ -224,12 +226,17 @@ Status Table::InternalGet(const ReadOptions& options, const Slice& k, void* arg,
     BlockHandle handle;
     if (filter != nullptr && handle.DecodeFrom(&handle_value).ok() &&
         !filter->KeyMayMatch(handle.offset(), k.ToStringView())) {
-      // Not found
+      delete iiter;
+      return std::unexpected(Status::NotFound(Slice()));
     } else {
       Iterator* block_iter = BlockReader(this, options, iiter->value());
       block_iter->Seek(k);
       if (block_iter->Valid()) {
-        (*handle_result)(arg, block_iter->key(), block_iter->value());
+        auto res =
+            (*handle_result)(arg, block_iter->key(), block_iter->value());
+        delete block_iter;
+        delete iiter;
+        return res;
       }
       s = block_iter->status();
       delete block_iter;
@@ -239,7 +246,7 @@ Status Table::InternalGet(const ReadOptions& options, const Slice& k, void* arg,
     s = iiter->status();
   }
   delete iiter;
-  return s;
+  return std::unexpected(s);
 }
 
 uint64_t Table::ApproximateOffsetOf(const Slice& key) const {
