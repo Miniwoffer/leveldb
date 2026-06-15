@@ -33,7 +33,7 @@ void PutLengthPrefixedSlice(std::string* dst, const Slice& value);
 // and advance the slice past the parsed value.
 bool GetVarint32(Slice* input, uint32_t* value);
 bool GetVarint64(Slice* input, uint64_t* value);
-bool GetLengthPrefixedSlice(Slice* input, Slice* result);
+std::optional<std::string_view> GetLengthPrefixedSlice(std::string_view& input);
 
 // Pointer-based variants of GetVarint...  These either store a value
 // in *v and return a pointer just past the parsed value, or return
