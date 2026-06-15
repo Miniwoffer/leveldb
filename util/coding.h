@@ -12,9 +12,12 @@
 
 #include <cstdint>
 #include <cstring>
+#include <optional>
 #include <string>
+#include <string_view>
 
 #include "leveldb/slice.h"
+
 #include "port/port.h"
 
 namespace leveldb {
@@ -115,6 +118,18 @@ inline const char* GetVarint32Ptr(const char* p, const char* limit,
     }
   }
   return GetVarint32PtrFallback(p, limit, value);
+}
+
+// Internal routine for use by fallback path of GetVarint32Ptr
+
+std::optional<uint32_t> GetVarint32PtrFallback(std::string_view& data);
+inline std::optional<uint32_t> GetVarint32Ptr(std::string_view& data) {
+  uint32_t result = *(reinterpret_cast<const uint8_t*>(data.data()));
+  if ((result & 128) == 0) {
+    data.remove_prefix(1);
+    return result;
+  }
+  return GetVarint32PtrFallback(data);
 }
 
 }  // namespace leveldb

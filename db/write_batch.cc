@@ -65,7 +65,7 @@ Status WriteBatch::Iterate(Handler* handler) const {
         break;
       case kTypeDeletion:
         if (GetLengthPrefixedSlice(&input, &key)) {
-          handler->Delete(key);
+          handler->Delete(key.ToStringView());
         } else {
           return Status::Corruption("bad WriteBatch Delete");
         }
@@ -104,7 +104,7 @@ void WriteBatch::Put(const std::string_view key, const std::string_view value) {
   PutLengthPrefixedSlice(&rep_, value);
 }
 
-void WriteBatch::Delete(const Slice& key) {
+void WriteBatch::Delete(const std::string_view key) {
   WriteBatchInternal::SetCount(this, WriteBatchInternal::Count(this) + 1);
   rep_.push_back(static_cast<char>(kTypeDeletion));
   PutLengthPrefixedSlice(&rep_, key);
@@ -124,7 +124,7 @@ class MemTableInserter : public WriteBatch::Handler {
     mem_->Add(sequence_, kTypeValue, key, value);
     sequence_++;
   }
-  void Delete(const Slice& key) override {
+  void Delete(const std::string_view key) override {
     mem_->Add(sequence_, kTypeDeletion, key, Slice());
     sequence_++;
   }

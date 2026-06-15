@@ -199,7 +199,10 @@ void leveldb_put(leveldb_t* db, const leveldb_writeoptions_t* options,
 
 void leveldb_delete(leveldb_t* db, const leveldb_writeoptions_t* options,
                     const char* key, size_t keylen, char** errptr) {
-  SaveError(errptr, db->rep->Delete(options->rep, Slice(key, keylen)));
+  auto resp = db->rep->Delete(options->rep, std::string_view(key, keylen));
+  if (!resp) {
+    SaveError(errptr, resp.error());
+  }
 }
 
 void leveldb_write(leveldb_t* db, const leveldb_writeoptions_t* options,
@@ -344,7 +347,7 @@ void leveldb_writebatch_put(leveldb_writebatch_t* b, const char* key,
 
 void leveldb_writebatch_delete(leveldb_writebatch_t* b, const char* key,
                                size_t klen) {
-  b->rep.Delete(Slice(key, klen));
+  b->rep.Delete(std::string_view(key, klen));
 }
 
 void leveldb_writebatch_iterate(const leveldb_writebatch_t* b, void* state,
@@ -361,7 +364,7 @@ void leveldb_writebatch_iterate(const leveldb_writebatch_t* b, void* state,
              const std::string_view value) override {
       (*put_)(state_, key.data(), key.size(), value.data(), value.size());
     }
-    void Delete(const Slice& key) override {
+    void Delete(const std::string_view key) override {
       (*deleted_)(state_, key.data(), key.size());
     }
   };

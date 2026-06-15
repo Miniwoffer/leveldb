@@ -64,7 +64,7 @@ TEST(WriteBatchTest, Empty) {
 TEST(WriteBatchTest, Multiple) {
   WriteBatch batch;
   batch.Put(std::string_view("foo"), std::string_view("bar"));
-  batch.Delete(Slice("box"));
+  batch.Delete(std::string_view("box"));
   batch.Put(std::string_view("baz"), std::string_view("boo"));
   WriteBatchInternal::SetSequence(&batch, 100);
   ASSERT_EQ(100, WriteBatchInternal::Sequence(&batch));
@@ -79,7 +79,7 @@ TEST(WriteBatchTest, Multiple) {
 TEST(WriteBatchTest, Corruption) {
   WriteBatch batch;
   batch.Put(std::string_view("foo"), std::string_view("bar"));
-  batch.Delete(Slice("box"));
+  batch.Delete(std::string_view("box"));
   WriteBatchInternal::SetSequence(&batch, 200);
   Slice contents = WriteBatchInternal::Contents(&batch);
   WriteBatchInternal::SetContents(&batch,
@@ -128,7 +128,7 @@ TEST(WriteBatchTest, ApproximateSize) {
   size_t two_keys_size = batch.ApproximateSize();
   ASSERT_LT(one_key_size, two_keys_size);
 
-  batch.Delete(Slice("box"));
+  batch.Delete(std::string_view("box"));
   size_t post_delete_size = batch.ApproximateSize();
   ASSERT_LT(two_keys_size, post_delete_size);
 }

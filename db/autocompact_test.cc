@@ -73,7 +73,7 @@ void AutoCompactTest::DoReads(int n) {
 
   // Delete everything
   for (int i = 0; i < kCount; i++) {
-    ASSERT_LEVELDB_OK(db_->Delete(WriteOptions(), Key(i)));
+    ASSERT_TRUE(db_->Delete(WriteOptions(), std::string_view(Key(i))));
   }
   ASSERT_LEVELDB_OK(dbi->TEST_CompactMemTable());
 
