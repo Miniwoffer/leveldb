@@ -6,6 +6,7 @@
 
 #include "db/dbformat.h"
 #include <optional>
+#include <string_view>
 
 #include "leveldb/comparator.h"
 #include "leveldb/env.h"
