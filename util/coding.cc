@@ -23,54 +23,26 @@ void PutFixed64(std::string* dst, uint64_t value) {
 }
 
 char* EncodeVarint32(char* dst, uint32_t v) {
-  // Operate on characters as unsigneds
-  uint8_t* ptr = reinterpret_cast<uint8_t*>(dst);
-  static const int B = 128;
-  if (v < (1 << 7)) {
-    *(ptr++) = v;
-  } else if (v < (1 << 14)) {
-    *(ptr++) = v | B;
-    *(ptr++) = v >> 7;
-  } else if (v < (1 << 21)) {
-    *(ptr++) = v | B;
-    *(ptr++) = (v >> 7) | B;
-    *(ptr++) = v >> 14;
-  } else if (v < (1 << 28)) {
-    *(ptr++) = v | B;
-    *(ptr++) = (v >> 7) | B;
-    *(ptr++) = (v >> 14) | B;
-    *(ptr++) = v >> 21;
-  } else {
-    *(ptr++) = v | B;
-    *(ptr++) = (v >> 7) | B;
-    *(ptr++) = (v >> 14) | B;
-    *(ptr++) = (v >> 21) | B;
-    *(ptr++) = v >> 28;
-  }
-  return reinterpret_cast<char*>(ptr);
+  return (char*)coding::EncodeVarint<uint32_t>(
+             std::span(reinterpret_cast<uint8_t*>(dst), 5), v)
+      .data();
 }
 
 void PutVarint32(std::string* dst, uint32_t v) {
-  char buf[5];
-  char* ptr = EncodeVarint32(buf, v);
-  dst->append(buf, ptr - buf);
+  uint8_t buf[5];
+  auto resp = coding::EncodeVarint<uint32_t>(std::span(buf, 5), v);
+  dst->append(reinterpret_cast<char*>(buf), sizeof(buf) - resp.size());
 }
 
 char* EncodeVarint64(char* dst, uint64_t v) {
-  static const int B = 128;
-  uint8_t* ptr = reinterpret_cast<uint8_t*>(dst);
-  while (v >= B) {
-    *(ptr++) = v | B;
-    v >>= 7;
-  }
-  *(ptr++) = static_cast<uint8_t>(v);
-  return reinterpret_cast<char*>(ptr);
+  return (char*)coding::EncodeVarint<uint64_t>(std::span((uint8_t*)dst, 10), v)
+      .data();
 }
 
 void PutVarint64(std::string* dst, uint64_t v) {
-  char buf[10];
-  char* ptr = EncodeVarint64(buf, v);
-  dst->append(buf, ptr - buf);
+  uint8_t buf[10];
+  auto resp = coding::EncodeVarint<uint64_t>(std::span(buf, 10), v);
+  dst->append(reinterpret_cast<char*>(buf), sizeof(buf) - resp.size());
 }
 
 void PutLengthPrefixedSlice(std::string* dst, const Slice& value) {

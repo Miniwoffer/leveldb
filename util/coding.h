@@ -10,15 +10,20 @@
 #ifndef STORAGE_LEVELDB_UTIL_CODING_H_
 #define STORAGE_LEVELDB_UTIL_CODING_H_
 
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <optional>
+#include <regex.h>
+#include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "leveldb/slice.h"
 
 #include "port/port.h"
+#include "util/coding_v2.h"
 
 namespace leveldb {
 
@@ -55,81 +60,45 @@ char* EncodeVarint64(char* dst, uint64_t value);
 // REQUIRES: dst has enough space for the value being written
 
 inline void EncodeFixed32(char* dst, uint32_t value) {
-  uint8_t* const buffer = reinterpret_cast<uint8_t*>(dst);
-
-  // Recent clang and gcc optimize this to a single mov / str instruction.
-  buffer[0] = static_cast<uint8_t>(value);
-  buffer[1] = static_cast<uint8_t>(value >> 8);
-  buffer[2] = static_cast<uint8_t>(value >> 16);
-  buffer[3] = static_cast<uint8_t>(value >> 24);
+  coding::EncodeFixed<uint32_t>(std::span<uint8_t, 4>((uint8_t*)dst, 4), value);
 }
 
 inline void EncodeFixed64(char* dst, uint64_t value) {
-  uint8_t* const buffer = reinterpret_cast<uint8_t*>(dst);
-
-  // Recent clang and gcc optimize this to a single mov / str instruction.
-  buffer[0] = static_cast<uint8_t>(value);
-  buffer[1] = static_cast<uint8_t>(value >> 8);
-  buffer[2] = static_cast<uint8_t>(value >> 16);
-  buffer[3] = static_cast<uint8_t>(value >> 24);
-  buffer[4] = static_cast<uint8_t>(value >> 32);
-  buffer[5] = static_cast<uint8_t>(value >> 40);
-  buffer[6] = static_cast<uint8_t>(value >> 48);
-  buffer[7] = static_cast<uint8_t>(value >> 56);
+  coding::EncodeFixed<uint64_t>(std::span<uint8_t, 8>((uint8_t*)dst, 8), value);
 }
 
 // Lower-level versions of Get... that read directly from a character buffer
 // without any bounds checking.
 
 inline uint32_t DecodeFixed32(const char* ptr) {
-  const uint8_t* const buffer = reinterpret_cast<const uint8_t*>(ptr);
-
-  // Recent clang and gcc optimize this to a single mov / ldr instruction.
-  return (static_cast<uint32_t>(buffer[0])) |
-         (static_cast<uint32_t>(buffer[1]) << 8) |
-         (static_cast<uint32_t>(buffer[2]) << 16) |
-         (static_cast<uint32_t>(buffer[3]) << 24);
+  return coding::DecodeFixed<uint32_t>(std::string_view(ptr, 4));
 }
 
 inline uint64_t DecodeFixed64(const char* ptr) {
-  const uint8_t* const buffer = reinterpret_cast<const uint8_t*>(ptr);
-
-  // Recent clang and gcc optimize this to a single mov / ldr instruction.
-  return (static_cast<uint64_t>(buffer[0])) |
-         (static_cast<uint64_t>(buffer[1]) << 8) |
-         (static_cast<uint64_t>(buffer[2]) << 16) |
-         (static_cast<uint64_t>(buffer[3]) << 24) |
-         (static_cast<uint64_t>(buffer[4]) << 32) |
-         (static_cast<uint64_t>(buffer[5]) << 40) |
-         (static_cast<uint64_t>(buffer[6]) << 48) |
-         (static_cast<uint64_t>(buffer[7]) << 56);
+  return coding::DecodeFixed<uint64_t>(std::string_view(ptr, 8));
 }
 
-// Internal routine for use by fallback path of GetVarint32Ptr
-const char* GetVarint32PtrFallback(const char* p, const char* limit,
-                                   uint32_t* value);
 inline const char* GetVarint32Ptr(const char* p, const char* limit,
                                   uint32_t* value) {
-  if (p < limit) {
-    uint32_t result = *(reinterpret_cast<const uint8_t*>(p));
-    if ((result & 128) == 0) {
-      *value = result;
-      return p + 1;
-    }
+  std::string_view sv(p, limit - p);
+  auto result = coding::GetVarint<uint32_t>(sv);
+  if (result) {
+    *value = result->value;
+    return result->remaining_input.data();
   }
-  return GetVarint32PtrFallback(p, limit, value);
+  return nullptr;
 }
 
 // Internal routine for use by fallback path of GetVarint32Ptr
 
 std::optional<uint32_t> GetVarint32PtrFallback(std::string_view& data);
 inline std::optional<uint32_t> GetVarint32Ptr(std::string_view& data) {
-  uint32_t result = *(reinterpret_cast<const uint8_t*>(data.data()));
-  if ((result & 128) == 0) {
-    data.remove_prefix(1);
-    return result;
+  auto result = coding::GetVarint<uint32_t>(data);
+  if (result) {
+    data = result->remaining_input;
+    return result->value;
   }
-  return GetVarint32PtrFallback(data);
+  return {};
 }
 
 }  // namespace leveldb
