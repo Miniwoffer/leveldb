@@ -5,6 +5,7 @@
 #include "db/memtable.h"
 
 #include "db/dbformat.h"
+#include <cstdint>
 #include <optional>
 #include <string_view>
 
@@ -43,9 +44,9 @@ int MemTable::KeyComparator::operator()(const char* aptr,
 // into this scratch space.
 static const char* EncodeKey(std::string* scratch, const Slice& target) {
   scratch->clear();
-  PutVarint32(scratch, target.size());
-  scratch->append(target.data(), target.size());
-  return scratch->data();
+  std::string& _scratch = *scratch;
+  coding::PutLengthPrefixedString<uint32_t>(_scratch, target.ToStringView());
+  return _scratch.data();
 }
 
 class MemTableIterator : public Iterator {
