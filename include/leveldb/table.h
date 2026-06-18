@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <expected>
+#include <functional>
 #include <string>
 
 #include "leveldb/export.h"
@@ -72,10 +73,10 @@ class LEVELDB_EXPORT Table {
   // to Seek(key).  May not make such a call if filter policy says
   // that key is not present.
   std::expected<std::string, Status> InternalGet(
-      const ReadOptions&, const Slice& key, void* arg,
-      std::expected<std::string, Status> (*handle_result)(void* arg,
-                                                          const Slice& k,
-                                                          const Slice& v));
+      const ReadOptions&, const Slice& key,
+      std::function<std::expected<std::string, Status>(const Slice&,
+                                                       const Slice&)>
+          handle_result);
   void ReadMeta(const Footer& footer);
   void ReadFilter(const Slice& filter_handle_value);
 

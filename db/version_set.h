@@ -17,6 +17,7 @@
 
 #include "db/dbformat.h"
 #include "db/version_edit.h"
+#include <functional>
 #include <map>
 #include <set>
 #include <vector>
@@ -141,9 +142,8 @@ class Version {
   // false, makes no more calls.
   //
   // REQUIRES: user portion of internal_key == user_key.
-  void ForEachOverlapping(Slice user_key, Slice internal_key, void* arg,
-                          bool (*func)(void*, int, FileMetaData*));
-
+  void ForEachOverlapping(Slice user_key, Slice internal_key,
+                          std::function<bool(int, FileMetaData*)> func);
   VersionSet* vset_;  // VersionSet to which this Version belongs
   Version* next_;     // Next version in linked list
   Version* prev_;     // Previous version in linked list

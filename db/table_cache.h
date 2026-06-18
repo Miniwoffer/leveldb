@@ -10,6 +10,7 @@
 #include "db/dbformat.h"
 #include <cstdint>
 #include <expected>
+#include <functional>
 #include <string>
 
 #include "leveldb/cache.h"
@@ -44,9 +45,10 @@ class TableCache {
   // call (*handle_result)(arg, found_key, found_value).
   std::expected<std::string, Status> Get(
       const ReadOptions& options, uint64_t file_number, uint64_t file_size,
-      const Slice& k, void* arg,
-      std::expected<std::string, Status> (*handle_result)(void*, const Slice&,
-                                                          const Slice&));
+      const Slice& k,
+      std::function<std::expected<std::string, Status>(const Slice&,
+                                                       const Slice&)>
+          handle_result);
 
   // Evict any entry for the specified file number
   void Evict(uint64_t file_number);

@@ -247,42 +247,12 @@ void Version::AddIterators(const ReadOptions& options,
   }
 }
 
-// Callback from TableCache::Get()
-namespace {
-struct Saver {
-  bool deleted;
-  const Comparator* ucmp;
-  Slice user_key;
-};
-}  // namespace
-
-static std::expected<std::string, Status> SaveValue(void* arg,
-                                                    const Slice& ikey,
-                                                    const Slice& v) {
-  Saver* s = reinterpret_cast<Saver*>(arg);
-  ParsedInternalKey parsed_key;
-  if (!ParseInternalKey(ikey, &parsed_key)) {
-    return std::unexpected(
-        Status::Corruption("corrcupted key for ", s->user_key));
-  }
-
-  if (s->ucmp->Compare(parsed_key.user_key, s->user_key) == 0) {
-    if (parsed_key.type == kTypeValue) {
-      return v.ToString();
-    }
-    s->deleted = true;
-    return std::unexpected(Status::NotFound(Slice()));
-  }
-
-  return std::unexpected(Status::NotFound(Slice()));
-}
-
 static bool NewestFirst(FileMetaData* a, FileMetaData* b) {
   return a->number > b->number;
 }
 
-void Version::ForEachOverlapping(Slice user_key, Slice internal_key, void* arg,
-                                 bool (*func)(void*, int, FileMetaData*)) {
+void Version::ForEachOverlapping(Slice user_key, Slice internal_key,
+                                 std::function<bool(int, FileMetaData*)> func) {
   const Comparator* ucmp = vset_->icmp_.user_comparator();
 
   // Search level-0 in order from newest to oldest.
@@ -298,7 +268,7 @@ void Version::ForEachOverlapping(Slice user_key, Slice internal_key, void* arg,
   if (!tmp.empty()) {
     std::sort(tmp.begin(), tmp.end(), NewestFirst);
     for (uint32_t i = 0; i < tmp.size(); i++) {
-      if (!(*func)(arg, 0, tmp[i])) {
+      if (!func(0, tmp[i])) {
         return;
       }
     }
@@ -316,7 +286,7 @@ void Version::ForEachOverlapping(Slice user_key, Slice internal_key, void* arg,
       if (ucmp->Compare(user_key, f->smallest.user_key()) < 0) {
         // All of "f" is past any data for user_key
       } else {
-        if (!(*func)(arg, level, f)) {
+        if (!func(level, f)) {
           return;
         }
       }
@@ -330,72 +300,58 @@ std::tuple<std::expected<std::string, Status>, Version::GetStats> Version::Get(
   stats.seek_file = nullptr;
   stats.seek_file_level = -1;
 
-  struct State {
-    Saver saver;
-    GetStats* stats;
-    const ReadOptions* options;
-    Slice ikey;
-    FileMetaData* last_file_read;
-    int last_file_read_level;
+  bool deleted = false;
+  const Comparator* ucmp = vset_->icmp_.user_comparator();
+  std::expected<std::string, Status> res =
+      std::unexpected(Status::NotFound(Slice()));
 
-    VersionSet* vset;
-    Status s;
-    bool found;
-    std::string value;
+  Slice user_key = k.user_key();
+  Slice ikey = k.internal_key();
 
-    static bool Match(void* arg, int level, FileMetaData* f) {
-      State* state = reinterpret_cast<State*>(arg);
+  FileMetaData* last_file_read = nullptr;
+  int last_file_read_level = -1;
+  VersionSet* vset = vset_;
 
-      if (state->stats->seek_file == nullptr &&
-          state->last_file_read != nullptr) {
-        // We have had more than one seek for this read.  Charge the 1st file.
-        state->stats->seek_file = state->last_file_read;
-        state->stats->seek_file_level = state->last_file_read_level;
+  auto get_value = [ucmp, user_key, &deleted](
+                       const Slice& ikey,
+                       const Slice& v) -> std::expected<std::string, Status> {
+    ParsedInternalKey parsed_key;
+    if (!ParseInternalKey(ikey, &parsed_key)) {
+      return std::unexpected(
+          Status::Corruption("corrcupted key for ", user_key));
+    }
+
+    if (ucmp->Compare(parsed_key.user_key, user_key) == 0) {
+      if (parsed_key.type == kTypeValue) {
+        return v.ToString();
       }
+      deleted = true;
+    }
+    return std::unexpected(Status::NotFound(Slice()));
+  };
 
-      state->last_file_read = f;
-      state->last_file_read_level = level;
+  auto handle_result = [&](int level, FileMetaData* f) {
+    if (stats.seek_file == nullptr && last_file_read != nullptr) {
+      // We have had more than one seek for this read.  Charge the 1st file.
+      stats.seek_file = last_file_read;
+      stats.seek_file_level = last_file_read_level;
+    }
 
-      if (auto res = state->vset->table_cache_->Get(*state->options, f->number,
-                                                    f->file_size, state->ikey,
-                                                    &state->saver, SaveValue)) {
-        state->found = true;
-        state->value = res.value();
-        return false;
-      } else {
-        state->s = res.error();
-        state->found = state->s.IsCorruption();
-        return state->s.IsNotFound() && !state->saver.deleted;
-      }
+    last_file_read = f;
+    last_file_read_level = level;
 
-      // Not reached. Added to avoid false compilation warnings of
-      // "control reaches end of non-void function".
+    res = vset->table_cache_->Get(options, f->number, f->file_size, ikey,
+                                  get_value);
+
+    if (res) {
       return false;
+    } else {
+      return res.error().IsNotFound() && !deleted;
     }
   };
 
-  State state;
-  state.found = false;
-  state.s = Status::NotFound(Slice());
-  state.stats = &stats;
-  state.last_file_read = nullptr;
-  state.last_file_read_level = -1;
-
-  state.options = &options;
-  state.ikey = k.internal_key();
-  state.vset = vset_;
-
-  state.saver.deleted = false;
-  state.saver.ucmp = vset_->icmp_.user_comparator();
-  state.saver.user_key = k.user_key();
-
-  ForEachOverlapping(state.saver.user_key, state.ikey, &state, &State::Match);
-
-  if (state.found) {
-    return {state.value, stats};
-  }
-
-  return {std::unexpected(state.s), stats};
+  ForEachOverlapping(user_key, ikey, handle_result);
+  return {res, stats};
 }
 
 bool Version::UpdateStats(const GetStats& stats) {
@@ -417,34 +373,27 @@ bool Version::RecordReadSample(Slice internal_key) {
     return false;
   }
 
-  struct State {
-    GetStats stats;  // Holds first matching file
-    int matches;
-
-    static bool Match(void* arg, int level, FileMetaData* f) {
-      State* state = reinterpret_cast<State*>(arg);
-      state->matches++;
-      if (state->matches == 1) {
-        // Remember first match.
-        state->stats.seek_file = f;
-        state->stats.seek_file_level = level;
-      }
-      // We can stop iterating once we have a second match.
-      return state->matches < 2;
-    }
-  };
-
-  State state;
-  state.matches = 0;
-  ForEachOverlapping(ikey.user_key, internal_key, &state, &State::Match);
+  GetStats stats;  // Holds first matching file
+  int matches = 0;
+  ForEachOverlapping(ikey.user_key, internal_key,
+                     [&stats, &matches](int level, FileMetaData* f) {
+                       matches++;
+                       if (matches == 1) {
+                         // Remember first match.
+                         stats.seek_file = f;
+                         stats.seek_file_level = level;
+                       }
+                       // We can stop iterating once we have a second match.
+                       return matches < 2;
+                     });
 
   // Must have at least two matches since we want to merge across
   // files. But what if we have a single file that contains many
   // overwrites and deletions?  Should we have another mechanism for
   // finding such files?
-  if (state.matches >= 2) {
+  if (matches >= 2) {
     // 1MB cost is about 1 seek (see comment in Builder::Apply).
-    return UpdateStats(state.stats);
+    return UpdateStats(stats);
   }
   return false;
 }
