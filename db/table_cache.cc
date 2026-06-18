@@ -106,12 +106,13 @@ Iterator* TableCache::NewIterator(const ReadOptions& options,
 
 std::expected<std::string, Status> TableCache::Get(
     const ReadOptions& options, uint64_t file_number, uint64_t file_size,
-    const Slice& k, void* arg,
-    std::expected<std::string, Status> (*handle_result)(void*, const Slice&,
-                                                        const Slice&)) {
+    const Slice& k,
+    std::function<std::expected<std::string, Status>(const Slice&,
+                                                     const Slice&)>
+        handle_result) {
   if (auto handle = FindTable(file_number, file_size)) {
     Table* t = reinterpret_cast<TableAndFile*>(cache_->Value(*handle))->table;
-    auto res = t->InternalGet(options, k, arg, handle_result);
+    auto res = t->InternalGet(options, k, handle_result);
     cache_->Release(*handle);
     return res;
   } else {

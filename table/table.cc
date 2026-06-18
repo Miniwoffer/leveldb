@@ -213,9 +213,10 @@ Iterator* Table::NewIterator(const ReadOptions& options) const {
 }
 
 std::expected<std::string, Status> Table::InternalGet(
-    const ReadOptions& options, const Slice& k, void* arg,
-    std::expected<std::string, Status> (*handle_result)(void*, const Slice&,
-                                                        const Slice&)) {
+    const ReadOptions& options, const Slice& k,
+    std::function<std::expected<std::string, Status>(const Slice&,
+                                                     const Slice&)>
+        handle_result) {
   Status s;
   Iterator* iiter = rep_->index_block->NewIterator(rep_->options.comparator);
   iiter->Seek(k);
@@ -231,8 +232,7 @@ std::expected<std::string, Status> Table::InternalGet(
       Iterator* block_iter = BlockReader(this, options, iiter->value());
       block_iter->Seek(k);
       if (block_iter->Valid()) {
-        auto res =
-            (*handle_result)(arg, block_iter->key(), block_iter->value());
+        auto res = handle_result(block_iter->key(), block_iter->value());
         delete block_iter;
         delete iiter;
         return res;
