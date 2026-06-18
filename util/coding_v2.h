@@ -16,6 +16,7 @@
 #include <optional>
 #include <regex.h>
 #include <span>
+#include <string>
 #include <string_view>
 #include <type_traits>
 
@@ -64,6 +65,22 @@ inline std::span<uint8_t> EncodeVarint(std::span<uint8_t> input, T value) {
   }
   input[written++] = value;
   return input.subspan(written);
+}
+template <typename T>
+  requires is_unsigned_integral<T>
+inline void PutVarint(std::string& dst, T v) {
+  constexpr const size_t max_size = sizeof(T) * 8 / 7 + 1;
+  uint8_t uint8_buf[max_size];
+  std::span<uint8_t> buf(uint8_buf, max_size);
+  auto resp = EncodeVarint<T>(buf, v);
+  dst.append(buf.begin(), resp.begin());
+}
+
+template <typename T>
+  requires is_unsigned_integral<T>
+inline void PutLengthPrefixedString(std::string& dst, std::string_view v) {
+  PutVarint<T>(dst, (T)v.size());
+  dst.append(v);
 }
 
 template <typename T>

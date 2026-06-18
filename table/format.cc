@@ -6,6 +6,7 @@
 
 #include "leveldb/env.h"
 #include "leveldb/options.h"
+
 #include "port/port.h"
 #include "table/block.h"
 #include "util/coding.h"
@@ -17,8 +18,10 @@ void BlockHandle::EncodeTo(std::string* dst) const {
   // Sanity check that all fields have been set
   assert(offset_ != ~static_cast<uint64_t>(0));
   assert(size_ != ~static_cast<uint64_t>(0));
-  PutVarint64(dst, offset_);
-  PutVarint64(dst, size_);
+
+  std::string& _dst = *dst;
+  coding::PutVarint<uint64_t>(_dst, offset_);
+  coding::PutVarint<uint64_t>(_dst, size_);
 }
 
 Status BlockHandle::DecodeFrom(Slice* input) {

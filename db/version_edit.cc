@@ -5,6 +5,7 @@
 #include "db/version_edit.h"
 
 #include "db/version_set.h"
+#include <string>
 
 #include "util/coding.h"
 
@@ -41,45 +42,46 @@ void VersionEdit::Clear() {
 }
 
 void VersionEdit::EncodeTo(std::string* dst) const {
+  std::string& _dst = *dst;
   if (has_comparator_) {
-    PutVarint32(dst, kComparator);
+    coding::PutVarint<uint32_t>(_dst, kComparator);
     PutLengthPrefixedSlice(dst, comparator_);
   }
   if (has_log_number_) {
-    PutVarint32(dst, kLogNumber);
-    PutVarint64(dst, log_number_);
+    coding::PutVarint<uint32_t>(_dst, kLogNumber);
+    coding::PutVarint<uint64_t>(_dst, log_number_);
   }
   if (has_prev_log_number_) {
-    PutVarint32(dst, kPrevLogNumber);
-    PutVarint64(dst, prev_log_number_);
+    coding::PutVarint<uint32_t>(_dst, kPrevLogNumber);
+    coding::PutVarint<uint64_t>(_dst, prev_log_number_);
   }
   if (has_next_file_number_) {
-    PutVarint32(dst, kNextFileNumber);
-    PutVarint64(dst, next_file_number_);
+    coding::PutVarint<uint32_t>(_dst, kNextFileNumber);
+    coding::PutVarint<uint64_t>(_dst, next_file_number_);
   }
   if (has_last_sequence_) {
-    PutVarint32(dst, kLastSequence);
-    PutVarint64(dst, last_sequence_);
+    coding::PutVarint<uint32_t>(_dst, kLastSequence);
+    coding::PutVarint<uint64_t>(_dst, last_sequence_);
   }
 
   for (size_t i = 0; i < compact_pointers_.size(); i++) {
-    PutVarint32(dst, kCompactPointer);
-    PutVarint32(dst, compact_pointers_[i].first);  // level
+    coding::PutVarint<uint32_t>(_dst, kCompactPointer);
+    coding::PutVarint<uint32_t>(_dst, compact_pointers_[i].first);  // level
     PutLengthPrefixedSlice(dst, compact_pointers_[i].second.Encode());
   }
 
   for (const auto& deleted_file_kvp : deleted_files_) {
-    PutVarint32(dst, kDeletedFile);
-    PutVarint32(dst, deleted_file_kvp.first);   // level
-    PutVarint64(dst, deleted_file_kvp.second);  // file number
+    coding::PutVarint<uint32_t>(_dst, kDeletedFile);
+    coding::PutVarint<uint32_t>(_dst, deleted_file_kvp.first);   // level
+    coding::PutVarint<uint64_t>(_dst, deleted_file_kvp.second);  // file number
   }
 
   for (size_t i = 0; i < new_files_.size(); i++) {
     const FileMetaData& f = new_files_[i].second;
-    PutVarint32(dst, kNewFile);
-    PutVarint32(dst, new_files_[i].first);  // level
-    PutVarint64(dst, f.number);
-    PutVarint64(dst, f.file_size);
+    coding::PutVarint<uint32_t>(_dst, kNewFile);
+    coding::PutVarint<uint32_t>(_dst, new_files_[i].first);  // level
+    coding::PutVarint<uint64_t>(_dst, f.number);
+    coding::PutVarint<uint64_t>(_dst, f.file_size);
     PutLengthPrefixedSlice(dst, f.smallest.Encode());
     PutLengthPrefixedSlice(dst, f.largest.Encode());
   }

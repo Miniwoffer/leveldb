@@ -30,9 +30,11 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdint>
 
 #include "leveldb/comparator.h"
 #include "leveldb/options.h"
+
 #include "util/coding.h"
 
 namespace leveldb {
@@ -89,9 +91,9 @@ void BlockBuilder::Add(const Slice& key, const Slice& value) {
   const size_t non_shared = key.size() - shared;
 
   // Add "<shared><non_shared><value_size>" to buffer_
-  PutVarint32(&buffer_, shared);
-  PutVarint32(&buffer_, non_shared);
-  PutVarint32(&buffer_, value.size());
+  coding::PutVarint<uint32_t>(buffer_, shared);
+  coding::PutVarint<uint32_t>(buffer_, non_shared);
+  coding::PutVarint<uint32_t>(buffer_, value.size());
 
   // Add string delta to buffer_ followed by value
   buffer_.append(key.data() + shared, non_shared);
