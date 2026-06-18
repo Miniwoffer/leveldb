@@ -63,9 +63,6 @@ std::string Status::ToString() const {
       case kInsertionFailed:
         type = "Insertion failed: ";
         break;
-      case kDeleted:
-        type = "Deleted: ";
-        break;
       default:
         std::snprintf(tmp, sizeof(tmp),
                       "Unknown code(%d): ", static_cast<int>(code()));

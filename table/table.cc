@@ -216,7 +216,6 @@ std::expected<std::string, Status> Table::InternalGet(
     const ReadOptions& options, const Slice& k, void* arg,
     std::expected<std::string, Status> (*handle_result)(void*, const Slice&,
                                                         const Slice&)) {
-  std::expected<std::string, Status> res;
   Status s;
   Iterator* iiter = rep_->index_block->NewIterator(rep_->options.comparator);
   iiter->Seek(k);
