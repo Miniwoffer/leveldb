@@ -250,6 +250,7 @@ void Version::AddIterators(const ReadOptions& options,
 // Callback from TableCache::Get()
 namespace {
 struct Saver {
+  bool deleted;
   const Comparator* ucmp;
   Slice user_key;
 };
@@ -269,10 +270,11 @@ static std::expected<std::string, Status> SaveValue(void* arg,
     if (parsed_key.type == kTypeValue) {
       return v.ToString();
     }
-    return std::unexpected(Status::Deleted(s->user_key));
+    s->deleted = true;
+    return std::unexpected(Status::NotFound(Slice()));
   }
 
-  return std::unexpected(Status::NotFound(s->user_key));
+  return std::unexpected(Status::NotFound(Slice()));
 }
 
 static bool NewestFirst(FileMetaData* a, FileMetaData* b) {
@@ -363,7 +365,7 @@ std::tuple<std::expected<std::string, Status>, Version::GetStats> Version::Get(
       } else {
         state->s = res.error();
         state->found = state->s.IsCorruption();
-        return state->s.IsNotFound();
+        return state->s.IsNotFound() && !state->saver.deleted;
       }
 
       // Not reached. Added to avoid false compilation warnings of
@@ -383,6 +385,7 @@ std::tuple<std::expected<std::string, Status>, Version::GetStats> Version::Get(
   state.ikey = k.internal_key();
   state.vset = vset_;
 
+  state.saver.deleted = false;
   state.saver.ucmp = vset_->icmp_.user_comparator();
   state.saver.user_key = k.user_key();
 
