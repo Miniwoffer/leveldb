@@ -120,20 +120,23 @@ bool InternalFilterPolicy::KeyMayMatch(const std::string_view key,
 LookupKey::LookupKey(const std::string_view user_key, SequenceNumber s) {
   size_t usize = user_key.size();
   size_t needed = usize + 13;  // A conservative estimate
-  char* dst;
+
+  std::span<char> buffer;
   if (needed <= sizeof(space_)) {
-    dst = space_;
+    buffer = {space_, sizeof(space_)};
   } else {
-    dst = new char[needed];
+    buffer = {new char[needed], needed};
   }
-  start_ = dst;
-  dst = EncodeVarint32(dst, usize + 8);
-  kstart_ = dst;
-  std::memcpy(dst, user_key.data(), usize);
-  dst += usize;
-  EncodeFixed64(dst, PackSequenceAndType(s, kValueTypeForSeek));
-  dst += 8;
-  end_ = dst;
+  start_ = buffer.data();
+
+  buffer = EncodeVarint<uint32_t>(buffer, usize + 8);
+  kstart_ = buffer.data();
+
+  std::memcpy(buffer.data(), user_key.data(), usize);
+  buffer = buffer.subspan(usize);
+
+  buffer = EncodeFixed(buffer, PackSequenceAndType(s, kValueTypeForSeek));
+  end_ = buffer.data();
 }
 
 }  // namespace leveldb

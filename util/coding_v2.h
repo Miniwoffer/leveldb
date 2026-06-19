@@ -22,16 +22,15 @@
 
 namespace leveldb {
 
+template <typename T>
+concept is_unsigned_integral = std::is_integral_v<T> && std::is_unsigned_v<T>;
+
 // Decode
 template <typename T>
 struct DecodingResult {
   T value;
   std::string_view remaining_input;
 };
-
-template <typename T>
-concept is_unsigned_integral = std::is_integral_v<T> && std::is_unsigned_v<T>;
-
 template <typename T>
   requires is_unsigned_integral<T>
 inline std::optional<DecodingResult<T>> GetVarint(std::string_view input) {
@@ -53,17 +52,18 @@ inline std::optional<DecodingResult<T>> GetVarint(std::string_view input) {
   return std::nullopt;
 }
 
-template <typename T>
+template <typename T, typename E>
   requires is_unsigned_integral<T>
-inline std::span<uint8_t> EncodeVarint(std::span<uint8_t> input, T value) {
-  static const int B = 128;
+inline std::span<E> EncodeVarint(std::span<E> input, T value) {
+  static const size_t B = 128;
   size_t written = 0;
+  uint8_t* ptr = reinterpret_cast<uint8_t*>(input.data());
 
   while (value >= B) {
-    input[written++] = value | B;
+    ptr[written++] = static_cast<uint8_t>(value | B);
     value >>= 7;
   }
-  input[written++] = value;
+  ptr[written++] = value;
   return input.subspan(written);
 }
 template <typename T>
@@ -83,6 +83,15 @@ inline void PutLengthPrefixedString(std::string& dst, std::string_view v) {
   dst.append(v);
 }
 
+template <typename T, typename E>
+  requires is_unsigned_integral<T>
+inline std::span<E> EncodeLengthPrefixedString(std::span<E> dst,
+                                               std::string_view v) {
+  dst = EncodeVarint<T>(dst, (T)v.size());
+  memcpy(dst.data(), v.data(), v.size());
+  return dst.subspan(v.size());
+}
+
 template <typename T>
   requires std::is_integral_v<T>
 inline T DecodeFixed(std::string_view data) {
@@ -96,13 +105,14 @@ inline T DecodeFixed(std::string_view data) {
   return value;
 }
 
-template <typename T>
+template <typename T, typename E>
   requires std::is_integral_v<T>
-inline void EncodeFixed(std::span<uint8_t, sizeof(T)> data, T value) {
+inline std::span<E> EncodeFixed(std::span<E> data, T value) {
   std::memcpy(data.data(), &value, sizeof(T));
   if constexpr (std::endian::native == std::endian::big) {
     std::byteswap((T*)(data.data()));
   }
+  return data.subspan(sizeof(T));
 }
 
 template <typename T>

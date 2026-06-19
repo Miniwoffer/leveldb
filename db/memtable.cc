@@ -100,16 +100,20 @@ void MemTable::Add(SequenceNumber s, ValueType type,
   const size_t encoded_len = VarintLength(internal_key_size) +
                              internal_key_size + VarintLength(val_size) +
                              val_size;
-  char* buf = arena_.Allocate(encoded_len);
-  char* p = EncodeVarint32(buf, internal_key_size);
-  std::memcpy(p, key.data(), key_size);
-  p += key_size;
-  EncodeFixed64(p, (s << 8) | type);
-  p += 8;
-  p = EncodeVarint32(p, val_size);
-  std::memcpy(p, value.data(), val_size);
-  assert(p + val_size == buf + encoded_len);
-  table_.Insert(buf);
+
+  std::span mem(arena_.Allocate(encoded_len), encoded_len);
+  auto buff = mem;
+
+  buff = EncodeVarint<uint32_t>(buff, internal_key_size);
+
+  std::memcpy(buff.data(), key.data(), key_size);
+  buff = buff.subspan(key_size);
+
+  buff = EncodeFixed<uint64_t>(buff, (s << 8) | type);
+
+  buff = EncodeLengthPrefixedString<uint32_t>(buff, value);
+  assert(buff.empty());
+  table_.Insert(reinterpret_cast<const char*>(mem.data()));
 }
 
 std::optional<std::expected<std::string, Status>> MemTable::Get(
