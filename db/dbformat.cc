@@ -6,7 +6,8 @@
 
 #include <cstdio>
 #include <sstream>
-#include <string_view>
+
+#include "leveldb/slice.h"
 
 #include "port/port.h"
 #include "util/coding.h"
@@ -99,12 +100,11 @@ void InternalKeyComparator::FindShortSuccessor(std::string* key) const {
 
 const char* InternalFilterPolicy::Name() const { return user_policy_->Name(); }
 
-void InternalFilterPolicy::CreateFilter(
-    const std::vector<std::string_view>& keys, std::string* dst) const {
+void InternalFilterPolicy::CreateFilter(const std::vector<Slice>& keys,
+                                        std::string* dst) const {
   // We rely on the fact that the code in table.cc does not mind us
   // adjusting keys[].
-  std::vector<std::string_view>& mkeys =
-      const_cast<std::vector<std::string_view>&>(keys);
+  std::vector<Slice>& mkeys = const_cast<std::vector<Slice>&>(keys);
   for (auto& mkey : mkeys) {
     mkey = ExtractUserKey(mkey);
     // TODO(sanjay): Suppress dups?
@@ -112,12 +112,11 @@ void InternalFilterPolicy::CreateFilter(
   user_policy_->CreateFilter(keys, dst);
 }
 
-bool InternalFilterPolicy::KeyMayMatch(const std::string_view key,
-                                       const std::string_view f) const {
+bool InternalFilterPolicy::KeyMayMatch(const Slice key, const Slice f) const {
   return user_policy_->KeyMayMatch(ExtractUserKey(key), f);
 }
 
-LookupKey::LookupKey(const std::string_view user_key, SequenceNumber s) {
+LookupKey::LookupKey(const Slice user_key, SequenceNumber s) {
   size_t usize = user_key.size();
   size_t needed = usize + 13;  // A conservative estimate
   char* dst;

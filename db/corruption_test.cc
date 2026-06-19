@@ -6,11 +6,11 @@
 #include "db/filename.h"
 #include "db/log_format.h"
 #include "db/version_set.h"
-#include <string_view>
 #include <sys/types.h>
 
 #include "leveldb/cache.h"
 #include "leveldb/db.h"
+#include "leveldb/slice.h"
 #include "leveldb/table.h"
 #include "leveldb/write_batch.h"
 
@@ -68,7 +68,7 @@ class CorruptionTest : public testing::Test {
     WriteBatch batch;
     for (int i = 0; i < n; i++) {
       // if ((i % 100) == 0) std::fprintf(stderr, "@ %d of %d\n", i, n);
-      std::string_view key = Key(i, &key_space);
+      Slice key = Key(i, &key_space);
       batch.Clear();
       batch.Put(key, Value(i, &value_space));
       WriteOptions options;
@@ -177,17 +177,17 @@ class CorruptionTest : public testing::Test {
   }
 
   // Return the ith key
-  std::string_view Key(int i, std::string* storage) {
+  Slice Key(int i, std::string* storage) {
     char buf[100];
     std::snprintf(buf, sizeof(buf), "%016d", i);
     storage->assign(buf, strlen(buf));
-    return std::string_view(*storage);
+    return Slice(*storage);
   }
 
   // Return the value to associate with the specified key
-  std::string_view Value(int k, std::string* storage) {
+  Slice Value(int k, std::string* storage) {
     Random r(k);
-    return test::RandomString(&r, kValueSize, storage).ToStringView();
+    return test::RandomString(&r, kValueSize, storage);
   }
 
   test::ErrorEnv env_;
@@ -278,7 +278,7 @@ TEST_F(CorruptionTest, MissingDescriptor) {
 }
 
 TEST_F(CorruptionTest, SequenceNumberRecovery) {
-  std::string_view key("foo");
+  Slice key("foo");
   ASSERT_TRUE(db_->Put(WriteOptions(), key, "v1"));
   ASSERT_TRUE(db_->Put(WriteOptions(), key, "v2"));
   ASSERT_TRUE(db_->Put(WriteOptions(), key, "v3"));
@@ -305,7 +305,7 @@ TEST_F(CorruptionTest, SequenceNumberRecovery) {
 }
 
 TEST_F(CorruptionTest, CorruptedDescriptor) {
-  ASSERT_TRUE(db_->Put(WriteOptions(), std::string_view("foo"), "hello"));
+  ASSERT_TRUE(db_->Put(WriteOptions(), Slice("foo"), "hello"));
   DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
   dbi->TEST_CompactMemTable();
   dbi->TEST_CompactRange(0, nullptr, nullptr);

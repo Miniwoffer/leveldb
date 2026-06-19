@@ -44,7 +44,7 @@ int MemTable::KeyComparator::operator()(const char* aptr,
 // into this scratch space.
 static const char* EncodeKey(std::string& scratch, const Slice& target) {
   scratch.clear();
-  PutLengthPrefixedString<uint32_t>(scratch, target.ToStringView());
+  PutLengthPrefixedString<uint32_t>(scratch, target);
   return scratch.data();
 }
 static const char* EncodeKey(std::string* scratch, const Slice& target) {

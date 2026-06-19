@@ -21,11 +21,11 @@
 #include <expected>
 #include <set>
 #include <string>
-#include <string_view>
 #include <vector>
 
 #include "leveldb/db.h"
 #include "leveldb/env.h"
+#include "leveldb/slice.h"
 #include "leveldb/status.h"
 #include "leveldb/table.h"
 #include "leveldb/table_builder.h"
@@ -1121,7 +1121,7 @@ int64_t DBImpl::TEST_MaxNextLevelOverlappingBytes() {
   return versions_->MaxNextLevelOverlappingBytes();
 }
 std::expected<std::string, Status> DBImpl::Get(const ReadOptions& options,
-                                               const std::string_view key) {
+                                               const Slice key) {
   MutexLock l(&mutex_);
   SequenceNumber snapshot;
   if (options.snapshot != nullptr) {
@@ -1196,14 +1196,13 @@ void DBImpl::ReleaseSnapshot(const Snapshot* snapshot) {
 }
 
 // Convenience methods
-std::expected<void, Status> DBImpl::Put(const WriteOptions& o,
-                                        const std::string_view key,
-                                        const std::string_view val) {
+std::expected<void, Status> DBImpl::Put(const WriteOptions& o, const Slice key,
+                                        const Slice val) {
   return DB::Put(o, key, val);
 }
 
 std::expected<void, Status> DBImpl::Delete(const WriteOptions& options,
-                                           const std::string_view key) {
+                                           const Slice key) {
   return DB::Delete(options, key);
 }
 
@@ -1490,9 +1489,8 @@ void DBImpl::GetApproximateSizes(const Range* range, int n, uint64_t* sizes) {
 
 // Default implementations of convenience methods that subclasses of DB
 // can call if they wish
-std::expected<void, Status> DB::Put(const WriteOptions& opt,
-                                    const std::string_view key,
-                                    const std::string_view value) {
+std::expected<void, Status> DB::Put(const WriteOptions& opt, const Slice key,
+                                    const Slice value) {
   WriteBatch batch;
   batch.Put(key, value);
 
@@ -1504,7 +1502,7 @@ std::expected<void, Status> DB::Put(const WriteOptions& opt,
 }
 
 std::expected<void, Status> DB::Delete(const WriteOptions& opt,
-                                       const std::string_view key) {
+                                       const Slice key) {
   WriteBatch batch;
   batch.Delete(key);
   auto ret = Write(opt, &batch);

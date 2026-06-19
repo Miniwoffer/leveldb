@@ -33,9 +33,9 @@ class BloomTest : public testing::Test {
   void Add(const Slice& s) { keys_.push_back(s.ToString()); }
 
   void Build() {
-    std::vector<std::string_view> key_slices;
+    std::vector<Slice> key_slices;
     for (size_t i = 0; i < keys_.size(); i++) {
-      key_slices.push_back(std::string_view{keys_[i]});
+      key_slices.push_back(Slice{keys_[i]});
     }
     filter_.clear();
     policy_->CreateFilter(key_slices, &filter_);
@@ -60,7 +60,7 @@ class BloomTest : public testing::Test {
     if (!keys_.empty()) {
       Build();
     }
-    return policy_->KeyMayMatch(s.ToStringView(), filter_);
+    return policy_->KeyMayMatch(s, filter_);
   }
 
   double FalsePositiveRate() {

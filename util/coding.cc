@@ -6,7 +6,8 @@
 
 #include <cstdint>
 #include <optional>
-#include <string_view>
+
+#include "leveldb/slice.h"
 
 namespace leveldb {
 
@@ -76,7 +77,7 @@ const char* GetVarint32PtrFallback(const char* p, const char* limit,
   return nullptr;
 }
 
-std::optional<uint32_t> GetVarint32PtrFallback(std::string_view& data) {
+std::optional<uint32_t> GetVarint32PtrFallback(Slice& data) {
   uint32_t result = 0;
   for (uint32_t shift = 0; shift <= 28 && !data.empty(); shift += 7) {
     uint32_t byte = *(reinterpret_cast<const uint8_t*>(data.data()));
@@ -104,8 +105,8 @@ bool GetVarint32(Slice* input, uint32_t* value) {
   }
 }
 
-std::optional<uint32_t> GetVarint32(std::string_view& input) {
-  std::string_view data(input);
+std::optional<uint32_t> GetVarint32(Slice& input) {
+  Slice data(input);
   auto q = GetVarint32Ptr(data);
   if (q) {
     input = data;
@@ -142,11 +143,10 @@ bool GetVarint64(Slice* input, uint64_t* value) {
   }
 }
 
-std::optional<std::string_view> GetLengthPrefixedSlice(
-    std::string_view& input) {
+std::optional<Slice> GetLengthPrefixedSlice(Slice& input) {
   if (std::optional<uint32_t> len = GetVarint32(input);
       len && input.size() >= *len) {
-    std::string_view ret(input.data(), *len);
+    Slice ret(input.data(), *len);
     input.remove_prefix(*len);
     return ret;
   } else {

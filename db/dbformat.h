@@ -8,7 +8,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
-#include <string_view>
 
 #include "leveldb/comparator.h"
 #include "leveldb/db.h"
@@ -99,11 +98,6 @@ inline Slice ExtractUserKey(const Slice& internal_key) {
   return Slice(internal_key.data(), internal_key.size() - 8);
 }
 
-inline std::string_view ExtractUserKey(const std::string_view internal_key) {
-  assert(internal_key.size() >= 8);
-  return std::string_view{internal_key.data(), internal_key.size() - 8};
-}
-
 // A comparator for internal keys that uses a specified comparator for
 // the user key portion and breaks ties by decreasing sequence number.
 class InternalKeyComparator : public Comparator {
@@ -131,10 +125,9 @@ class InternalFilterPolicy : public FilterPolicy {
  public:
   explicit InternalFilterPolicy(const FilterPolicy* p) : user_policy_(p) {}
   const char* Name() const override;
-  void CreateFilter(const std::vector<std::string_view>& keys,
+  void CreateFilter(const std::vector<Slice>& keys,
                     std::string* dst) const override;
-  bool KeyMayMatch(const std::string_view key,
-                   const std::string_view filter) const override;
+  bool KeyMayMatch(const Slice key, const Slice filter) const override;
 };
 
 // Modules in this directory should keep internal keys wrapped inside
@@ -194,7 +187,7 @@ class LookupKey {
  public:
   // Initialize *this for looking up user_key at a snapshot with
   // the specified sequence number.
-  LookupKey(const std::string_view user_key, SequenceNumber sequence);
+  LookupKey(const Slice user_key, SequenceNumber sequence);
 
   LookupKey(const LookupKey&) = delete;
   LookupKey& operator=(const LookupKey&) = delete;
@@ -202,19 +195,13 @@ class LookupKey {
   ~LookupKey();
 
   // Return a key suitable for lookup in a MemTable.
-  std::string_view memtable_key() const {
-    return std::string_view(start_, end_ - start_);
-  }
+  Slice memtable_key() const { return Slice(start_, end_ - start_); }
 
   // Return an internal key (suitable for passing to an internal iterator)
-  std::string_view internal_key() const {
-    return std::string_view(kstart_, end_ - kstart_);
-  }
+  Slice internal_key() const { return Slice(kstart_, end_ - kstart_); }
 
   // Return the user key
-  std::string_view user_key() const {
-    return std::string_view(kstart_, end_ - kstart_ - 8);
-  }
+  Slice user_key() const { return Slice(kstart_, end_ - kstart_ - 8); }
 
  private:
   // We construct a char array of the form:

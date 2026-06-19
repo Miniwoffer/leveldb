@@ -7,6 +7,7 @@
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 #include "port/port.h"
 #include "port/thread_annotations.h"

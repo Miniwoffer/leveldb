@@ -14,6 +14,7 @@
 #include "leveldb/env.h"
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
+#include "leveldb/slice.h"
 #include "leveldb/table_builder.h"
 
 #include "table/block.h"
@@ -342,7 +343,7 @@ class DBConstructor : public Constructor {
     NewDB();
     for (const auto& kvp : data) {
       WriteBatch batch;
-      batch.Put(std::string_view(kvp.first), kvp.second);
+      batch.Put(Slice(kvp.first), kvp.second);
       EXPECT_TRUE(db_->Write(WriteOptions(), &batch).ok());
     }
     return Status::OK();
@@ -730,10 +731,10 @@ TEST(MemTableTest, Simple) {
   memtable->Ref();
   WriteBatch batch;
   WriteBatchInternal::SetSequence(&batch, 100);
-  batch.Put(std::string_view("k1"), std::string("v1"));
-  batch.Put(std::string_view("k2"), std::string("v2"));
-  batch.Put(std::string_view("k3"), std::string("v3"));
-  batch.Put(std::string_view("largekey"), std::string("vlarge"));
+  batch.Put(Slice("k1"), std::string("v1"));
+  batch.Put(Slice("k2"), std::string("v2"));
+  batch.Put(Slice("k3"), std::string("v3"));
+  batch.Put(Slice("largekey"), std::string("vlarge"));
   ASSERT_TRUE(WriteBatchInternal::InsertInto(&batch, memtable).ok());
 
   Iterator* iter = memtable->NewIterator();

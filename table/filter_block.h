@@ -36,17 +36,17 @@ class FilterBlockBuilder {
   FilterBlockBuilder& operator=(const FilterBlockBuilder&) = delete;
 
   void StartBlock(uint64_t block_offset);
-  void AddKey(const std::string_view key);
+  void AddKey(const Slice key);
   Slice Finish();
 
  private:
   void GenerateFilter();
 
   const FilterPolicy* policy_;
-  std::string keys_;           // Flattened key contents
-  std::vector<size_t> start_;  // Starting index in keys_ of each key
-  std::string result_;         // Filter data computed so far
-  std::vector<std::string_view> tmp_keys_;  // policy_->CreateFilter() argument
+  std::string keys_;             // Flattened key contents
+  std::vector<size_t> start_;    // Starting index in keys_ of each key
+  std::string result_;           // Filter data computed so far
+  std::vector<Slice> tmp_keys_;  // policy_->CreateFilter() argument
   std::vector<uint32_t> filter_offsets_;
 };
 
@@ -54,7 +54,7 @@ class FilterBlockReader {
  public:
   // REQUIRES: "contents" and *policy must stay live while *this is live.
   FilterBlockReader(const FilterPolicy* policy, const Slice& contents);
-  bool KeyMayMatch(uint64_t block_offset, const std::string_view key);
+  bool KeyMayMatch(uint64_t block_offset, const Slice key);
 
  private:
   const FilterPolicy* policy_;

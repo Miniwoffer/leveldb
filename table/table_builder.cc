@@ -110,7 +110,7 @@ void TableBuilder::Add(const Slice& key, const Slice& value) {
   }
 
   if (r->filter_block != nullptr) {
-    r->filter_block->AddKey(key.ToStringView());
+    r->filter_block->AddKey(key);
   }
 
   r->last_key.assign(key.data(), key.size());

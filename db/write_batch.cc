@@ -20,6 +20,7 @@
 #include "db/write_batch_internal.h"
 
 #include "leveldb/db.h"
+#include "leveldb/slice.h"
 
 #include "util/coding.h"
 
@@ -42,7 +43,7 @@ void WriteBatch::Clear() {
 size_t WriteBatch::ApproximateSize() const { return rep_.size(); }
 
 Status WriteBatch::Iterate(Handler* handler) const {
-  std::string_view input(rep_);
+  Slice input(rep_);
   if (input.size() < kHeader) {
     return Status::Corruption("malformed WriteBatch (too small)");
   }
@@ -100,14 +101,14 @@ void WriteBatchInternal::SetSequence(WriteBatch* b, SequenceNumber seq) {
   EncodeFixed64(&b->rep_[0], seq);
 }
 
-void WriteBatch::Put(const std::string_view key, const std::string_view value) {
+void WriteBatch::Put(const Slice key, const Slice value) {
   WriteBatchInternal::SetCount(this, WriteBatchInternal::Count(this) + 1);
   rep_.push_back(static_cast<char>(kTypeValue));
   PutLengthPrefixedSlice(&rep_, key);
   PutLengthPrefixedSlice(&rep_, value);
 }
 
-void WriteBatch::Delete(const std::string_view key) {
+void WriteBatch::Delete(const Slice key) {
   WriteBatchInternal::SetCount(this, WriteBatchInternal::Count(this) + 1);
   rep_.push_back(static_cast<char>(kTypeDeletion));
   PutLengthPrefixedSlice(&rep_, key);
@@ -123,11 +124,11 @@ class MemTableInserter : public WriteBatch::Handler {
   SequenceNumber sequence_;
   MemTable* mem_;
 
-  void Put(const std::string_view key, const std::string_view value) override {
+  void Put(const Slice key, const Slice value) override {
     mem_->Add(sequence_, kTypeValue, key, value);
     sequence_++;
   }
-  void Delete(const std::string_view key) override {
+  void Delete(const Slice key) override {
     mem_->Add(sequence_, kTypeDeletion, key, Slice());
     sequence_++;
   }

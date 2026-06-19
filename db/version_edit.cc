@@ -68,8 +68,8 @@ void VersionEdit::EncodeTo(std::string& dst) const {
   for (size_t i = 0; i < compact_pointers_.size(); i++) {
     PutVarint<uint32_t>(dst, kCompactPointer);
     PutVarint<uint32_t>(dst, compact_pointers_[i].first);  // level
-    PutLengthPrefixedString<uint32_t>(
-        dst, compact_pointers_[i].second.Encode().ToStringView());
+    PutLengthPrefixedString<uint32_t>(dst,
+                                      compact_pointers_[i].second.Encode());
   }
 
   for (const auto& deleted_file_kvp : deleted_files_) {
@@ -84,13 +84,13 @@ void VersionEdit::EncodeTo(std::string& dst) const {
     PutVarint<uint32_t>(dst, new_files_[i].first);  // level
     PutVarint<uint64_t>(dst, f.number);
     PutVarint<uint64_t>(dst, f.file_size);
-    PutLengthPrefixedString<uint32_t>(dst, f.smallest.Encode().ToStringView());
-    PutLengthPrefixedString<uint32_t>(dst, f.largest.Encode().ToStringView());
+    PutLengthPrefixedString<uint32_t>(dst, f.smallest.Encode());
+    PutLengthPrefixedString<uint32_t>(dst, f.largest.Encode());
   }
 }
 
 static bool GetInternalKey(Slice* input, InternalKey* dst) {
-  std::string_view input_ = input->ToStringView();
+  Slice input_ = *input;
   auto str = GetLengthPrefixedSlice(input_);
   *input = Slice(input_.data(), input_.length());
   if (str) {
@@ -127,7 +127,7 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
   while (msg == nullptr && GetVarint32(&input, &tag)) {
     switch (tag) {
       case kComparator: {
-        std::string_view input_ = input.ToStringView();
+        Slice input_ = input;
         auto name = GetLengthPrefixedSlice(input_);
         input = Slice(input_.data(), input_.length());
         if (name) {

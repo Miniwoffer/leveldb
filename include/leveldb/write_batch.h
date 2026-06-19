@@ -24,6 +24,7 @@
 #include <string>
 
 #include "leveldb/export.h"
+#include "leveldb/slice.h"
 #include "leveldb/status.h"
 
 namespace leveldb {
@@ -35,9 +36,8 @@ class LEVELDB_EXPORT WriteBatch {
   class LEVELDB_EXPORT Handler {
    public:
     virtual ~Handler();
-    virtual void Put(const std::string_view key,
-                     const std::string_view value) = 0;
-    virtual void Delete(const std::string_view key) = 0;
+    virtual void Put(const Slice key, const Slice value) = 0;
+    virtual void Delete(const Slice key) = 0;
   };
 
   WriteBatch();
@@ -49,10 +49,10 @@ class LEVELDB_EXPORT WriteBatch {
   ~WriteBatch();
 
   // Store the mapping "key->value" in the database.
-  void Put(const std::string_view key, const std::string_view value);
+  void Put(const Slice key, const Slice value);
 
   // If the database contains a mapping for "key", erase it.  Else do nothing.
-  void Delete(const std::string_view key);
+  void Delete(const Slice key);
 
   // Clear all updates buffered in this batch.
   void Clear();

@@ -3,10 +3,10 @@
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
 #include "db/db_impl.h"
-#include <string_view>
 
 #include "leveldb/cache.h"
 #include "leveldb/db.h"
+#include "leveldb/slice.h"
 
 #include "util/testutil.h"
 
@@ -66,14 +66,13 @@ void AutoCompactTest::DoReads(int n) {
 
   // Fill database
   for (int i = 0; i < kCount; i++) {
-    ASSERT_TRUE(db_->Put(WriteOptions(), std::string_view(Key(i)),
-                         std::string_view(value)));
+    ASSERT_TRUE(db_->Put(WriteOptions(), Slice(Key(i)), Slice(value)));
   }
   ASSERT_LEVELDB_OK(dbi->TEST_CompactMemTable());
 
   // Delete everything
   for (int i = 0; i < kCount; i++) {
-    ASSERT_TRUE(db_->Delete(WriteOptions(), std::string_view(Key(i))));
+    ASSERT_TRUE(db_->Delete(WriteOptions(), Slice(Key(i))));
   }
   ASSERT_LEVELDB_OK(dbi->TEST_CompactMemTable());
 
