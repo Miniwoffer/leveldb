@@ -12,11 +12,11 @@
 #include <cinttypes>
 #include <expected>
 #include <string>
-#include <string_view>
 
 #include "leveldb/cache.h"
 #include "leveldb/env.h"
 #include "leveldb/filter_policy.h"
+#include "leveldb/slice.h"
 #include "leveldb/status.h"
 #include "leveldb/table.h"
 
@@ -350,19 +350,18 @@ class DBTest : public testing::Test {
     return DB::Open(opts, dbname_, &db_);
   }
 
-  std::expected<void, Status> Put(const std::string_view k,
-                                  const std::string_view v) {
+  std::expected<void, Status> Put(const Slice k, const Slice v) {
     return db_->Put(WriteOptions(), k, v);
   }
 
-  std::expected<void, Status> Delete(const std::string_view& k) {
+  std::expected<void, Status> Delete(const Slice& k) {
     return db_->Delete(WriteOptions(), k);
   }
 
   std::string Get(const std::string& k, const Snapshot* snapshot = nullptr) {
     ReadOptions options;
     options.snapshot = snapshot;
-    std::string_view key(k);
+    Slice key(k);
     auto resp = db_->Get(options, k);
     if (resp) {
       return *resp;
@@ -617,11 +616,11 @@ TEST_F(DBTest, ReadWrite) {
 
 TEST_F(DBTest, PutDeleteGet) {
   do {
-    ASSERT_TRUE(db_->Put(WriteOptions(), std::string_view("foo"), "v1"));
+    ASSERT_TRUE(db_->Put(WriteOptions(), Slice("foo"), "v1"));
     ASSERT_EQ("v1", Get("foo"));
-    ASSERT_TRUE(db_->Put(WriteOptions(), std::string_view("foo"), "v2"));
+    ASSERT_TRUE(db_->Put(WriteOptions(), Slice("foo"), "v2"));
     ASSERT_EQ("v2", Get("foo"));
-    ASSERT_TRUE(db_->Delete(WriteOptions(), std::string_view("foo")));
+    ASSERT_TRUE(db_->Delete(WriteOptions(), Slice("foo")));
     ASSERT_EQ("NOT_FOUND", Get("foo"));
   } while (ChangeOptions());
 }
@@ -638,10 +637,9 @@ TEST_F(DBTest, GetFromImmutableLayer) {
 
     // Block sync calls.
     env_->delay_data_sync_.store(true, std::memory_order_release);
-    ASSERT_TRUE(Put(std::string_view("k1"),
-                    std::string(100000, 'x')));  // Fill memtable.
-    ASSERT_TRUE(Put(std::string_view("k2"),
-                    std::string(100000, 'y')));  // Trigger compaction.
+    ASSERT_TRUE(Put(Slice("k1"), std::string(100000, 'x')));  // Fill memtable.
+    ASSERT_TRUE(
+        Put(Slice("k2"), std::string(100000, 'y')));  // Trigger compaction.
     ASSERT_EQ("v1", Get("foo"));
     // Release sync calls.
     env_->delay_data_sync_.store(false, std::memory_order_release);
@@ -1834,12 +1832,12 @@ TEST_F(DBTest, WriteSyncError) {
 
   // (b) Normal write should succeed
   WriteOptions w;
-  ASSERT_TRUE(db_->Put(w, std::string_view("k1"), "v1"));
+  ASSERT_TRUE(db_->Put(w, Slice("k1"), "v1"));
   ASSERT_EQ("v1", Get("k1"));
 
   // (c) Do a sync write; should fail
   w.sync = true;
-  ASSERT_FALSE(db_->Put(w, std::string_view("k2"), "v2"));
+  ASSERT_FALSE(db_->Put(w, Slice("k2"), "v2"));
   ASSERT_EQ("v1", Get("k1"));
   ASSERT_EQ("NOT_FOUND", Get("k2"));
 
@@ -1848,7 +1846,7 @@ TEST_F(DBTest, WriteSyncError) {
 
   // (e) Do a non-sync write; should fail
   w.sync = false;
-  ASSERT_FALSE(db_->Put(w, std::string_view("k3"), "v3"));
+  ASSERT_FALSE(db_->Put(w, Slice("k3"), "v3"));
   ASSERT_EQ("v1", Get("k1"));
   ASSERT_EQ("NOT_FOUND", Get("k2"));
   ASSERT_EQ("NOT_FOUND", Get("k3"));
@@ -2053,8 +2051,7 @@ static void MTThreadBody(void* arg) {
       // We add some padding for force compactions.
       std::snprintf(valbuf, sizeof(valbuf), "%d.%d.%-1000d", key, id,
                     static_cast<int>(counter));
-      ASSERT_TRUE(db->Put(WriteOptions(), std::string_view(keybuf),
-                          std::string_view(valbuf)));
+      ASSERT_TRUE(db->Put(WriteOptions(), Slice(keybuf), Slice(valbuf)));
     } else {
       // Read a value and verify that it matches the pattern written above.
       auto s = db->Get(ReadOptions(), keybuf);
@@ -2124,18 +2121,17 @@ class ModelDB : public DB {
   explicit ModelDB(const Options& options) : options_(options) {}
   ~ModelDB() override = default;
 
-  std::expected<void, Status> Put(const WriteOptions& o,
-                                  const std::string_view k,
-                                  const std::string_view v) override {
+  std::expected<void, Status> Put(const WriteOptions& o, const Slice k,
+                                  const Slice v) override {
     return DB::Put(o, k, v);
   }
 
   std::expected<void, Status> Delete(const WriteOptions& o,
-                                     const std::string_view key) override {
+                                     const Slice key) override {
     return DB::Delete(o, key);
   }
   std::expected<std::string, Status> Get(const ReadOptions& options,
-                                         const std::string_view key) override {
+                                         const Slice key) override {
     assert(false);  // Not implemented
     return std::unexpected(Status::NotFound(std::string(key)));
   }
@@ -2163,13 +2159,10 @@ class ModelDB : public DB {
     class Handler : public WriteBatch::Handler {
      public:
       KVMap* map_;
-      void Put(const std::string_view key,
-               const std::string_view value) override {
+      void Put(const Slice key, const Slice value) override {
         (*map_)[std::string(key)] = std::string(value);
       }
-      void Delete(const std::string_view key) override {
-        map_->erase(std::string(key));
-      }
+      void Delete(const Slice key) override { map_->erase(std::string(key)); }
     };
     Handler handler;
     handler.map_ = &map_;
@@ -2324,13 +2317,13 @@ TEST_F(DBTest, Randomized) {
         k = RandomKey(&rnd);
         v = RandomString(
             &rnd, rnd.OneIn(20) ? 100 + rnd.Uniform(100) : rnd.Uniform(8));
-        ASSERT_TRUE(model.Put(WriteOptions(), std::string_view(k), v));
-        ASSERT_TRUE(db_->Put(WriteOptions(), std::string_view(k), v));
+        ASSERT_TRUE(model.Put(WriteOptions(), Slice(k), v));
+        ASSERT_TRUE(db_->Put(WriteOptions(), Slice(k), v));
 
       } else if (p < 90) {  // Delete
         k = RandomKey(&rnd);
-        ASSERT_TRUE(model.Delete(WriteOptions(), std::string_view(k)));
-        ASSERT_TRUE(db_->Delete(WriteOptions(), std::string_view(k)));
+        ASSERT_TRUE(model.Delete(WriteOptions(), Slice(k)));
+        ASSERT_TRUE(db_->Delete(WriteOptions(), Slice(k)));
 
       } else {  // Multi-element batch
         WriteBatch b;
@@ -2344,7 +2337,7 @@ TEST_F(DBTest, Randomized) {
           }
           if (rnd.OneIn(2)) {
             v = RandomString(&rnd, rnd.Uniform(10));
-            b.Put(std::string_view(k), v);
+            b.Put(Slice(k), v);
           } else {
             b.Delete(k);
           }

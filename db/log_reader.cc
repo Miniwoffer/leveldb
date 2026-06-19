@@ -7,6 +7,7 @@
 #include <cstdio>
 
 #include "leveldb/env.h"
+
 #include "util/coding.h"
 #include "util/crc32c.h"
 
@@ -61,7 +62,7 @@ bool Reader::ReadRecord(Slice* record, std::string* scratch) {
   }
 
   scratch->clear();
-  record->clear();
+  record->Clear();
   bool in_fragmented_record = false;
   // Record offset of the logical record that we're reading
   // 0 is a dummy value to make compilers happy
@@ -191,11 +192,11 @@ unsigned int Reader::ReadPhysicalRecord(Slice* result) {
     if (buffer_.size() < kHeaderSize) {
       if (!eof_) {
         // Last read was a full read, so this is a trailer to skip
-        buffer_.clear();
+        buffer_.Clear();
         Status status = file_->Read(kBlockSize, &buffer_, backing_store_);
         end_of_buffer_offset_ += buffer_.size();
         if (!status.ok()) {
-          buffer_.clear();
+          buffer_.Clear();
           ReportDrop(kBlockSize, status);
           eof_ = true;
           return kEof;
@@ -208,7 +209,7 @@ unsigned int Reader::ReadPhysicalRecord(Slice* result) {
         // end of the file, which can be caused by the writer crashing in the
         // middle of writing the header. Instead of considering this an error,
         // just report EOF.
-        buffer_.clear();
+        buffer_.Clear();
         return kEof;
       }
     }
@@ -221,7 +222,7 @@ unsigned int Reader::ReadPhysicalRecord(Slice* result) {
     const uint32_t length = a | (b << 8);
     if (kHeaderSize + length > buffer_.size()) {
       size_t drop_size = buffer_.size();
-      buffer_.clear();
+      buffer_.Clear();
       if (!eof_) {
         ReportCorruption(drop_size, "bad record length");
         return kBadRecord;
@@ -236,7 +237,7 @@ unsigned int Reader::ReadPhysicalRecord(Slice* result) {
       // Skip zero length record without reporting any drops since
       // such records are produced by the mmap based writing code in
       // env_posix.cc that preallocates file regions.
-      buffer_.clear();
+      buffer_.Clear();
       return kBadRecord;
     }
 
@@ -250,7 +251,7 @@ unsigned int Reader::ReadPhysicalRecord(Slice* result) {
         // fragment of a real log record that just happens to look
         // like a valid log record.
         size_t drop_size = buffer_.size();
-        buffer_.clear();
+        buffer_.Clear();
         ReportCorruption(drop_size, "checksum mismatch");
         return kBadRecord;
       }
@@ -261,7 +262,7 @@ unsigned int Reader::ReadPhysicalRecord(Slice* result) {
     // Skip physical record that started before initial_offset_
     if (end_of_buffer_offset_ - buffer_.size() - kHeaderSize - length <
         initial_offset_) {
-      result->clear();
+      result->Clear();
       return kBadRecord;
     }
 

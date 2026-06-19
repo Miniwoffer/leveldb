@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "leveldb/comparator.h"
+
 #include "table/format.h"
 #include "util/coding.h"
 #include "util/logging.h"
@@ -244,7 +245,7 @@ class Block::Iter : public Iterator {
     restart_index_ = num_restarts_;
     status_ = Status::Corruption("bad entry in block");
     key_.clear();
-    value_.clear();
+    value_.Clear();
   }
 
   bool ParseNextKey() {

@@ -6,11 +6,11 @@
 
 #include "db/db_impl.h"
 #include <string>
-#include <string_view>
 #include <vector>
 
 #include "leveldb/db.h"
 #include "leveldb/env.h"
+#include "leveldb/slice.h"
 
 #include "util/testutil.h"
 
@@ -222,8 +222,8 @@ TEST_F(MemEnvTest, DBTest) {
   options.env = env_;
   DB* db;
 
-  const std::string_view keys[] = {{"aaa"}, {"bbb"}, {"ccc"}};
-  const std::string_view vals[] = {{"foo"}, {"bar"}, {"baz"}};
+  const Slice keys[] = {{"aaa"}, {"bbb"}, {"ccc"}};
+  const Slice vals[] = {{"foo"}, {"bar"}, {"baz"}};
 
   ASSERT_LEVELDB_OK(DB::Open(options, "/dir/db", &db));
   for (size_t i = 0; i < 3; ++i) {

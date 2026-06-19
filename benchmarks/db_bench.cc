@@ -5,7 +5,6 @@
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
-#include <string_view>
 #include <sys/types.h>
 
 #include "leveldb/cache.h"
@@ -13,6 +12,7 @@
 #include "leveldb/db.h"
 #include "leveldb/env.h"
 #include "leveldb/filter_policy.h"
+#include "leveldb/slice.h"
 #include "leveldb/write_batch.h"
 
 #include "port/port.h"
@@ -184,13 +184,13 @@ class RandomGenerator {
     pos_ = 0;
   }
 
-  std::string_view Generate(size_t len) {
+  Slice Generate(size_t len) {
     if (pos_ + len > data_.size()) {
       pos_ = 0;
       assert(len < data_.size());
     }
     pos_ += len;
-    return std::string_view(data_.data() + pos_ - len, len);
+    return Slice(data_.data() + pos_ - len, len);
   }
 };
 
@@ -208,10 +208,7 @@ class KeyBuffer {
                   sizeof(buffer_) - FLAGS_key_prefix, "%016d", k);
   }
 
-  Slice slice() const { return Slice(buffer_, FLAGS_key_prefix + 16); }
-  std::string_view string_view() const {
-    return std::string_view(buffer_, FLAGS_key_prefix + 16);
-  }
+  Slice ToSlice() const { return Slice(buffer_, FLAGS_key_prefix + 16); }
 
  private:
   char buffer_[1024];
@@ -856,8 +853,8 @@ class Benchmark {
       for (int j = 0; j < entries_per_batch_; j++) {
         const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
         key.Set(k);
-        batch.Put(key.string_view(), gen.Generate(value_size_));
-        bytes += value_size_ + key.slice().size();
+        batch.Put(key.ToSlice(), gen.Generate(value_size_));
+        bytes += value_size_ + key.ToSlice().size();
         thread->stats.FinishedSingleOp();
       }
       s = db_->Write(write_options_, &batch);
@@ -902,7 +899,7 @@ class Benchmark {
     for (int i = 0; i < reads_; i++) {
       const int k = thread->rand.Uniform(FLAGS_num);
       key.Set(k);
-      if (db_->Get(options, key.slice().ToStringView())) {
+      if (db_->Get(options, key.ToSlice())) {
         found++;
       }
       thread->stats.FinishedSingleOp();
@@ -918,7 +915,7 @@ class Benchmark {
     for (int i = 0; i < reads_; i++) {
       const int k = thread->rand.Uniform(FLAGS_num);
       key.Set(k);
-      std::string_view sv(key.slice().data(), key.slice().size() - 1);
+      Slice sv(key.ToSlice().data(), key.ToSlice().size() - 1);
       db_->Get(options, sv);
       thread->stats.FinishedSingleOp();
     }
@@ -931,7 +928,7 @@ class Benchmark {
     for (int i = 0; i < reads_; i++) {
       const int k = thread->rand.Uniform(range);
       key.Set(k);
-      db_->Get(options, key.slice().ToStringView());
+      db_->Get(options, key.ToSlice());
       thread->stats.FinishedSingleOp();
     }
   }
@@ -944,8 +941,8 @@ class Benchmark {
       Iterator* iter = db_->NewIterator(options);
       const int k = thread->rand.Uniform(FLAGS_num);
       key.Set(k);
-      iter->Seek(key.slice());
-      if (iter->Valid() && iter->key() == key.slice()) found++;
+      iter->Seek(key.ToSlice());
+      if (iter->Valid() && iter->key() == key.ToSlice()) found++;
       delete iter;
       thread->stats.FinishedSingleOp();
     }
@@ -963,8 +960,8 @@ class Benchmark {
     for (int i = 0; i < reads_; i++) {
       k = (k + (thread->rand.Uniform(100))) % FLAGS_num;
       key.Set(k);
-      iter->Seek(key.slice());
-      if (iter->Valid() && iter->key() == key.slice()) found++;
+      iter->Seek(key.ToSlice());
+      if (iter->Valid() && iter->key() == key.ToSlice()) found++;
       thread->stats.FinishedSingleOp();
     }
     delete iter;
@@ -983,7 +980,7 @@ class Benchmark {
       for (int j = 0; j < entries_per_batch_; j++) {
         const int k = seq ? i + j : (thread->rand.Uniform(FLAGS_num));
         key.Set(k);
-        batch.Delete(key.string_view());
+        batch.Delete(key.ToSlice());
         thread->stats.FinishedSingleOp();
       }
       s = db_->Write(write_options_, &batch);
@@ -1016,8 +1013,8 @@ class Benchmark {
 
         const int k = thread->rand.Uniform(FLAGS_num);
         key.Set(k);
-        auto s = db_->Put(write_options_, key.string_view(),
-                          gen.Generate(value_size_));
+        auto s =
+            db_->Put(write_options_, key.ToSlice(), gen.Generate(value_size_));
         if (!s) {
           std::fprintf(stderr, "put error: %s\n", s.error().ToString().c_str());
           std::exit(1);

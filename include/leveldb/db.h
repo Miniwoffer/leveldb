@@ -8,11 +8,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <expected>
-#include <string_view>
 
 #include "leveldb/export.h"
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
+#include "leveldb/slice.h"
 
 namespace leveldb {
 
@@ -66,15 +66,15 @@ class LEVELDB_EXPORT DB {
   // and a non-OK status on error.
   // Note: consider setting options.sync = true.
   virtual std::expected<void, Status> Put(const WriteOptions& options,
-                                          const std::string_view key,
-                                          const std::string_view value) = 0;
+                                          const Slice key,
+                                          const Slice value) = 0;
 
   // Remove the database entry (if any) for "key".  Returns OK on
   // success, and a non-OK status on error.  It is not an error if "key"
   // did not exist in the database.
   // Note: consider setting options.sync = true.
   virtual std::expected<void, Status> Delete(const WriteOptions& options,
-                                             const std::string_view key) = 0;
+                                             const Slice key) = 0;
 
   // Apply the specified updates to the database.
   // Returns OK on success, non-OK on failure.
@@ -87,8 +87,8 @@ class LEVELDB_EXPORT DB {
   // a status for which Status::IsNotFound() returns true.
   //
   // May return some other Status on an error.
-  virtual std::expected<std::string, Status> Get(
-      const ReadOptions& options, const std::string_view key) = 0;
+  virtual std::expected<std::string, Status> Get(const ReadOptions& options,
+                                                 const Slice key) = 0;
 
   // Return a heap-allocated iterator over the contents of the database.
   // The result of NewIterator() is initially invalid (caller must

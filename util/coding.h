@@ -17,8 +17,6 @@
 #include <regex.h>
 #include <span>
 #include <string>
-#include <string_view>
-#include <vector>
 
 #include "leveldb/slice.h"
 
@@ -36,7 +34,7 @@ void PutLengthPrefixedSlice(std::string* dst, const Slice& value);
 // and advance the slice past the parsed value.
 bool GetVarint32(Slice* input, uint32_t* value);
 bool GetVarint64(Slice* input, uint64_t* value);
-std::optional<std::string_view> GetLengthPrefixedSlice(std::string_view& input);
+std::optional<Slice> GetLengthPrefixedSlice(Slice& input);
 
 // Pointer-based variants of GetVarint...  These either store a value
 // in *v and return a pointer just past the parsed value, or return
@@ -69,16 +67,16 @@ inline void EncodeFixed64(char* dst, uint64_t value) {
 // without any bounds checking.
 
 inline uint32_t DecodeFixed32(const char* ptr) {
-  return DecodeFixed<uint32_t>(std::string_view(ptr, 4));
+  return DecodeFixed<uint32_t>(Slice(ptr, 4));
 }
 
 inline uint64_t DecodeFixed64(const char* ptr) {
-  return DecodeFixed<uint64_t>(std::string_view(ptr, 8));
+  return DecodeFixed<uint64_t>(Slice(ptr, 8));
 }
 
 inline const char* GetVarint32Ptr(const char* p, const char* limit,
                                   uint32_t* value) {
-  std::string_view sv(p, limit - p);
+  Slice sv(p, limit - p);
   auto result = GetVarint<uint32_t>(sv);
   if (result) {
     *value = result->value;
@@ -88,9 +86,8 @@ inline const char* GetVarint32Ptr(const char* p, const char* limit,
 }
 
 // Internal routine for use by fallback path of GetVarint32Ptr
-
-std::optional<uint32_t> GetVarint32PtrFallback(std::string_view& data);
-inline std::optional<uint32_t> GetVarint32Ptr(std::string_view& data) {
+std::optional<uint32_t> GetVarint32PtrFallback(Slice& data);
+inline std::optional<uint32_t> GetVarint32Ptr(Slice& data) {
   auto result = GetVarint<uint32_t>(data);
   if (result) {
     data = result->remaining_input;

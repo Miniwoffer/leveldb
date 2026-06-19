@@ -16,6 +16,7 @@
 
 #include "leveldb/db.h"
 #include "leveldb/env.h"
+#include "leveldb/status.h"
 
 #include "port/port.h"
 #include "port/thread_annotations.h"
@@ -38,16 +39,15 @@ class DBImpl : public DB {
   ~DBImpl() override;
 
   // Implementations of the DB interface
-  std::expected<void, Status> Put(const WriteOptions& options,
-                                  const std::string_view key,
-                                  const std::string_view value) override;
+  std::expected<void, Status> Put(const WriteOptions& options, const Slice key,
+                                  const Slice value) override;
 
   std::expected<void, Status> Delete(const WriteOptions&,
-                                     const std::string_view key) override;
+                                     const Slice key) override;
   Status Write(const WriteOptions& options, WriteBatch* updates) override;
 
   std::expected<std::string, Status> Get(const ReadOptions& options,
-                                         const std::string_view key) override;
+                                         const Slice key) override;
   Iterator* NewIterator(const ReadOptions&) override;
   const Snapshot* GetSnapshot() override;
   void ReleaseSnapshot(const Snapshot* snapshot) override;

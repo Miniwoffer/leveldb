@@ -2,13 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
-#include "gtest/gtest.h"
 #include "db/log_reader.h"
 #include "db/log_writer.h"
+
 #include "leveldb/env.h"
+
 #include "util/coding.h"
 #include "util/crc32c.h"
 #include "util/random.h"
+
+#include "gtest/gtest.h"
 
 namespace leveldb {
 namespace log {
@@ -196,7 +199,7 @@ class LogTest : public testing::Test {
 
     Status Skip(uint64_t n) override {
       if (n > contents_.size()) {
-        contents_.clear();
+        contents_.Clear();
         return Status::NotFound("in-memory file skipped past end");
       }
 

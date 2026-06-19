@@ -6,8 +6,8 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <string.h>
-#include <string_view>
 
 #include "leveldb/cache.h"
 #include "leveldb/comparator.h"
@@ -16,6 +16,7 @@
 #include "leveldb/filter_policy.h"
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
+#include "leveldb/slice.h"
 #include "leveldb/status.h"
 #include "leveldb/write_batch.h"
 
@@ -111,7 +112,7 @@ struct leveldb_filterpolicy_t : public FilterPolicy {
 
   const char* Name() const override { return (*name_)(state_); }
 
-  void CreateFilter(const std::vector<std::string_view>& keys,
+  void CreateFilter(const std::vector<Slice>& keys,
                     std::string* dst) const override {
     std::vector<const char*> key_pointers;
     std::vector<size_t> key_sizes;
@@ -129,8 +130,7 @@ struct leveldb_filterpolicy_t : public FilterPolicy {
     std::free(filter);
   }
 
-  bool KeyMayMatch(const std::string_view key,
-                   const std::string_view filter) const override {
+  bool KeyMayMatch(const Slice key, const Slice filter) const override {
     return (*key_match_)(state_, key.data(), key.size(), filter.data(),
                          filter.size());
   }
@@ -190,8 +190,8 @@ void leveldb_close(leveldb_t* db) {
 void leveldb_put(leveldb_t* db, const leveldb_writeoptions_t* options,
                  const char* key, size_t keylen, const char* val, size_t vallen,
                  char** errptr) {
-  auto resp = db->rep->Put(options->rep, std::string_view(key, keylen),
-                           std::string_view(val, vallen));
+  auto resp =
+      db->rep->Put(options->rep, Slice(key, keylen), Slice(val, vallen));
   if (!resp) {
     SaveError(errptr, resp.error());
   }
@@ -199,7 +199,7 @@ void leveldb_put(leveldb_t* db, const leveldb_writeoptions_t* options,
 
 void leveldb_delete(leveldb_t* db, const leveldb_writeoptions_t* options,
                     const char* key, size_t keylen, char** errptr) {
-  auto resp = db->rep->Delete(options->rep, std::string_view(key, keylen));
+  auto resp = db->rep->Delete(options->rep, Slice(key, keylen));
   if (!resp) {
     SaveError(errptr, resp.error());
   }
@@ -214,7 +214,7 @@ char* leveldb_get(leveldb_t* db, const leveldb_readoptions_t* options,
                   const char* key, size_t keylen, size_t* vallen,
                   char** errptr) {
   char* result = nullptr;
-  auto s = db->rep->Get(options->rep, std::string_view(key, keylen));
+  auto s = db->rep->Get(options->rep, Slice(key, keylen));
   if (s) {
     *vallen = (*s).size();
     result = CopyString(*s);
@@ -342,12 +342,12 @@ void leveldb_writebatch_clear(leveldb_writebatch_t* b) { b->rep.Clear(); }
 
 void leveldb_writebatch_put(leveldb_writebatch_t* b, const char* key,
                             size_t klen, const char* val, size_t vlen) {
-  b->rep.Put(std::string_view(key, klen), std::string_view(val, vlen));
+  b->rep.Put(Slice(key, klen), Slice(val, vlen));
 }
 
 void leveldb_writebatch_delete(leveldb_writebatch_t* b, const char* key,
                                size_t klen) {
-  b->rep.Delete(std::string_view(key, klen));
+  b->rep.Delete(Slice(key, klen));
 }
 
 void leveldb_writebatch_iterate(const leveldb_writebatch_t* b, void* state,
@@ -360,11 +360,10 @@ void leveldb_writebatch_iterate(const leveldb_writebatch_t* b, void* state,
     void* state_;
     void (*put_)(void*, const char* k, size_t klen, const char* v, size_t vlen);
     void (*deleted_)(void*, const char* k, size_t klen);
-    void Put(const std::string_view key,
-             const std::string_view value) override {
+    void Put(const Slice key, const Slice value) override {
       (*put_)(state_, key.data(), key.size(), value.data(), value.size());
     }
-    void Delete(const std::string_view key) override {
+    void Delete(const Slice key) override {
       (*deleted_)(state_, key.data(), key.size());
     }
   };
@@ -488,12 +487,10 @@ leveldb_filterpolicy_t* leveldb_filterpolicy_create_bloom(int bits_per_key) {
     ~Wrapper() { delete rep_; }
     const char* Name() const { return rep_->Name(); }
 
-    void CreateFilter(const std::vector<std::string_view>& keys,
-                      std::string* dst) const {
+    void CreateFilter(const std::vector<Slice>& keys, std::string* dst) const {
       return rep_->CreateFilter(keys, dst);
     }
-    bool KeyMayMatch(const std::string_view key,
-                     const std::string_view filter) const {
+    bool KeyMayMatch(const Slice key, const Slice filter) const {
       return rep_->KeyMayMatch(key, filter);
     }
 

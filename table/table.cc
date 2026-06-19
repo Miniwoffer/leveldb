@@ -225,7 +225,7 @@ std::expected<std::string, Status> Table::InternalGet(
     FilterBlockReader* filter = rep_->filter;
     BlockHandle handle;
     if (filter != nullptr && handle.DecodeFrom(&handle_value).ok() &&
-        !filter->KeyMayMatch(handle.offset(), k.ToStringView())) {
+        !filter->KeyMayMatch(handle.offset(), k)) {
       delete iiter;
       return std::unexpected(Status::NotFound(Slice()));
     } else {

@@ -10,11 +10,11 @@
 #include "db/version_edit.h"
 #include "db/write_batch_internal.h"
 #include <cstdio>
-#include <string_view>
 
 #include "leveldb/env.h"
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
+#include "leveldb/slice.h"
 #include "leveldb/status.h"
 #include "leveldb/table.h"
 #include "leveldb/write_batch.h"
@@ -76,7 +76,7 @@ Status PrintLogContents(Env* env, const std::string& fname,
 // Called on every item found in a WriteBatch.
 class WriteBatchItemPrinter : public WriteBatch::Handler {
  public:
-  void Put(const std::string_view key, const std::string_view value) override {
+  void Put(const Slice key, const Slice value) override {
     std::string r = "  put '";
     AppendEscapedStringTo(&r, key);
     r += "' '";
@@ -84,7 +84,7 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
     r += "'\n";
     dst_->Append(r);
   }
-  void Delete(const std::string_view key) override {
+  void Delete(const Slice key) override {
     std::string r = "  del '";
     AppendEscapedStringTo(&r, key);
     r += "'\n";

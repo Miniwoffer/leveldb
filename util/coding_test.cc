@@ -177,7 +177,7 @@ TEST(Coding, Strings) {
   PutLengthPrefixedSlice(&s, Slice("bar"));
   PutLengthPrefixedSlice(&s, Slice(std::string(200, 'x')));
 
-  std::string_view input(s);
+  Slice input(s);
   auto v = GetLengthPrefixedSlice(input);
   ASSERT_TRUE(v);
   ASSERT_EQ("", v);
