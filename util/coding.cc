@@ -4,11 +4,6 @@
 
 #include "util/coding.h"
 
-#include <cstdint>
-#include <optional>
-
-#include "leveldb/slice.h"
-
 namespace leveldb {
 
 void PutFixed32(std::string* dst, uint32_t value) {
@@ -45,7 +40,7 @@ void PutVarint64(std::string* dst, uint64_t v) {
   dst->append(reinterpret_cast<char*>(buf), sizeof(buf) - resp.size());
 }
 
-void PutLengthPrefixedSlice(std::string* dst, const Slice& value) {
+void PutLengthPrefixedView(std::string* dst, const std::string_view& value) {
   PutVarint32(dst, value.size());
   dst->append(value.data(), value.size());
 }
@@ -77,7 +72,7 @@ const char* GetVarint32PtrFallback(const char* p, const char* limit,
   return nullptr;
 }
 
-std::optional<uint32_t> GetVarint32PtrFallback(Slice& data) {
+std::optional<uint32_t> GetVarint32PtrFallback(std::string_view& data) {
   uint32_t result = 0;
   for (uint32_t shift = 0; shift <= 28 && !data.empty(); shift += 7) {
     uint32_t byte = *(reinterpret_cast<const uint8_t*>(data.data()));
@@ -93,20 +88,20 @@ std::optional<uint32_t> GetVarint32PtrFallback(Slice& data) {
   return {};
 }
 
-bool GetVarint32(Slice* input, uint32_t* value) {
+bool GetVarint32(std::string_view* input, uint32_t* value) {
   const char* p = input->data();
   const char* limit = p + input->size();
   const char* q = GetVarint32Ptr(p, limit, value);
   if (q == nullptr) {
     return false;
   } else {
-    *input = Slice(q, limit - q);
+    *input = std::string_view(q, limit - q);
     return true;
   }
 }
 
-std::optional<uint32_t> GetVarint32(Slice& input) {
-  Slice data(input);
+std::optional<uint32_t> GetVarint32(std::string_view& input) {
+  std::string_view data(input);
   auto q = GetVarint32Ptr(data);
   if (q) {
     input = data;
@@ -131,22 +126,22 @@ const char* GetVarint64Ptr(const char* p, const char* limit, uint64_t* value) {
   return nullptr;
 }
 
-bool GetVarint64(Slice* input, uint64_t* value) {
+bool GetVarint64(std::string_view* input, uint64_t* value) {
   const char* p = input->data();
   const char* limit = p + input->size();
   const char* q = GetVarint64Ptr(p, limit, value);
   if (q == nullptr) {
     return false;
   } else {
-    *input = Slice(q, limit - q);
+    *input = std::string_view(q, limit - q);
     return true;
   }
 }
 
-std::optional<Slice> GetLengthPrefixedSlice(Slice& input) {
+std::optional<std::string_view> GetLengthPrefixedView(std::string_view& input) {
   if (std::optional<uint32_t> len = GetVarint32(input);
       len && input.size() >= *len) {
-    Slice ret(input.data(), *len);
+    std::string_view ret(input.data(), *len);
     input.remove_prefix(*len);
     return ret;
   } else {

@@ -10,7 +10,6 @@
 
 #include "leveldb/cache.h"
 #include "leveldb/db.h"
-#include "leveldb/slice.h"
 #include "leveldb/table.h"
 #include "leveldb/write_batch.h"
 
@@ -68,7 +67,7 @@ class CorruptionTest : public testing::Test {
     WriteBatch batch;
     for (int i = 0; i < n; i++) {
       // if ((i % 100) == 0) std::fprintf(stderr, "@ %d of %d\n", i, n);
-      Slice key = Key(i, &key_space);
+      std::string_view key = Key(i, &key_space);
       batch.Clear();
       batch.Put(key, Value(i, &value_space));
       WriteOptions options;
@@ -91,7 +90,7 @@ class CorruptionTest : public testing::Test {
     Iterator* iter = db_->NewIterator(ReadOptions());
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
       uint64_t key;
-      Slice in(iter->key());
+      std::string_view in(iter->key());
       if (in == "" || in == "~") {
         // Ignore boundary keys.
         continue;
@@ -177,15 +176,15 @@ class CorruptionTest : public testing::Test {
   }
 
   // Return the ith key
-  Slice Key(int i, std::string* storage) {
+  std::string_view Key(int i, std::string* storage) {
     char buf[100];
     std::snprintf(buf, sizeof(buf), "%016d", i);
     storage->assign(buf, strlen(buf));
-    return Slice(*storage);
+    return std::string_view(*storage);
   }
 
   // Return the value to associate with the specified key
-  Slice Value(int k, std::string* storage) {
+  std::string_view Value(int k, std::string* storage) {
     Random r(k);
     return test::RandomString(&r, kValueSize, storage);
   }
@@ -278,7 +277,7 @@ TEST_F(CorruptionTest, MissingDescriptor) {
 }
 
 TEST_F(CorruptionTest, SequenceNumberRecovery) {
-  Slice key("foo");
+  std::string_view key("foo");
   ASSERT_TRUE(db_->Put(WriteOptions(), key, "v1"));
   ASSERT_TRUE(db_->Put(WriteOptions(), key, "v2"));
   ASSERT_TRUE(db_->Put(WriteOptions(), key, "v3"));
@@ -305,7 +304,7 @@ TEST_F(CorruptionTest, SequenceNumberRecovery) {
 }
 
 TEST_F(CorruptionTest, CorruptedDescriptor) {
-  ASSERT_TRUE(db_->Put(WriteOptions(), Slice("foo"), "hello"));
+  ASSERT_TRUE(db_->Put(WriteOptions(), std::string_view("foo"), "hello"));
   DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
   dbi->TEST_CompactMemTable();
   dbi->TEST_CompactRange(0, nullptr, nullptr);

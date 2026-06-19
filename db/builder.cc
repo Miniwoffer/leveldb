@@ -8,6 +8,7 @@
 #include "db/filename.h"
 #include "db/table_cache.h"
 #include "db/version_edit.h"
+
 #include "leveldb/db.h"
 #include "leveldb/env.h"
 #include "leveldb/iterator.h"
@@ -30,7 +31,7 @@ Status BuildTable(const std::string& dbname, Env* env, const Options& options,
 
     TableBuilder* builder = new TableBuilder(options, file);
     meta->smallest.DecodeFrom(iter->key());
-    Slice key;
+    std::string_view key;
     for (; iter->Valid(); iter->Next()) {
       key = iter->key();
       builder->Add(key, iter->value());

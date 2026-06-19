@@ -18,7 +18,7 @@ struct TableAndFile {
   Table* table;
 };
 
-static void DeleteEntry(const Slice& key, void* value) {
+static void DeleteEntry(const std::string_view& key, void* value) {
   TableAndFile* tf = reinterpret_cast<TableAndFile*>(value);
   delete tf->table;
   delete tf->file;
@@ -44,7 +44,7 @@ std::expected<Cache::Handle*, Status> TableCache::FindTable(
     uint64_t file_number, uint64_t file_size) {
   char buf[sizeof(file_number)];
   EncodeFixed64(buf, file_number);
-  Slice key(buf, sizeof(buf));
+  std::string_view key(buf, sizeof(buf));
   if (auto lookup_res = cache_->Lookup(key)) {
     return *lookup_res;
   }
@@ -106,9 +106,9 @@ Iterator* TableCache::NewIterator(const ReadOptions& options,
 
 std::expected<std::string, Status> TableCache::Get(
     const ReadOptions& options, uint64_t file_number, uint64_t file_size,
-    const Slice& k,
-    std::function<std::expected<std::string, Status>(const Slice&,
-                                                     const Slice&)>
+    const std::string_view& k,
+    std::function<std::expected<std::string, Status>(const std::string_view&,
+                                                     const std::string_view&)>
         handle_result) {
   if (auto handle = FindTable(file_number, file_size)) {
     Table* t = reinterpret_cast<TableAndFile*>(cache_->Value(*handle))->table;
@@ -123,7 +123,7 @@ std::expected<std::string, Status> TableCache::Get(
 void TableCache::Evict(uint64_t file_number) {
   char buf[sizeof(file_number)];
   EncodeFixed64(buf, file_number);
-  cache_->Erase(Slice(buf, sizeof(buf)));
+  cache_->Erase(std::string_view(buf, sizeof(buf)));
 }
 
 }  // namespace leveldb

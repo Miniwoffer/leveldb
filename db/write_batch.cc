@@ -20,7 +20,6 @@
 #include "db/write_batch_internal.h"
 
 #include "leveldb/db.h"
-#include "leveldb/slice.h"
 
 #include "util/coding.h"
 
@@ -43,7 +42,7 @@ void WriteBatch::Clear() {
 size_t WriteBatch::ApproximateSize() const { return rep_.size(); }
 
 Status WriteBatch::Iterate(Handler* handler) const {
-  Slice input(rep_);
+  std::string_view input(rep_);
   if (input.size() < kHeader) {
     return Status::Corruption("malformed WriteBatch (too small)");
   }
@@ -56,11 +55,11 @@ Status WriteBatch::Iterate(Handler* handler) const {
     input.remove_prefix(1);
     switch (tag) {
       case kTypeValue: {
-        auto key = GetLengthPrefixedSlice(input);
+        auto key = GetLengthPrefixedView(input);
         if (!key) {
           return Status::Corruption("bad WriteBatch Put");
         }
-        auto value = GetLengthPrefixedSlice(input);
+        auto value = GetLengthPrefixedView(input);
         if (!value) {
           return Status::Corruption("bad WriteBatch Put");
         }
@@ -68,7 +67,7 @@ Status WriteBatch::Iterate(Handler* handler) const {
         handler->Put(*key, *value);
       } break;
       case kTypeDeletion: {
-        auto key = GetLengthPrefixedSlice(input);
+        auto key = GetLengthPrefixedView(input);
         if (!key) {
           return Status::Corruption("bad WriteBatch Delete");
         }
@@ -101,17 +100,17 @@ void WriteBatchInternal::SetSequence(WriteBatch* b, SequenceNumber seq) {
   EncodeFixed64(&b->rep_[0], seq);
 }
 
-void WriteBatch::Put(const Slice key, const Slice value) {
+void WriteBatch::Put(const std::string_view key, const std::string_view value) {
   WriteBatchInternal::SetCount(this, WriteBatchInternal::Count(this) + 1);
   rep_.push_back(static_cast<char>(kTypeValue));
-  PutLengthPrefixedSlice(&rep_, key);
-  PutLengthPrefixedSlice(&rep_, value);
+  PutLengthPrefixedView(&rep_, key);
+  PutLengthPrefixedView(&rep_, value);
 }
 
-void WriteBatch::Delete(const Slice key) {
+void WriteBatch::Delete(const std::string_view key) {
   WriteBatchInternal::SetCount(this, WriteBatchInternal::Count(this) + 1);
   rep_.push_back(static_cast<char>(kTypeDeletion));
-  PutLengthPrefixedSlice(&rep_, key);
+  PutLengthPrefixedView(&rep_, key);
 }
 
 void WriteBatch::Append(const WriteBatch& source) {
@@ -124,12 +123,12 @@ class MemTableInserter : public WriteBatch::Handler {
   SequenceNumber sequence_;
   MemTable* mem_;
 
-  void Put(const Slice key, const Slice value) override {
+  void Put(const std::string_view key, const std::string_view value) override {
     mem_->Add(sequence_, kTypeValue, key, value);
     sequence_++;
   }
-  void Delete(const Slice key) override {
-    mem_->Add(sequence_, kTypeDeletion, key, Slice());
+  void Delete(const std::string_view key) override {
+    mem_->Add(sequence_, kTypeDeletion, key, std::string_view());
     sequence_++;
   }
 };
@@ -142,7 +141,8 @@ Status WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable) {
   return b->Iterate(&inserter);
 }
 
-void WriteBatchInternal::SetContents(WriteBatch* b, const Slice& contents) {
+void WriteBatchInternal::SetContents(WriteBatch* b,
+                                     const std::string_view& contents) {
   assert(contents.size() >= kHeader);
   b->rep_.assign(contents.data(), contents.size());
 }

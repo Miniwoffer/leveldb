@@ -15,9 +15,9 @@
 
 #include <algorithm>
 #include <string>
+#include <string_view>
 
 #include "leveldb/export.h"
-#include "leveldb/slice.h"
 
 namespace leveldb {
 
@@ -37,22 +37,31 @@ class LEVELDB_EXPORT Status {
   static Status OK() { return Status(); }
 
   // Return error status of an appropriate type.
-  static Status NotFound(const Slice& msg, const Slice& msg2 = Slice()) {
+  static Status NotFound(const std::string_view& msg,
+                         const std::string_view& msg2 = std::string_view()) {
     return Status(kNotFound, msg, msg2);
   }
-  static Status Corruption(const Slice& msg, const Slice& msg2 = Slice()) {
+  static Status Corruption(const std::string_view& msg,
+                           const std::string_view& msg2 = std::string_view()) {
     return Status(kCorruption, msg, msg2);
   }
-  static Status NotSupported(const Slice& msg, const Slice& msg2 = Slice()) {
+  static Status NotSupported(
+      const std::string_view& msg,
+      const std::string_view& msg2 = std::string_view()) {
     return Status(kNotSupported, msg, msg2);
   }
-  static Status InvalidArgument(const Slice& msg, const Slice& msg2 = Slice()) {
+  static Status InvalidArgument(
+      const std::string_view& msg,
+      const std::string_view& msg2 = std::string_view()) {
     return Status(kInvalidArgument, msg, msg2);
   }
-  static Status IOError(const Slice& msg, const Slice& msg2 = Slice()) {
+  static Status IOError(const std::string_view& msg,
+                        const std::string_view& msg2 = std::string_view()) {
     return Status(kIOError, msg, msg2);
   }
-  static Status InsertionFailed(const Slice& msg, const Slice& msg2 = Slice()) {
+  static Status InsertionFailed(
+      const std::string_view& msg,
+      const std::string_view& msg2 = std::string_view()) {
     return Status(kInsertionFailed, msg, msg2);
   }
   // Returns true iff the status indicates success.
@@ -94,7 +103,7 @@ class LEVELDB_EXPORT Status {
     return (state_ == nullptr) ? kOk : static_cast<Code>(state_[4]);
   }
 
-  Status(Code code, const Slice& msg, const Slice& msg2);
+  Status(Code code, const std::string_view& msg, const std::string_view& msg2);
   static const char* CopyState(const char* s);
 
   // OK status has a null state_.  Otherwise, state_ is a new[] array

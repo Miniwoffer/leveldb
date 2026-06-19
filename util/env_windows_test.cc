@@ -2,11 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
-#include "gtest/gtest.h"
 #include "leveldb/env.h"
+
 #include "port/port.h"
 #include "util/env_windows_test_helper.h"
 #include "util/testutil.h"
+
+#include "gtest/gtest.h"
 
 namespace leveldb {
 
@@ -44,7 +46,7 @@ TEST_F(EnvWindowsTest, TestOpenOnRead) {
     ASSERT_LEVELDB_OK(env_->NewRandomAccessFile(test_file, &files[i]));
   }
   char scratch;
-  Slice read_result;
+  std::string_view read_result;
   for (int i = 0; i < kNumFiles; i++) {
     ASSERT_LEVELDB_OK(files[i]->Read(i, 1, &read_result, &scratch));
     ASSERT_EQ(kFileData[i], read_result[0]);

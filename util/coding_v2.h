@@ -17,9 +17,8 @@
 #include <regex.h>
 #include <span>
 #include <string>
+#include <string_view>
 #include <type_traits>
-
-#include "leveldb/slice.h"
 
 namespace leveldb {
 
@@ -27,7 +26,7 @@ namespace leveldb {
 template <typename T>
 struct DecodingResult {
   T value;
-  Slice remaining_input;
+  std::string_view remaining_input;
 };
 
 template <typename T>
@@ -35,7 +34,7 @@ concept is_unsigned_integral = std::is_integral_v<T> && std::is_unsigned_v<T>;
 
 template <typename T>
   requires is_unsigned_integral<T>
-inline std::optional<DecodingResult<T>> GetVarint(Slice input) {
+inline std::optional<DecodingResult<T>> GetVarint(std::string_view input) {
   T result = 0;
   size_t shift = 0;
 
@@ -79,14 +78,14 @@ inline void PutVarint(std::string& dst, T v) {
 
 template <typename T>
   requires is_unsigned_integral<T>
-inline void PutLengthPrefixedString(std::string& dst, Slice v) {
+inline void PutLengthPrefixedString(std::string& dst, std::string_view v) {
   PutVarint<T>(dst, (T)v.size());
   dst.append(v);
 }
 
 template <typename T>
   requires std::is_integral_v<T>
-inline T DecodeFixed(Slice data) {
+inline T DecodeFixed(std::string_view data) {
   T value;
   std::memcpy(&value, data.data(), sizeof(T));
 
@@ -108,10 +107,11 @@ inline void EncodeFixed(std::span<uint8_t, sizeof(T)> data, T value) {
 
 template <typename T>
   requires is_unsigned_integral<T>
-std::optional<DecodingResult<Slice>> GetLengthPrefixedData(Slice input) {
+std::optional<DecodingResult<std::string_view>> GetLengthPrefixedData(
+    std::string_view input) {
   if (auto len = GetVarint<T>(input);
       len && len->remaining_input.size() >= len->value) {
-    Slice ret(len->remaining_input.data(), len->value);
+    std::string_view ret(len->remaining_input.data(), len->value);
     len->remaining_input.remove_prefix(len->value);
     return DecodingResult{ret, len->remaining_input};
   } else {

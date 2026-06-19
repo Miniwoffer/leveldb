@@ -17,8 +17,7 @@
 #include <regex.h>
 #include <span>
 #include <string>
-
-#include "leveldb/slice.h"
+#include <string_view>
 
 #include "port/port.h"
 #include "util/coding_v2.h"
@@ -28,13 +27,13 @@ namespace leveldb {
 // Standard Put... routines append to a string
 void PutFixed32(std::string* dst, uint32_t value);
 void PutFixed64(std::string* dst, uint64_t value);
-void PutLengthPrefixedSlice(std::string* dst, const Slice& value);
+void PutLengthPrefixedView(std::string* dst, const std::string_view& value);
 
-// Standard Get... routines parse a value from the beginning of a Slice
-// and advance the slice past the parsed value.
-bool GetVarint32(Slice* input, uint32_t* value);
-bool GetVarint64(Slice* input, uint64_t* value);
-std::optional<Slice> GetLengthPrefixedSlice(Slice& input);
+// Standard Get... routines parse a value from the beginning of a
+// std::string_view and advance the slice past the parsed value.
+bool GetVarint32(std::string_view* input, uint32_t* value);
+bool GetVarint64(std::string_view* input, uint64_t* value);
+std::optional<std::string_view> GetLengthPrefixedView(std::string_view& input);
 
 // Pointer-based variants of GetVarint...  These either store a value
 // in *v and return a pointer just past the parsed value, or return
@@ -67,16 +66,16 @@ inline void EncodeFixed64(char* dst, uint64_t value) {
 // without any bounds checking.
 
 inline uint32_t DecodeFixed32(const char* ptr) {
-  return DecodeFixed<uint32_t>(Slice(ptr, 4));
+  return DecodeFixed<uint32_t>(std::string_view(ptr, 4));
 }
 
 inline uint64_t DecodeFixed64(const char* ptr) {
-  return DecodeFixed<uint64_t>(Slice(ptr, 8));
+  return DecodeFixed<uint64_t>(std::string_view(ptr, 8));
 }
 
 inline const char* GetVarint32Ptr(const char* p, const char* limit,
                                   uint32_t* value) {
-  Slice sv(p, limit - p);
+  std::string_view sv(p, limit - p);
   auto result = GetVarint<uint32_t>(sv);
   if (result) {
     *value = result->value;
@@ -86,8 +85,8 @@ inline const char* GetVarint32Ptr(const char* p, const char* limit,
 }
 
 // Internal routine for use by fallback path of GetVarint32Ptr
-std::optional<uint32_t> GetVarint32PtrFallback(Slice& data);
-inline std::optional<uint32_t> GetVarint32Ptr(Slice& data) {
+std::optional<uint32_t> GetVarint32PtrFallback(std::string_view& data);
+inline std::optional<uint32_t> GetVarint32Ptr(std::string_view& data) {
   auto result = GetVarint<uint32_t>(data);
   if (result) {
     data = result->remaining_input;

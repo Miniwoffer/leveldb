@@ -2,22 +2,23 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
-#include <sys/resource.h>
-#include <sys/wait.h>
-#include <unistd.h>
-
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <sys/resource.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <unordered_set>
 #include <vector>
 
-#include "gtest/gtest.h"
 #include "leveldb/env.h"
+
 #include "port/port.h"
 #include "util/env_posix_test_helper.h"
 #include "util/testutil.h"
+
+#include "gtest/gtest.h"
 
 #if HAVE_O_CLOEXEC
 
@@ -201,7 +202,7 @@ TEST_F(EnvPosixTest, TestOpenOnRead) {
     ASSERT_LEVELDB_OK(env_->NewRandomAccessFile(test_file, &files[i]));
   }
   char scratch;
-  Slice read_result;
+  std::string_view read_result;
   for (int i = 0; i < kNumFiles; i++) {
     ASSERT_LEVELDB_OK(files[i]->Read(i, 1, &read_result, &scratch));
     ASSERT_EQ(kFileData[i], read_result[0]);

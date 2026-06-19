@@ -39,26 +39,30 @@ class DBImpl : public DB {
   ~DBImpl() override;
 
   // Implementations of the DB interface
-  std::expected<void, Status> Put(const WriteOptions& options, const Slice key,
-                                  const Slice value) override;
+  std::expected<void, Status> Put(const WriteOptions& options,
+                                  const std::string_view key,
+                                  const std::string_view value) override;
 
   std::expected<void, Status> Delete(const WriteOptions&,
-                                     const Slice key) override;
+                                     const std::string_view key) override;
   Status Write(const WriteOptions& options, WriteBatch* updates) override;
 
   std::expected<std::string, Status> Get(const ReadOptions& options,
-                                         const Slice key) override;
+                                         const std::string_view key) override;
   Iterator* NewIterator(const ReadOptions&) override;
   const Snapshot* GetSnapshot() override;
   void ReleaseSnapshot(const Snapshot* snapshot) override;
-  bool GetProperty(const Slice& property, std::string* value) override;
+  bool GetProperty(const std::string_view& property,
+                   std::string* value) override;
   void GetApproximateSizes(const Range* range, int n, uint64_t* sizes) override;
-  void CompactRange(const Slice* begin, const Slice* end) override;
+  void CompactRange(const std::string_view* begin,
+                    const std::string_view* end) override;
 
   // Extra methods (for testing) that are not in the public DB interface
 
   // Compact any files in the named level that overlap [*begin,*end]
-  void TEST_CompactRange(int level, const Slice* begin, const Slice* end);
+  void TEST_CompactRange(int level, const std::string_view* begin,
+                         const std::string_view* end);
 
   // Force current memtable contents to be compacted.
   Status TEST_CompactMemTable();
@@ -75,7 +79,7 @@ class DBImpl : public DB {
   // Record a sample of bytes read at the specified internal key.
   // Samples are taken approximately once every config::kReadBytesPeriod
   // bytes.
-  void RecordReadSample(Slice key);
+  void RecordReadSample(std::string_view key);
 
  private:
   friend class DB;

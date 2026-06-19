@@ -9,6 +9,7 @@
 #include "db/skiplist.h"
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "leveldb/db.h"
 
@@ -55,8 +56,8 @@ class MemTable {
   // Add an entry into memtable that maps key to value at the
   // specified sequence number and with the specified type.
   // Typically value will be empty if type==kTypeDeletion.
-  void Add(SequenceNumber seq, ValueType type, const Slice& key,
-           const Slice& value);
+  void Add(SequenceNumber seq, ValueType type, const std::string_view& key,
+           const std::string_view& value);
 
   // If memtable contains contains a key returns expected with either the value
   // or Status.NotFound(). else returns a empty optional

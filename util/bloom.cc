@@ -3,14 +3,13 @@
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
 #include "leveldb/filter_policy.h"
-#include "leveldb/slice.h"
 
 #include "util/hash.h"
 
 namespace leveldb {
 
 namespace {
-static uint32_t BloomHash(const Slice key) {
+static uint32_t BloomHash(const std::string_view key) {
   return Hash(key.data(), key.size(), 0xbc9f1d34);
 }
 
@@ -25,7 +24,7 @@ class BloomFilterPolicy : public FilterPolicy {
 
   const char* Name() const override { return "leveldb.BuiltinBloomFilter2"; }
 
-  void CreateFilter(const std::vector<Slice>& keys,
+  void CreateFilter(const std::vector<std::string_view>& keys,
                     std::string* dst) const override {
     // Compute bloom filter size (in both bits and bytes)
     size_t n = keys.size();
@@ -55,7 +54,8 @@ class BloomFilterPolicy : public FilterPolicy {
     }
   }
 
-  bool KeyMayMatch(const Slice key, const Slice bloom_filter) const override {
+  bool KeyMayMatch(const std::string_view key,
+                   const std::string_view bloom_filter) const override {
     const size_t len = bloom_filter.size();
     if (len < 2) return false;
 

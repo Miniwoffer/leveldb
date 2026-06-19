@@ -12,6 +12,7 @@
 #include <expected>
 #include <functional>
 #include <string>
+#include <string_view>
 
 #include "leveldb/cache.h"
 #include "leveldb/table.h"
@@ -45,9 +46,9 @@ class TableCache {
   // call (*handle_result)(arg, found_key, found_value).
   std::expected<std::string, Status> Get(
       const ReadOptions& options, uint64_t file_number, uint64_t file_size,
-      const Slice& k,
-      std::function<std::expected<std::string, Status>(const Slice&,
-                                                       const Slice&)>
+      const std::string_view& k,
+      std::function<std::expected<std::string, Status>(const std::string_view&,
+                                                       const std::string_view&)>
           handle_result);
 
   // Evict any entry for the specified file number

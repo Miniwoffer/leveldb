@@ -5,12 +5,15 @@
 #ifndef STORAGE_LEVELDB_UTIL_TESTUTIL_H_
 #define STORAGE_LEVELDB_UTIL_TESTUTIL_H_
 
+#include "helpers/memenv/memenv.h"
+#include <string_view>
+
+#include "leveldb/env.h"
+
+#include "util/random.h"
+
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "helpers/memenv/memenv.h"
-#include "leveldb/env.h"
-#include "leveldb/slice.h"
-#include "util/random.h"
 
 namespace leveldb {
 namespace test {
@@ -29,19 +32,19 @@ inline int RandomSeed() {
   return testing::UnitTest::GetInstance()->random_seed();
 }
 
-// Store in *dst a random string of length "len" and return a Slice that
-// references the generated data.
-Slice RandomString(Random* rnd, int len, std::string* dst);
+// Store in *dst a random string of length "len" and return a std::string_view
+// that references the generated data.
+std::string_view RandomString(Random* rnd, int len, std::string* dst);
 
 // Return a random key with the specified length that may contain interesting
 // characters (e.g. \x00, \xff, etc.).
 std::string RandomKey(Random* rnd, int len);
 
 // Store in *dst a string of length "len" that will compress to
-// "N*compressed_fraction" bytes and return a Slice that references
+// "N*compressed_fraction" bytes and return a std::string_view that references
 // the generated data.
-Slice CompressibleString(Random* rnd, double compressed_fraction, size_t len,
-                         std::string* dst);
+std::string_view CompressibleString(Random* rnd, double compressed_fraction,
+                                    size_t len, std::string* dst);
 
 // A wrapper that allows injection of errors.
 class ErrorEnv : public EnvWrapper {

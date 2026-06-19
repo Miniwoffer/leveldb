@@ -89,10 +89,10 @@ void VersionEdit::EncodeTo(std::string& dst) const {
   }
 }
 
-static bool GetInternalKey(Slice* input, InternalKey* dst) {
-  Slice input_ = *input;
-  auto str = GetLengthPrefixedSlice(input_);
-  *input = Slice(input_.data(), input_.length());
+static bool GetInternalKey(std::string_view* input, InternalKey* dst) {
+  std::string_view input_ = *input;
+  auto str = GetLengthPrefixedView(input_);
+  *input = std::string_view(input_.data(), input_.length());
   if (str) {
     // TODO: remove convertion hack
     return dst->DecodeFrom(*str);
@@ -101,7 +101,7 @@ static bool GetInternalKey(Slice* input, InternalKey* dst) {
   }
 }
 
-static bool GetLevel(Slice* input, int* level) {
+static bool GetLevel(std::string_view* input, int* level) {
   uint32_t v;
   if (GetVarint32(input, &v) && v < config::kNumLevels) {
     *level = v;
@@ -111,9 +111,9 @@ static bool GetLevel(Slice* input, int* level) {
   }
 }
 
-Status VersionEdit::DecodeFrom(const Slice& src) {
+Status VersionEdit::DecodeFrom(const std::string_view& src) {
   Clear();
-  Slice input = src;
+  std::string_view input = src;
   const char* msg = nullptr;
   uint32_t tag;
 
@@ -121,15 +121,15 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
   int level;
   uint64_t number;
   FileMetaData f;
-  Slice str;
+  std::string_view str;
   InternalKey key;
 
   while (msg == nullptr && GetVarint32(&input, &tag)) {
     switch (tag) {
       case kComparator: {
-        Slice input_ = input;
-        auto name = GetLengthPrefixedSlice(input_);
-        input = Slice(input_.data(), input_.length());
+        std::string_view input_ = input;
+        auto name = GetLengthPrefixedView(input_);
+        input = std::string_view(input_.data(), input_.length());
         if (name) {
           comparator_ = *name;
           has_comparator_ = true;
