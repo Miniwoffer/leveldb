@@ -78,7 +78,7 @@ TEST(Coding, Varint32) {
   std::string s;
   for (uint32_t i = 0; i < (32 * 32); i++) {
     uint32_t v = (i / 32) << (i % 32);
-    coding::PutVarint<uint32_t>(s, v);
+    PutVarint<uint32_t>(s, v);
   }
 
   const char* p = s.data();
@@ -113,7 +113,7 @@ TEST(Coding, Varint64) {
 
   std::string s;
   for (size_t i = 0; i < values.size(); i++) {
-    coding::PutVarint<uint64_t>(s, values[i]);
+    PutVarint<uint64_t>(s, values[i]);
   }
 
   const char* p = s.data();
@@ -140,7 +140,7 @@ TEST(Coding, Varint32Overflow) {
 TEST(Coding, Varint32Truncation) {
   uint32_t large_value = (1u << 31) + 100;
   std::string s;
-  coding::PutVarint<uint32_t>(s, large_value);
+  PutVarint<uint32_t>(s, large_value);
   uint32_t result;
   for (size_t len = 0; len < s.size() - 1; len++) {
     ASSERT_TRUE(GetVarint32Ptr(s.data(), s.data() + len, &result) == nullptr);
@@ -160,7 +160,7 @@ TEST(Coding, Varint64Overflow) {
 TEST(Coding, Varint64Truncation) {
   uint64_t large_value = (1ull << 63) + 100ull;
   std::string s;
-  coding::PutVarint<uint64_t>(s, large_value);
+  PutVarint<uint64_t>(s, large_value);
   uint64_t result;
   for (size_t len = 0; len < s.size() - 1; len++) {
     ASSERT_TRUE(GetVarint64Ptr(s.data(), s.data() + len, &result) == nullptr);

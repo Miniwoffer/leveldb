@@ -7,22 +7,21 @@
 #include "leveldb/env.h"
 #include "leveldb/options.h"
 
-#include "port/port.h"
 #include "table/block.h"
 #include "util/coding.h"
 #include "util/crc32c.h"
 
 namespace leveldb {
 
-void BlockHandle::EncodeTo(std::string* dst) const {
+void BlockHandle::EncodeTo(std::string& dst) const {
   // Sanity check that all fields have been set
   assert(offset_ != ~static_cast<uint64_t>(0));
   assert(size_ != ~static_cast<uint64_t>(0));
 
-  std::string& _dst = *dst;
-  coding::PutVarint<uint64_t>(_dst, offset_);
-  coding::PutVarint<uint64_t>(_dst, size_);
+  PutVarint(dst, offset_);
+  PutVarint(dst, size_);
 }
+void BlockHandle::EncodeTo(std::string* dst) const { return EncodeTo(*dst); }
 
 Status BlockHandle::DecodeFrom(Slice* input) {
   if (GetVarint64(input, &offset_) && GetVarint64(input, &size_)) {

@@ -58,28 +58,28 @@ char* EncodeVarint64(char* dst, uint64_t value);
 // REQUIRES: dst has enough space for the value being written
 
 inline void EncodeFixed32(char* dst, uint32_t value) {
-  coding::EncodeFixed<uint32_t>(std::span<uint8_t, 4>((uint8_t*)dst, 4), value);
+  EncodeFixed(std::span<uint8_t, 4>((uint8_t*)dst, 4), value);
 }
 
 inline void EncodeFixed64(char* dst, uint64_t value) {
-  coding::EncodeFixed<uint64_t>(std::span<uint8_t, 8>((uint8_t*)dst, 8), value);
+  EncodeFixed(std::span<uint8_t, 8>((uint8_t*)dst, 8), value);
 }
 
 // Lower-level versions of Get... that read directly from a character buffer
 // without any bounds checking.
 
 inline uint32_t DecodeFixed32(const char* ptr) {
-  return coding::DecodeFixed<uint32_t>(std::string_view(ptr, 4));
+  return DecodeFixed<uint32_t>(std::string_view(ptr, 4));
 }
 
 inline uint64_t DecodeFixed64(const char* ptr) {
-  return coding::DecodeFixed<uint64_t>(std::string_view(ptr, 8));
+  return DecodeFixed<uint64_t>(std::string_view(ptr, 8));
 }
 
 inline const char* GetVarint32Ptr(const char* p, const char* limit,
                                   uint32_t* value) {
   std::string_view sv(p, limit - p);
-  auto result = coding::GetVarint<uint32_t>(sv);
+  auto result = GetVarint<uint32_t>(sv);
   if (result) {
     *value = result->value;
     return result->remaining_input.data();
@@ -91,7 +91,7 @@ inline const char* GetVarint32Ptr(const char* p, const char* limit,
 
 std::optional<uint32_t> GetVarint32PtrFallback(std::string_view& data);
 inline std::optional<uint32_t> GetVarint32Ptr(std::string_view& data) {
-  auto result = coding::GetVarint<uint32_t>(data);
+  auto result = GetVarint<uint32_t>(data);
   if (result) {
     data = result->remaining_input;
     return result->value;

@@ -91,9 +91,9 @@ void BlockBuilder::Add(const Slice& key, const Slice& value) {
   const size_t non_shared = key.size() - shared;
 
   // Add "<shared><non_shared><value_size>" to buffer_
-  coding::PutVarint<uint32_t>(buffer_, shared);
-  coding::PutVarint<uint32_t>(buffer_, non_shared);
-  coding::PutVarint<uint32_t>(buffer_, value.size());
+  PutVarint<uint32_t>(buffer_, shared);
+  PutVarint<uint32_t>(buffer_, non_shared);
+  PutVarint<uint32_t>(buffer_, value.size());
 
   // Add string delta to buffer_ followed by value
   buffer_.append(key.data() + shared, non_shared);
