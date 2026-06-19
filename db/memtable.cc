@@ -42,11 +42,13 @@ int MemTable::KeyComparator::operator()(const char* aptr,
 // Encode a suitable internal key target for "target" and return it.
 // Uses *scratch as scratch space, and the returned pointer will point
 // into this scratch space.
+static const char* EncodeKey(std::string& scratch, const Slice& target) {
+  scratch.clear();
+  PutLengthPrefixedString<uint32_t>(scratch, target.ToStringView());
+  return scratch.data();
+}
 static const char* EncodeKey(std::string* scratch, const Slice& target) {
-  scratch->clear();
-  std::string& _scratch = *scratch;
-  coding::PutLengthPrefixedString<uint32_t>(_scratch, target.ToStringView());
-  return _scratch.data();
+  return EncodeKey(*scratch, target);
 }
 
 class MemTableIterator : public Iterator {

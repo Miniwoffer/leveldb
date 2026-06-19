@@ -24,25 +24,23 @@ void PutFixed64(std::string* dst, uint64_t value) {
 
 char* EncodeVarint32(char* dst, uint32_t v) {
   return reinterpret_cast<char*>(
-      coding::EncodeVarint<uint32_t>(
-          std::span(reinterpret_cast<uint8_t*>(dst), 5), v)
-          .data());
+      EncodeVarint(std::span(reinterpret_cast<uint8_t*>(dst), 5), v).data());
 }
 
 void PutVarint32(std::string* dst, uint32_t v) {
   uint8_t buf[5];
-  auto resp = coding::EncodeVarint<uint32_t>(std::span(buf, 5), v);
+  auto resp = EncodeVarint(std::span(buf, 5), v);
   dst->append(reinterpret_cast<char*>(buf), sizeof(buf) - resp.size());
 }
 
 char* EncodeVarint64(char* dst, uint64_t v) {
   return reinterpret_cast<char*>(
-      coding::EncodeVarint<uint64_t>(std::span((uint8_t*)dst, 10), v).data());
+      EncodeVarint(std::span((uint8_t*)dst, 10), v).data());
 }
 
 void PutVarint64(std::string* dst, uint64_t v) {
   uint8_t buf[10];
-  auto resp = coding::EncodeVarint<uint64_t>(std::span(buf, 10), v);
+  auto resp = EncodeVarint(std::span(buf, 10), v);
   dst->append(reinterpret_cast<char*>(buf), sizeof(buf) - resp.size());
 }
 

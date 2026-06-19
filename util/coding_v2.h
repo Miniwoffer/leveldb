@@ -20,7 +20,7 @@
 #include <string_view>
 #include <type_traits>
 
-namespace leveldb::coding {
+namespace leveldb {
 
 // Decode
 template <typename T>
@@ -119,6 +119,6 @@ std::optional<DecodingResult<std::string_view>> GetLengthPrefixedData(
   }
 }
 
-}  // namespace leveldb::coding
+}  // namespace leveldb
 
 #endif  // STORAGE_LEVELDB_UTIL_CODING_V2_H_
