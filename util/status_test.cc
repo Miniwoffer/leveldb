@@ -6,8 +6,6 @@
 
 #include <utility>
 
-#include "leveldb/slice.h"
-
 #include "gtest/gtest.h"
 
 namespace leveldb {

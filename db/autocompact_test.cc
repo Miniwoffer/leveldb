@@ -6,7 +6,6 @@
 
 #include "leveldb/cache.h"
 #include "leveldb/db.h"
-#include "leveldb/slice.h"
 
 #include "util/testutil.h"
 
@@ -38,7 +37,7 @@ class AutoCompactTest : public testing::Test {
     return std::string(buf);
   }
 
-  uint64_t Size(const Slice& start, const Slice& limit) {
+  uint64_t Size(const std::string_view& start, const std::string_view& limit) {
     Range r(start, limit);
     uint64_t size;
     db_->GetApproximateSizes(&r, 1, &size);
@@ -66,13 +65,14 @@ void AutoCompactTest::DoReads(int n) {
 
   // Fill database
   for (int i = 0; i < kCount; i++) {
-    ASSERT_TRUE(db_->Put(WriteOptions(), Slice(Key(i)), Slice(value)));
+    ASSERT_TRUE(db_->Put(WriteOptions(), std::string_view(Key(i)),
+                         std::string_view(value)));
   }
   ASSERT_LEVELDB_OK(dbi->TEST_CompactMemTable());
 
   // Delete everything
   for (int i = 0; i < kCount; i++) {
-    ASSERT_TRUE(db_->Delete(WriteOptions(), Slice(Key(i))));
+    ASSERT_TRUE(db_->Delete(WriteOptions(), std::string_view(Key(i))));
   }
   ASSERT_LEVELDB_OK(dbi->TEST_CompactMemTable());
 
@@ -86,7 +86,7 @@ void AutoCompactTest::DoReads(int n) {
     ASSERT_LT(read, 100) << "Taking too long to compact";
     Iterator* iter = db_->NewIterator(ReadOptions());
     for (iter->SeekToFirst();
-         iter->Valid() && iter->key().ToString() < limit_key; iter->Next()) {
+         iter->Valid() && std::string(iter->key()) < limit_key; iter->Next()) {
       // Drop data
     }
     delete iter;

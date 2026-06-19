@@ -172,22 +172,22 @@ TEST(Coding, Varint64Truncation) {
 
 TEST(Coding, Strings) {
   std::string s;
-  PutLengthPrefixedSlice(&s, Slice(""));
-  PutLengthPrefixedSlice(&s, Slice("foo"));
-  PutLengthPrefixedSlice(&s, Slice("bar"));
-  PutLengthPrefixedSlice(&s, Slice(std::string(200, 'x')));
+  PutLengthPrefixedView(&s, std::string_view(""));
+  PutLengthPrefixedView(&s, std::string_view("foo"));
+  PutLengthPrefixedView(&s, std::string_view("bar"));
+  PutLengthPrefixedView(&s, std::string_view(std::string(200, 'x')));
 
-  Slice input(s);
-  auto v = GetLengthPrefixedSlice(input);
+  std::string_view input(s);
+  auto v = GetLengthPrefixedView(input);
   ASSERT_TRUE(v);
   ASSERT_EQ("", v);
-  v = GetLengthPrefixedSlice(input);
+  v = GetLengthPrefixedView(input);
   ASSERT_TRUE(v);
   ASSERT_EQ("foo", v);
-  v = GetLengthPrefixedSlice(input);
+  v = GetLengthPrefixedView(input);
   ASSERT_TRUE(v);
   ASSERT_EQ("bar", v);
-  v = GetLengthPrefixedSlice(input);
+  v = GetLengthPrefixedView(input);
   ASSERT_TRUE(v);
   ASSERT_EQ(std::string(200, 'x'), v);
   ASSERT_TRUE(input.empty());

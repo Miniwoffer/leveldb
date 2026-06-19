@@ -5,10 +5,10 @@
 #ifndef STORAGE_LEVELDB_DB_LOG_WRITER_H_
 #define STORAGE_LEVELDB_DB_LOG_WRITER_H_
 
-#include <cstdint>
-
 #include "db/log_format.h"
-#include "leveldb/slice.h"
+#include <cstdint>
+#include <string_view>
+
 #include "leveldb/status.h"
 
 namespace leveldb {
@@ -34,7 +34,7 @@ class Writer {
 
   ~Writer();
 
-  Status AddRecord(const Slice& slice);
+  Status AddRecord(const std::string_view& slice);
 
  private:
   Status EmitPhysicalRecord(RecordType type, const char* ptr, size_t length);

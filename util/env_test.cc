@@ -6,11 +6,12 @@
 
 #include <algorithm>
 
-#include "gtest/gtest.h"
 #include "port/port.h"
 #include "port/thread_annotations.h"
 #include "util/mutexlock.h"
 #include "util/testutil.h"
+
+#include "gtest/gtest.h"
 
 namespace leveldb {
 
@@ -56,7 +57,7 @@ TEST_F(EnvTest, ReadWrite) {
   while (read_result.size() < data.size()) {
     int len = std::min<int>(rnd.Skewed(18), data.size() - read_result.size());
     scratch.resize(std::max(len, 1));  // at least 1 so &scratch[0] is legal
-    Slice read;
+    std::string_view read;
     ASSERT_LEVELDB_OK(sequential_file->Read(len, &read, &scratch[0]));
     if (len > 0) {
       ASSERT_GT(read.size(), 0);

@@ -17,14 +17,12 @@
 #define STORAGE_LEVELDB_INCLUDE_FILTER_POLICY_H_
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "leveldb/export.h"
-#include "leveldb/slice.h"
 
 namespace leveldb {
-
-class Slice;
 
 class LEVELDB_EXPORT FilterPolicy {
  public:
@@ -42,7 +40,7 @@ class LEVELDB_EXPORT FilterPolicy {
   //
   // Warning: do not change the initial contents of *dst.  Instead,
   // append the newly constructed filter to *dst.
-  virtual void CreateFilter(const std::vector<Slice>& keys,
+  virtual void CreateFilter(const std::vector<std::string_view>& keys,
                             std::string* dst) const = 0;
 
   // "filter" contains the data appended by a preceding call to
@@ -50,7 +48,8 @@ class LEVELDB_EXPORT FilterPolicy {
   // the key was in the list of keys passed to CreateFilter().
   // This method may return true or false if the key was not on the
   // list, but it should aim to return false with a high probability.
-  virtual bool KeyMayMatch(const Slice key, const Slice filter) const = 0;
+  virtual bool KeyMayMatch(const std::string_view key,
+                           const std::string_view filter) const = 0;
 };
 
 // Return a new filter policy that uses a bloom filter with approximately

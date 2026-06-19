@@ -4,15 +4,17 @@
 
 #include "db/filename.h"
 
-#include "gtest/gtest.h"
 #include "db/dbformat.h"
+
 #include "port/port.h"
 #include "util/logging.h"
+
+#include "gtest/gtest.h"
 
 namespace leveldb {
 
 TEST(FileNameTest, Parse) {
-  Slice db;
+  std::string_view db;
   FileType type;
   uint64_t number;
 

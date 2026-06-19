@@ -4,17 +4,18 @@
 
 #include "db/filename.h"
 
+#include "db/dbformat.h"
 #include <cassert>
 #include <cstdio>
 
-#include "db/dbformat.h"
 #include "leveldb/env.h"
+
 #include "util/logging.h"
 
 namespace leveldb {
 
 // A utility routine: write "data" to the named file and Sync() it.
-Status WriteStringToFileSync(Env* env, const Slice& data,
+Status WriteStringToFileSync(Env* env, const std::string_view& data,
                              const std::string& fname);
 
 static std::string MakeFileName(const std::string& dbname, uint64_t number,
@@ -77,7 +78,7 @@ std::string OldInfoLogFileName(const std::string& dbname) {
 //    dbname/[0-9]+.(log|sst|ldb)
 bool ParseFileName(const std::string& filename, uint64_t* number,
                    FileType* type) {
-  Slice rest(filename);
+  std::string_view rest(filename);
   if (rest == "CURRENT") {
     *number = 0;
     *type = kCurrentFile;
@@ -105,12 +106,13 @@ bool ParseFileName(const std::string& filename, uint64_t* number,
     if (!ConsumeDecimalNumber(&rest, &num)) {
       return false;
     }
-    Slice suffix = rest;
-    if (suffix == Slice(".log")) {
+    std::string_view suffix = rest;
+    if (suffix == std::string_view(".log")) {
       *type = kLogFile;
-    } else if (suffix == Slice(".sst") || suffix == Slice(".ldb")) {
+    } else if (suffix == std::string_view(".sst") ||
+               suffix == std::string_view(".ldb")) {
       *type = kTableFile;
-    } else if (suffix == Slice(".dbtmp")) {
+    } else if (suffix == std::string_view(".dbtmp")) {
       *type = kTempFile;
     } else {
       return false;
@@ -124,11 +126,11 @@ Status SetCurrentFile(Env* env, const std::string& dbname,
                       uint64_t descriptor_number) {
   // Remove leading "dbname/" and add newline to manifest file name
   std::string manifest = DescriptorFileName(dbname, descriptor_number);
-  Slice contents = manifest;
+  std::string_view contents = manifest;
   assert(contents.starts_with(dbname + "/"));
   contents.remove_prefix(dbname.size() + 1);
   std::string tmp = TempFileName(dbname, descriptor_number);
-  Status s = WriteStringToFileSync(env, contents.ToString() + "\n", tmp);
+  Status s = WriteStringToFileSync(env, std::string(contents) + "\n", tmp);
   if (s.ok()) {
     s = env->RenameFile(tmp, CurrentFileName(dbname));
   }

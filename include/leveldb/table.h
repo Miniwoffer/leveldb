@@ -9,6 +9,7 @@
 #include <expected>
 #include <functional>
 #include <string>
+#include <string_view>
 
 #include "leveldb/export.h"
 #include "leveldb/iterator.h"
@@ -59,13 +60,14 @@ class LEVELDB_EXPORT Table {
   // bytes, and so includes effects like compression of the underlying data.
   // E.g., the approximate offset of the last key in the table will
   // be close to the file length.
-  uint64_t ApproximateOffsetOf(const Slice& key) const;
+  uint64_t ApproximateOffsetOf(const std::string_view& key) const;
 
  private:
   friend class TableCache;
   struct Rep;
 
-  static Iterator* BlockReader(void*, const ReadOptions&, const Slice&);
+  static Iterator* BlockReader(void*, const ReadOptions&,
+                               const std::string_view&);
 
   explicit Table(Rep* rep) : rep_(rep) {}
 
@@ -73,12 +75,12 @@ class LEVELDB_EXPORT Table {
   // to Seek(key).  May not make such a call if filter policy says
   // that key is not present.
   std::expected<std::string, Status> InternalGet(
-      const ReadOptions&, const Slice& key,
-      std::function<std::expected<std::string, Status>(const Slice&,
-                                                       const Slice&)>
+      const ReadOptions&, const std::string_view& key,
+      std::function<std::expected<std::string, Status>(const std::string_view&,
+                                                       const std::string_view&)>
           handle_result);
   void ReadMeta(const Footer& footer);
-  void ReadFilter(const Slice& filter_handle_value);
+  void ReadFilter(const std::string_view& filter_handle_value);
 
   Rep* const rep_;
 };

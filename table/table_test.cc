@@ -14,7 +14,6 @@
 #include "leveldb/env.h"
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
-#include "leveldb/slice.h"
 #include "leveldb/table_builder.h"
 
 #include "table/block.h"
@@ -29,11 +28,10 @@ namespace leveldb {
 
 // Return reverse of "key".
 // Used to test non-lexicographic comparators.
-static std::string Reverse(const Slice& key) {
-  std::string str(key.ToString());
-  std::string rev("");
-  for (std::string::reverse_iterator rit = str.rbegin(); rit != str.rend();
-       ++rit) {
+static std::string Reverse(const std::string_view& key) {
+  std::string str{key};
+  std::string rev{""};
+  for (auto rit = str.rbegin(); rit != str.rend(); ++rit) {
     rev.push_back(*rit);
   }
   return rev;
@@ -46,12 +44,13 @@ class ReverseKeyComparator : public Comparator {
     return "leveldb.ReverseBytewiseComparator";
   }
 
-  int Compare(const Slice& a, const Slice& b) const override {
+  int Compare(const std::string_view& a,
+              const std::string_view& b) const override {
     return BytewiseComparator()->Compare(Reverse(a), Reverse(b));
   }
 
   void FindShortestSeparator(std::string* start,
-                             const Slice& limit) const override {
+                             const std::string_view& limit) const override {
     std::string s = Reverse(*start);
     std::string l = Reverse(limit);
     BytewiseComparator()->FindShortestSeparator(&s, l);
@@ -86,7 +85,7 @@ struct STLLessThan {
   STLLessThan() : cmp(BytewiseComparator()) {}
   STLLessThan(const Comparator* c) : cmp(c) {}
   bool operator()(const std::string& a, const std::string& b) const {
-    return cmp->Compare(Slice(a), Slice(b)) < 0;
+    return cmp->Compare(std::string_view(a), std::string_view(b)) < 0;
   }
 };
 }  // namespace
@@ -101,7 +100,7 @@ class StringSink : public WritableFile {
   Status Flush() override { return Status::OK(); }
   Status Sync() override { return Status::OK(); }
 
-  Status Append(const Slice& data) override {
+  Status Append(const std::string_view& data) override {
     contents_.append(data.data(), data.size());
     return Status::OK();
   }
@@ -112,14 +111,14 @@ class StringSink : public WritableFile {
 
 class StringSource : public RandomAccessFile {
  public:
-  StringSource(const Slice& contents)
+  StringSource(const std::string_view& contents)
       : contents_(contents.data(), contents.size()) {}
 
   ~StringSource() override = default;
 
   uint64_t Size() const { return contents_.size(); }
 
-  Status Read(uint64_t offset, size_t n, Slice* result,
+  Status Read(uint64_t offset, size_t n, std::string_view* result,
               char* scratch) const override {
     if (offset >= contents_.size()) {
       return Status::InvalidArgument("invalid Read offset");
@@ -128,7 +127,7 @@ class StringSource : public RandomAccessFile {
       n = contents_.size() - offset;
     }
     std::memcpy(scratch, &contents_[offset], n);
-    *result = Slice(scratch, n);
+    *result = std::string_view(scratch, n);
     return Status::OK();
   }
 
@@ -145,8 +144,8 @@ class Constructor {
   explicit Constructor(const Comparator* cmp) : data_(STLLessThan(cmp)) {}
   virtual ~Constructor() = default;
 
-  void Add(const std::string& key, const Slice& value) {
-    data_[key] = value.ToString();
+  void Add(const std::string& key, const std::string_view& value) {
+    data_[key] = std::string(value);
   }
 
   // Finish constructing the data structure with all the keys that have
@@ -191,7 +190,7 @@ class BlockConstructor : public Constructor {
       builder.Add(kvp.first, kvp.second);
     }
     // Open the block
-    data_ = builder.Finish().ToString();
+    data_ = std::string(builder.Finish());
     BlockContents contents;
     contents.data = data_;
     contents.cachable = false;
@@ -241,7 +240,7 @@ class TableConstructor : public Constructor {
     return table_->NewIterator(ReadOptions());
   }
 
-  uint64_t ApproximateOffsetOf(const Slice& key) const {
+  uint64_t ApproximateOffsetOf(const std::string_view& key) const {
     return table_->ApproximateOffsetOf(key);
   }
 
@@ -270,7 +269,7 @@ class KeyConvertingIterator : public Iterator {
   ~KeyConvertingIterator() override { delete iter_; }
 
   bool Valid() const override { return iter_->Valid(); }
-  void Seek(const Slice& target) override {
+  void Seek(const std::string_view& target) override {
     ParsedInternalKey ikey(target, kMaxSequenceNumber, kTypeValue);
     std::string encoded;
     AppendInternalKey(&encoded, ikey);
@@ -281,17 +280,17 @@ class KeyConvertingIterator : public Iterator {
   void Next() override { iter_->Next(); }
   void Prev() override { iter_->Prev(); }
 
-  Slice key() const override {
+  std::string_view key() const override {
     assert(Valid());
     ParsedInternalKey key;
     if (!ParseInternalKey(iter_->key(), &key)) {
       status_ = Status::Corruption("malformed internal key");
-      return Slice("corrupted key");
+      return std::string_view("corrupted key");
     }
     return key.user_key;
   }
 
-  Slice value() const override { return iter_->value(); }
+  std::string_view value() const override { return iter_->value(); }
   Status status() const override {
     return status_.ok() ? iter_->status() : status_;
   }
@@ -343,7 +342,7 @@ class DBConstructor : public Constructor {
     NewDB();
     for (const auto& kvp : data) {
       WriteBatch batch;
-      batch.Put(Slice(kvp.first), kvp.second);
+      batch.Put(std::string_view(kvp.first), kvp.second);
       EXPECT_TRUE(db_->Write(WriteOptions(), &batch).ok());
     }
     return Status::OK();
@@ -516,7 +515,7 @@ class Harness : public testing::Test {
           model_iter = data.lower_bound(key);
           if (kVerbose)
             std::fprintf(stderr, "Seek '%s'\n", EscapeString(key).c_str());
-          iter->Seek(Slice(key));
+          iter->Seek(std::string_view(key));
           ASSERT_EQ(ToString(data, model_iter), ToString(iter));
           break;
         }
@@ -573,7 +572,8 @@ class Harness : public testing::Test {
     if (!it->Valid()) {
       return "END";
     } else {
-      return "'" + it->key().ToString() + "->" + it->value().ToString() + "'";
+      return "'" + std::string(it->key()) + "->" + std::string(it->value()) +
+             "'";
     }
   }
 
@@ -628,7 +628,7 @@ TEST_F(Harness, ZeroRestartPointsInBlock) {
   char data[sizeof(uint32_t)];
   memset(data, 0, sizeof(data));
   BlockContents contents;
-  contents.data = Slice(data, sizeof(data));
+  contents.data = std::string_view(data, sizeof(data));
   contents.cachable = false;
   contents.heap_allocated = false;
   Block block(contents);
@@ -694,7 +694,7 @@ TEST_F(Harness, Randomized) {
       for (int e = 0; e < num_entries; e++) {
         std::string v;
         Add(test::RandomKey(&rnd, rnd.Skewed(4)),
-            test::RandomString(&rnd, rnd.Skewed(5), &v).ToString());
+            std::string(test::RandomString(&rnd, rnd.Skewed(5), &v)));
       }
       Test(&rnd);
     }
@@ -709,7 +709,7 @@ TEST_F(Harness, RandomizedLongDB) {
   for (int e = 0; e < num_entries; e++) {
     std::string v;
     Add(test::RandomKey(&rnd, rnd.Skewed(4)),
-        test::RandomString(&rnd, rnd.Skewed(5), &v).ToString());
+        std::string(test::RandomString(&rnd, rnd.Skewed(5), &v)));
   }
   Test(&rnd);
 
@@ -731,17 +731,18 @@ TEST(MemTableTest, Simple) {
   memtable->Ref();
   WriteBatch batch;
   WriteBatchInternal::SetSequence(&batch, 100);
-  batch.Put(Slice("k1"), std::string("v1"));
-  batch.Put(Slice("k2"), std::string("v2"));
-  batch.Put(Slice("k3"), std::string("v3"));
-  batch.Put(Slice("largekey"), std::string("vlarge"));
+  batch.Put(std::string_view("k1"), std::string("v1"));
+  batch.Put(std::string_view("k2"), std::string("v2"));
+  batch.Put(std::string_view("k3"), std::string("v3"));
+  batch.Put(std::string_view("largekey"), std::string("vlarge"));
   ASSERT_TRUE(WriteBatchInternal::InsertInto(&batch, memtable).ok());
 
   Iterator* iter = memtable->NewIterator();
   iter->SeekToFirst();
   while (iter->Valid()) {
-    std::fprintf(stderr, "key: '%s' -> '%s'\n", iter->key().ToString().c_str(),
-                 iter->value().ToString().c_str());
+    std::fprintf(stderr, "key: '%s' -> '%s'\n",
+                 std::string(iter->key()).c_str(),
+                 std::string(iter->value()).c_str());
     iter->Next();
   }
 
@@ -790,7 +791,7 @@ TEST(TableTest, ApproximateOffsetOfPlain) {
 
 static bool CompressionSupported(CompressionType type) {
   std::string out;
-  Slice in = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  std::string_view in = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
   if (type == kSnappyCompression) {
     return port::Snappy_Compress(in.data(), in.size(), &out);
   } else if (type == kZstdCompression) {

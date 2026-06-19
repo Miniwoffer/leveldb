@@ -9,7 +9,6 @@
 
 #include "leveldb/db.h"
 #include "leveldb/env.h"
-#include "leveldb/slice.h"
 #include "leveldb/write_batch.h"
 
 #include "util/logging.h"
@@ -71,7 +70,8 @@ class RecoveryTest : public testing::Test {
     ASSERT_EQ(1, NumLogs());
   }
 
-  std::expected<void, Status> Put(const Slice k, const Slice v) {
+  std::expected<void, Status> Put(const std::string_view k,
+                                  const std::string_view v) {
     return db_->Put(WriteOptions(), k, v);
   }
 
@@ -143,8 +143,8 @@ class RecoveryTest : public testing::Test {
   void CompactMemTable() { dbfull()->TEST_CompactMemTable(); }
 
   // Directly construct a log file that sets key to val.
-  void MakeLogFile(uint64_t lognum, SequenceNumber seq, const Slice key,
-                   Slice val) {
+  void MakeLogFile(uint64_t lognum, SequenceNumber seq,
+                   const std::string_view key, std::string_view val) {
     std::string fname = LogFileName(dbname_, lognum);
     WritableFile* file;
     ASSERT_LEVELDB_OK(env_->NewWritableFile(fname, &file));
