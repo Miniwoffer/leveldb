@@ -181,7 +181,6 @@ target_sources(leveldb
     "util/crc32c.cc"
     "util/crc32c.h"
     "util/env.cc"
-    "util/filter_policy.cc"
     "util/hash.cc"
     "util/hash.h"
     "util/logging.cc"
