@@ -45,7 +45,8 @@ class DBImpl : public DB {
 
   std::expected<void, Status> Delete(const WriteOptions&,
                                      const std::string_view key) override;
-  Status Write(const WriteOptions& options, WriteBatch* updates) override;
+  std::expected<void, Status> Write(const WriteOptions& options,
+                                    WriteBatch* updates) override;
 
   std::expected<std::string, Status> Get(const ReadOptions& options,
                                          const std::string_view key) override;

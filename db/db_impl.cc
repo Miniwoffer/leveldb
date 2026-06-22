@@ -645,19 +645,17 @@ void DBImpl::TEST_CompactRange(int level, const std::string_view* begin,
 
 Status DBImpl::TEST_CompactMemTable() {
   // nullptr batch means just wait for earlier writes to be done
-  Status s = Write(WriteOptions(), nullptr);
-  if (s.ok()) {
-    // Wait until the compaction completes
-    MutexLock l(&mutex_);
-    while (imm_ != nullptr && bg_error_.ok() &&
-           !shutting_down_.load(std::memory_order_acquire)) {
-      background_work_finished_signal_.Wait();
-    }
-    if (imm_ != nullptr) {
-      s = bg_error_;
-    }
+  auto res = Write(WriteOptions(), nullptr);
+  if (!res) {
+    return res.error();
   }
-  return s;
+  // Wait until the compaction completes
+  MutexLock l(&mutex_);
+  while (imm_ != nullptr && bg_error_.ok() &&
+         !shutting_down_.load(std::memory_order_acquire)) {
+    background_work_finished_signal_.Wait();
+  }
+  return (imm_ != nullptr) ? bg_error_ : Status::OK();
 }
 
 void DBImpl::RecordBackgroundError(const Status& s) {
@@ -1207,7 +1205,8 @@ std::expected<void, Status> DBImpl::Delete(const WriteOptions& options,
   return DB::Delete(options, key);
 }
 
-Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
+std::expected<void, Status> DBImpl::Write(const WriteOptions& options,
+                                          WriteBatch* updates) {
   Writer w(&mutex_);
   w.batch = updates;
   w.sync = options.sync;
@@ -1219,7 +1218,8 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
     w.cv.Wait();
   }
   if (w.done) {
-    return w.status;
+    return w.status.ok() ? std::expected<void, Status>()
+                         : std::unexpected(w.status);
   }
 
   // May temporarily unlock and wait.
@@ -1277,7 +1277,7 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
     writers_.front()->cv.Signal();
   }
 
-  return status;
+  return status.ok() ? std::expected<void, Status>() : std::unexpected(status);
 }
 
 // REQUIRES: Writer list must be non-empty
@@ -1495,23 +1495,14 @@ std::expected<void, Status> DB::Put(const WriteOptions& opt,
                                     const std::string_view value) {
   WriteBatch batch;
   batch.Put(key, value);
-
-  auto resp = Write(opt, &batch);
-  if (resp.ok()) {
-    return {};
-  }
-  return std::unexpected(resp);
+  return Write(opt, &batch);
 }
 
 std::expected<void, Status> DB::Delete(const WriteOptions& opt,
                                        const std::string_view key) {
   WriteBatch batch;
   batch.Delete(key);
-  auto ret = Write(opt, &batch);
-  if (ret.ok()) {
-    return {};
-  }
-  return std::unexpected(ret);
+  return Write(opt, &batch);
 }
 
 DB::~DB() = default;

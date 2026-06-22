@@ -76,7 +76,7 @@ class CorruptionTest : public testing::Test {
       if (i == n - 1) {
         options.sync = true;
       }
-      ASSERT_LEVELDB_OK(db_->Write(options, &batch));
+      ASSERT_TRUE(db_->Write(options, &batch));
     }
   }
 
@@ -220,13 +220,13 @@ TEST_F(CorruptionTest, NewFileErrorDuringWrite) {
   env_.writable_file_error_ = true;
   const int num = 3 + (Options().write_buffer_size / kValueSize);
   std::string value_storage;
-  Status s;
-  for (int i = 0; s.ok() && i < num; i++) {
+  std::expected<void, Status> res;
+  for (int i = 0; res && i < num; i++) {
     WriteBatch batch;
     batch.Put("a", Value(100, &value_storage));
-    s = db_->Write(WriteOptions(), &batch);
+    res = db_->Write(WriteOptions(), &batch);
   }
-  ASSERT_FALSE(s.ok());
+  ASSERT_FALSE(res);
   ASSERT_GE(env_.num_writable_file_errors_, 1);
   env_.writable_file_error_ = false;
   Reopen();

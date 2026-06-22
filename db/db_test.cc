@@ -2110,6 +2110,7 @@ TEST_F(DBTest, MultiThreaded) {
       thread[id].state = &mt;
       thread[id].id = id;
       env_->StartThread(MTThreadBody, &thread[id]);
+      // MTThreadBody(&thread[id]);
     }
 
     // Let them run for a while
@@ -2174,7 +2175,8 @@ class ModelDB : public DB {
   void ReleaseSnapshot(const Snapshot* snapshot) override {
     delete reinterpret_cast<const ModelSnapshot*>(snapshot);
   }
-  Status Write(const WriteOptions& options, WriteBatch* batch) override {
+  std::expected<void, Status> Write(const WriteOptions& options,
+                                    WriteBatch* batch) override {
     class Handler : public WriteBatch::Handler {
      public:
       KVMap* map_;
@@ -2188,7 +2190,11 @@ class ModelDB : public DB {
     };
     Handler handler;
     handler.map_ = &map_;
-    return batch->Iterate(&handler);
+    Status s = batch->Iterate(&handler);
+    if (!s.ok()) {
+      return std::unexpected(s);
+    }
+    return {};
   }
 
   bool GetProperty(const std::string_view& property,
@@ -2366,8 +2372,8 @@ TEST_F(DBTest, Randomized) {
             b.Delete(k);
           }
         }
-        ASSERT_LEVELDB_OK(model.Write(WriteOptions(), &b));
-        ASSERT_LEVELDB_OK(db_->Write(WriteOptions(), &b));
+        ASSERT_TRUE(model.Write(WriteOptions(), &b));
+        ASSERT_TRUE(db_->Write(WriteOptions(), &b));
       }
 
       if ((step % 100) == 0) {

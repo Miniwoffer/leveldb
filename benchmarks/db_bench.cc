@@ -861,9 +861,9 @@ class Benchmark {
         bytes += value_size_ + key.ToView().size();
         thread->stats.FinishedSingleOp();
       }
-      s = db_->Write(write_options_, &batch);
-      if (!s.ok()) {
-        std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+
+      if (auto res = db_->Write(write_options_, &batch); !res) {
+        std::fprintf(stderr, "put error: %s\n", res.error().ToString().c_str());
         std::exit(1);
       }
     }
@@ -987,9 +987,8 @@ class Benchmark {
         batch.Delete(key.ToView());
         thread->stats.FinishedSingleOp();
       }
-      s = db_->Write(write_options_, &batch);
-      if (!s.ok()) {
-        std::fprintf(stderr, "del error: %s\n", s.ToString().c_str());
+      if (auto res = db_->Write(write_options_, &batch); !res) {
+        std::fprintf(stderr, "del error: %s\n", res.error().ToString().c_str());
         std::exit(1);
       }
     }
