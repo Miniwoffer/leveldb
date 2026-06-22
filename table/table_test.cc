@@ -365,8 +365,9 @@ class DBConstructor : public Constructor {
     options.create_if_missing = true;
     options.error_if_exists = true;
     options.write_buffer_size = 10000;  // Something small to force merging
-    status = DB::Open(options, name, &db_);
-    ASSERT_TRUE(status.ok()) << status.ToString();
+    auto res = DB::Open(options, name);
+    ASSERT_TRUE(res);
+    db_ = res.value();
   }
 
   const Comparator* const comparator_;

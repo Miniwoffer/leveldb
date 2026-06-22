@@ -319,7 +319,9 @@ class DBTest : public testing::Test {
   DBImpl* dbfull() { return reinterpret_cast<DBImpl*>(db_); }
 
   void Reopen(Options* options = nullptr) {
-    ASSERT_LEVELDB_OK(TryReopen(options));
+    auto res = TryReopen(options);
+    ASSERT_TRUE(res);
+    db_ = res.value();
   }
 
   void Close() {
@@ -331,10 +333,12 @@ class DBTest : public testing::Test {
     delete db_;
     db_ = nullptr;
     DestroyDB(dbname_, Options());
-    ASSERT_LEVELDB_OK(TryReopen(options));
+    auto res = TryReopen(options);
+    ASSERT_TRUE(res);
+    db_ = res.value();
   }
 
-  Status TryReopen(Options* options) {
+  std::expected<DB*, Status> TryReopen(Options* options) {
     delete db_;
     db_ = nullptr;
     Options opts;
@@ -346,7 +350,7 @@ class DBTest : public testing::Test {
     }
     last_options_ = opts;
 
-    return DB::Open(opts, dbname_, &db_);
+    return DB::Open(opts, dbname_);
   }
 
   std::expected<void, Status> Put(const std::string_view k,
@@ -1583,8 +1587,9 @@ TEST_F(DBTest, ComparatorCheck) {
   NewComparator cmp;
   Options new_options = CurrentOptions();
   new_options.comparator = &cmp;
-  Status s = TryReopen(&new_options);
-  ASSERT_FALSE(s.ok());
+  auto res = TryReopen(&new_options);
+  ASSERT_FALSE(res);
+  Status s = res.error();
   ASSERT_TRUE(s.ToString().find("comparator") != std::string::npos)
       << s.ToString();
 }
@@ -1689,14 +1694,16 @@ TEST_F(DBTest, DBOpen_Options) {
   DB* db = nullptr;
   Options opts;
   opts.create_if_missing = false;
-  Status s = DB::Open(opts, dbname, &db);
+  auto res = DB::Open(opts, dbname);
+  ASSERT_FALSE(res);
+  Status s = res.error();
   ASSERT_TRUE(strstr(s.ToString().c_str(), "does not exist") != nullptr);
-  ASSERT_TRUE(db == nullptr);
 
   // Does not exist, and create_if_missing == true: OK
   opts.create_if_missing = true;
-  s = DB::Open(opts, dbname, &db);
-  ASSERT_LEVELDB_OK(s);
+  res = DB::Open(opts, dbname);
+  ASSERT_TRUE(res);
+  db = res.value();
   ASSERT_TRUE(db != nullptr);
 
   delete db;
@@ -1705,15 +1712,17 @@ TEST_F(DBTest, DBOpen_Options) {
   // Does exist, and error_if_exists == true: error
   opts.create_if_missing = false;
   opts.error_if_exists = true;
-  s = DB::Open(opts, dbname, &db);
+  res = DB::Open(opts, dbname);
+  ASSERT_FALSE(res);
+  s = res.error();
   ASSERT_TRUE(strstr(s.ToString().c_str(), "exists") != nullptr);
-  ASSERT_TRUE(db == nullptr);
 
   // Does exist, and error_if_exists == false: OK
   opts.create_if_missing = true;
   opts.error_if_exists = false;
-  s = DB::Open(opts, dbname, &db);
-  ASSERT_LEVELDB_OK(s);
+  res = DB::Open(opts, dbname);
+  ASSERT_TRUE(res);
+  db = res.value();
   ASSERT_TRUE(db != nullptr);
 
   delete db;
@@ -1762,7 +1771,9 @@ TEST_F(DBTest, DestroyOpenDB) {
   Options opts;
   opts.create_if_missing = true;
   DB* db = nullptr;
-  ASSERT_LEVELDB_OK(DB::Open(opts, dbname, &db));
+  auto res = DB::Open(opts, dbname);
+  ASSERT_TRUE(res);
+  db = res.value();
   ASSERT_TRUE(db != nullptr);
 
   // Must fail to destroy an open db.
@@ -1779,9 +1790,8 @@ TEST_F(DBTest, DestroyOpenDB) {
 }
 
 TEST_F(DBTest, Locking) {
-  DB* db2 = nullptr;
-  Status s = DB::Open(CurrentOptions(), dbname_, &db2);
-  ASSERT_FALSE(s.ok()) << "Locking did not prevent re-opening db";
+  auto res = DB::Open(CurrentOptions(), dbname_);
+  ASSERT_FALSE(res) << "Locking did not prevent re-opening db";
 }
 
 // Check that number of files does not grow when we are out of space
@@ -1909,8 +1919,9 @@ TEST_F(DBTest, MissingSSTFile) {
   ASSERT_TRUE(DeleteAnSSTFile());
   Options options = CurrentOptions();
   options.paranoid_checks = true;
-  Status s = TryReopen(&options);
-  ASSERT_FALSE(s.ok());
+  auto res = TryReopen(&options);
+  ASSERT_FALSE(res);
+  Status s = res.error();
   ASSERT_TRUE(s.ToString().find("issing") != std::string::npos) << s.ToString();
 }
 
@@ -1925,8 +1936,9 @@ TEST_F(DBTest, StillReadSST) {
   ASSERT_GT(RenameLDBToSST(), 0);
   Options options = CurrentOptions();
   options.paranoid_checks = true;
-  Status s = TryReopen(&options);
-  ASSERT_TRUE(s.ok());
+  auto res = TryReopen(&options);
+  ASSERT_TRUE(res);
+  db_ = res.value();
   ASSERT_EQ("bar", Get("foo"));
 }
 
