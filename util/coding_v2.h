@@ -128,7 +128,7 @@ inline void PutFixed(std::string& data, T value) {
 
 template <typename T>
   requires is_unsigned_integral<T>
-std::optional<DecodingResult<std::string_view>> GetLengthPrefixedData(
+std::optional<DecodingResult<std::string_view>> GetLengthPrefixedBlob(
     std::string_view input) {
   if (auto len = GetVarint<T>(input);
       len && len->remaining_input.size() >= len->value) {

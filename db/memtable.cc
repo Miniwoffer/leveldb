@@ -7,20 +7,20 @@
 #include "db/dbformat.h"
 #include <cstdint>
 #include <optional>
+#include <string_view>
 
 #include "leveldb/comparator.h"
 #include "leveldb/env.h"
 #include "leveldb/iterator.h"
 
 #include "util/coding.h"
+#include "util/coding_v2.h"
 
 namespace leveldb {
 
 static std::string_view GetLengthPrefixedView(const char* data) {
-  uint32_t len;
-  const char* p = data;
-  p = GetVarint32Ptr(p, p + 5, &len);  // +5: we assume "p" is not corrupted
-  return std::string_view(p, len);
+  auto r = GetLengthPrefixedBlob<uint32_t>(std::string_view(data, SIZE_MAX));
+  return r->value;
 }
 
 MemTable::MemTable(const InternalKeyComparator& comparator)
@@ -74,7 +74,10 @@ class MemTableIterator : public Iterator {
   }
   std::string_view value() const override {
     std::string_view key_slice = GetLengthPrefixedView(iter_.key());
-    return GetLengthPrefixedView(key_slice.data() + key_slice.size());
+    auto key = GetLengthPrefixedBlob<uint32_t>(
+        std::string_view(iter_.key(), SIZE_MAX));
+    auto value = GetLengthPrefixedBlob<uint32_t>(key->remaining_input);
+    return value->value;
   }
 
   Status status() const override { return Status::OK(); }
@@ -132,18 +135,22 @@ std::optional<std::expected<std::string, Status>> MemTable::Get(
     // sequence number since the Seek() call above should have skipped
     // all entries with overly large sequence numbers.
     const char* entry = iter.key();
-    uint32_t key_length;
-    const char* key_ptr = GetVarint32Ptr(entry, entry + 5, &key_length);
+
+    auto ekr =
+        GetLengthPrefixedBlob<uint32_t>(std::string_view(entry, SIZE_MAX));
+    auto ek = ekr->value;
+
     if (comparator_.comparator.user_comparator()->Compare(
-            std::string_view(key_ptr, key_length - 8), key.user_key()) == 0) {
+            ek.substr(0, ek.size() - 8), key.user_key()) == 0) {
       // Correct user key
-      const uint64_t tag = DecodeFixed64(key_ptr + key_length - 8);
+      const uint64_t tag = DecodeFixed<uint64_t>(ek.substr(ek.size() - 8));
       switch (static_cast<ValueType>(tag & 0xff)) {
         case kTypeValue: {
-          return std::string(GetLengthPrefixedView(key_ptr + key_length));
+          auto r = GetLengthPrefixedBlob<uint32_t>(ekr->remaining_input);
+          return std::string(r->value);
         }
         case kTypeDeletion:
-          return std::unexpected(Status::NotFound(std::string_view()));
+          return std::unexpected(Status::NotFound(""));
       }
     }
   }
