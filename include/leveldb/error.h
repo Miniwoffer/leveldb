@@ -11,8 +11,6 @@
 namespace leveldb {
 
 class LEVELDB_EXPORT Error {
-  friend class DetailedError;
-
  public:
   enum ErrorCode {
     NotFound = 1,
@@ -57,18 +55,24 @@ class LEVELDB_EXPORT Error {
   bool operator==(const Error& other) const { return code() == other.code(); }
 
  private:
+  friend class DetailedError;
   ErrorCode code_;
 };
+
+template <typename T>
+concept is_string_like =
+    std::same_as<std::string, T> || std::same_as<std::string_view, T> ||
+    std::same_as<const char*, T>;  // Unsure if we should allow const char*
 
 class LEVELDB_EXPORT DetailedError : public Error {
  public:
   template <typename... Args>
-    requires(std::same_as<std::string_view, Args> && ...)
+    requires(is_string_like<Args> && ...)
   DetailedError(ErrorCode c, Args... args) : Error(c) {
-    std::string_view messages[] = {args...};
+    std::string messages[] = {args...};
     message_ = std::make_unique<std::string>();
     for (auto m : messages) {
-      *message_ += std::string(m) + std::string(": ");
+      *message_ += m + std::string(": ");
     }
     // Remove last ": "
     message_->resize(message_->size() - 2);
@@ -76,8 +80,10 @@ class LEVELDB_EXPORT DetailedError : public Error {
 
   DetailedError& operator=(DetailedError&& other) {
     if (this != &other) {
-      message_.reset(other.message_.release());
-      code_ = other.code();
+      std::string* others_message = other.message_.release();
+      message_.reset(others_message);
+      code_ = other.code_;
+      other.code_ = static_cast<ErrorCode>(0);
     }
     return *this;
   };
@@ -95,16 +101,20 @@ class LEVELDB_EXPORT DetailedError : public Error {
     switch (code()) {
       case NotFound:
         error_string = "Not found: ";
+        break;
       case Corruption:
         error_string = "Corruption: ";
+        break;
       case NotSupported:
         error_string = "Not implemented: ";
+        break;
       case InvalidArgument:
         error_string = "Invalid argument: ";
+        break;
       case IOError:
         error_string = "IO error: ";
+        break;
       default:
-        assert(0);
         return "Invalid error code";
     }
     error_string += *message_;
