@@ -4,6 +4,8 @@
 
 #include "util/coding.h"
 
+#include <cstdint>
+#include <string_view>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -81,18 +83,18 @@ TEST(Coding, Varint32) {
     PutVarint<uint32_t>(s, v);
   }
 
-  const char* p = s.data();
-  const char* limit = p + s.size();
+  std::string_view sv(s);
+
   for (uint32_t i = 0; i < (32 * 32); i++) {
     uint32_t expected = (i / 32) << (i % 32);
-    uint32_t actual;
-    const char* start = p;
-    p = GetVarint32Ptr(p, limit, &actual);
-    ASSERT_TRUE(p != nullptr);
-    ASSERT_EQ(expected, actual);
-    ASSERT_EQ(VarintLength(actual), p - start);
+    auto resp = GetVarint<uint32_t>(sv);
+    ASSERT_TRUE(resp);
+    ASSERT_EQ(expected, resp->value);
+    ASSERT_EQ(VarintLength(resp->value),
+              sv.length() - resp->remaining_input.length());
+    sv = resp->remaining_input;
   }
-  ASSERT_EQ(p, s.data() + s.size());
+  ASSERT_TRUE(sv.empty());
 }
 
 TEST(Coding, Varint64) {
@@ -120,12 +122,12 @@ TEST(Coding, Varint64) {
   const char* limit = p + s.size();
   for (size_t i = 0; i < values.size(); i++) {
     ASSERT_TRUE(p < limit);
-    uint64_t actual;
     const char* start = p;
-    p = GetVarint64Ptr(p, limit, &actual);
-    ASSERT_TRUE(p != nullptr);
-    ASSERT_EQ(values[i], actual);
-    ASSERT_EQ(VarintLength(actual), p - start);
+    auto resp = GetVarint<uint64_t>(std::string_view(p, limit));
+    ASSERT_TRUE(resp);
+    p = resp->remaining_input.data();
+    ASSERT_EQ(values[i], resp->value);
+    ASSERT_EQ(VarintLength(resp->value), resp->remaining_input.data() - start);
   }
   ASSERT_EQ(p, limit);
 }
@@ -133,41 +135,37 @@ TEST(Coding, Varint64) {
 TEST(Coding, Varint32Overflow) {
   uint32_t result;
   std::string input("\x81\x82\x83\x84\x85\x11");
-  ASSERT_TRUE(GetVarint32Ptr(input.data(), input.data() + input.size(),
-                             &result) == nullptr);
+  ASSERT_FALSE(GetVarint<uint32_t>(input));
 }
 
 TEST(Coding, Varint32Truncation) {
   uint32_t large_value = (1u << 31) + 100;
   std::string s;
   PutVarint<uint32_t>(s, large_value);
-  uint32_t result;
   for (size_t len = 0; len < s.size() - 1; len++) {
-    ASSERT_TRUE(GetVarint32Ptr(s.data(), s.data() + len, &result) == nullptr);
+    ASSERT_FALSE(GetVarint<uint32_t>(std::string_view(s.data(), len)));
   }
-  ASSERT_TRUE(GetVarint32Ptr(s.data(), s.data() + s.size(), &result) !=
-              nullptr);
-  ASSERT_EQ(large_value, result);
+  auto resp = GetVarint<uint32_t>(s);
+  ASSERT_TRUE(resp);
+  ASSERT_EQ(large_value, resp->value);
 }
 
 TEST(Coding, Varint64Overflow) {
   uint64_t result;
   std::string input("\x81\x82\x83\x84\x85\x81\x82\x83\x84\x85\x11");
-  ASSERT_TRUE(GetVarint64Ptr(input.data(), input.data() + input.size(),
-                             &result) == nullptr);
+  ASSERT_FALSE(GetVarint<uint64_t>(input));
 }
 
 TEST(Coding, Varint64Truncation) {
   uint64_t large_value = (1ull << 63) + 100ull;
   std::string s;
   PutVarint<uint64_t>(s, large_value);
-  uint64_t result;
   for (size_t len = 0; len < s.size() - 1; len++) {
-    ASSERT_TRUE(GetVarint64Ptr(s.data(), s.data() + len, &result) == nullptr);
+    ASSERT_FALSE(GetVarint<uint64_t>(std::string_view(s.data(), len)));
   }
-  ASSERT_TRUE(GetVarint64Ptr(s.data(), s.data() + s.size(), &result) !=
-              nullptr);
-  ASSERT_EQ(large_value, result);
+  auto resp = GetVarint<uint64_t>(s);
+  ASSERT_TRUE(resp);
+  ASSERT_EQ(large_value, resp->value);
 }
 
 TEST(Coding, Strings) {
@@ -178,19 +176,19 @@ TEST(Coding, Strings) {
   PutLengthPrefixedBlob<uint32_t>(s, std::string(200, 'x'));
 
   std::string_view input(s);
-  auto v = GetLengthPrefixedView(input);
+  auto v = GetLengthPrefixedBlob<uint32_t>(input);
   ASSERT_TRUE(v);
-  ASSERT_EQ("", v);
-  v = GetLengthPrefixedView(input);
+  ASSERT_EQ("", v->value);
+  v = GetLengthPrefixedBlob<uint32_t>(v->remaining_input);
   ASSERT_TRUE(v);
-  ASSERT_EQ("foo", v);
-  v = GetLengthPrefixedView(input);
+  ASSERT_EQ("foo", v->value);
+  v = GetLengthPrefixedBlob<uint32_t>(v->remaining_input);
   ASSERT_TRUE(v);
-  ASSERT_EQ("bar", v);
-  v = GetLengthPrefixedView(input);
+  ASSERT_EQ("bar", v->value);
+  v = GetLengthPrefixedBlob<uint32_t>(v->remaining_input);
   ASSERT_TRUE(v);
-  ASSERT_EQ(std::string(200, 'x'), v);
-  ASSERT_TRUE(input.empty());
+  ASSERT_EQ(std::string(200, 'x'), v->value);
+  ASSERT_TRUE(v->remaining_input.empty());
 }
 
 }  // namespace leveldb

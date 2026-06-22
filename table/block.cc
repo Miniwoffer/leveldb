@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <string_view>
 #include <vector>
 
 #include "leveldb/comparator.h"
@@ -64,9 +65,26 @@ static inline const char* DecodeEntry(const char* p, const char* limit,
     // Fast path: all three values are encoded in one byte each
     p += 3;
   } else {
-    if ((p = GetVarint32Ptr(p, limit, shared)) == nullptr) return nullptr;
-    if ((p = GetVarint32Ptr(p, limit, non_shared)) == nullptr) return nullptr;
-    if ((p = GetVarint32Ptr(p, limit, value_length)) == nullptr) return nullptr;
+    auto resp = GetVarint<uint32_t>(std::string_view(p, limit));
+    if (!resp) {
+      return nullptr;
+    }
+    *shared = resp->value;
+    p = resp->remaining_input.data();
+
+    resp = GetVarint<uint32_t>(resp->remaining_input);
+    if (!resp) {
+      return nullptr;
+    }
+    *non_shared = resp->value;
+    p = resp->remaining_input.data();
+
+    resp = GetVarint<uint32_t>(resp->remaining_input);
+    if (!resp) {
+      return nullptr;
+    }
+    *value_length = resp->value;
+    p = resp->remaining_input.data();
   }
 
   if (static_cast<uint32_t>(limit - p) < (*non_shared + *value_length)) {

@@ -56,23 +56,25 @@ Status WriteBatch::Iterate(Handler* handler) const {
     input.remove_prefix(1);
     switch (tag) {
       case kTypeValue: {
-        auto key = GetLengthPrefixedView(input);
+        auto key = GetLengthPrefixedBlob<uint32_t>(input);
         if (!key) {
           return Status::Corruption("bad WriteBatch Put");
         }
-        auto value = GetLengthPrefixedView(input);
+        input = key->remaining_input;
+        auto value = GetLengthPrefixedBlob<uint64_t>(input);
         if (!value) {
           return Status::Corruption("bad WriteBatch Put");
         }
-
-        handler->Put(*key, *value);
+        input = value->remaining_input;
+        handler->Put(key->value, value->value);
       } break;
       case kTypeDeletion: {
-        auto key = GetLengthPrefixedView(input);
+        auto key = GetLengthPrefixedBlob<uint32_t>(input);
         if (!key) {
           return Status::Corruption("bad WriteBatch Delete");
         }
-        handler->Delete(*key);
+        input = key->remaining_input;
+        handler->Delete(key->value);
       } break;
       default:
         return Status::Corruption("unknown WriteBatch tag");

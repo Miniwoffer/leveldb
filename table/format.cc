@@ -9,6 +9,7 @@
 
 #include "table/block.h"
 #include "util/coding.h"
+#include "util/coding_v2.h"
 #include "util/crc32c.h"
 
 namespace leveldb {
@@ -24,11 +25,16 @@ void BlockHandle::EncodeTo(std::string& dst) const {
 void BlockHandle::EncodeTo(std::string* dst) const { return EncodeTo(*dst); }
 
 Status BlockHandle::DecodeFrom(std::string_view* input) {
-  if (GetVarint64(input, &offset_) && GetVarint64(input, &size_)) {
-    return Status::OK();
-  } else {
-    return Status::Corruption("bad block handle");
+  if (auto offset = GetVarint<uint64_t>(*input)) {
+    *input = offset->remaining_input;
+    offset_ = offset->value;
+    if (auto size = GetVarint<uint64_t>(*input)) {
+      *input = size->remaining_input;
+      size_ = size->value;
+      return Status::OK();
+    }
   }
+  return Status::Corruption("bad block handle");
 }
 
 void Footer::EncodeTo(std::string* dst) const {

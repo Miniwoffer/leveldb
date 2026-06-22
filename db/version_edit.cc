@@ -5,7 +5,9 @@
 #include "db/version_edit.h"
 
 #include "db/version_set.h"
+#include <cmath>
 #include <cstdint>
+#include <optional>
 #include <string>
 
 #include "util/coding.h"
@@ -88,57 +90,57 @@ void VersionEdit::EncodeTo(std::string& dst) const {
   }
 }
 
-static bool GetInternalKey(std::string_view* input, InternalKey* dst) {
-  std::string_view input_ = *input;
-  auto str = GetLengthPrefixedView(input_);
-  *input = std::string_view(input_.data(), input_.length());
+static std::optional<InternalKey> GetInternalKey(std::string_view& input) {
+  auto str = GetLengthPrefixedBlob<uint32_t>(input);
   if (str) {
+    input = str->remaining_input;
     // TODO: remove convertion hack
-    return dst->DecodeFrom(*str);
-  } else {
-    return false;
+    InternalKey key;
+    if (key.DecodeFrom(str->value)) {
+      return key;
+    }
   }
+  return {};
 }
 
-static bool GetLevel(std::string_view* input, int* level) {
-  uint32_t v;
-  if (GetVarint32(input, &v) && v < config::kNumLevels) {
-    *level = v;
-    return true;
-  } else {
-    return false;
+static std::optional<uint32_t> GetLevel(std::string_view& input) {
+  if (auto v = GetVarint<uint32_t>(input)) {
+    input = v->remaining_input;
+    if (v->value < config::kNumLevels) {
+      return v->value;
+    }
   }
+  return {};
 }
 
 Status VersionEdit::DecodeFrom(const std::string_view& src) {
   Clear();
   std::string_view input = src;
   const char* msg = nullptr;
-  uint32_t tag;
+  std::optional<DecodingResult<uint32_t>> tag;
 
   // Temporary storage for parsing
-  int level;
-  uint64_t number;
   FileMetaData f;
-  std::string_view str;
-  InternalKey key;
 
-  while (msg == nullptr && GetVarint32(&input, &tag)) {
-    switch (tag) {
+  while (msg == nullptr && (tag = GetVarint<uint32_t>(input))) {
+    input = tag->remaining_input;
+    switch (tag->value) {
       case kComparator: {
         std::string_view input_ = input;
-        auto name = GetLengthPrefixedView(input_);
-        input = std::string_view(input_.data(), input_.length());
+        auto name = GetLengthPrefixedBlob<uint32_t>(input);
         if (name) {
-          comparator_ = *name;
+          comparator_ = name->value;
           has_comparator_ = true;
+          input = name->remaining_input;
         } else {
           msg = "comparator name";
         }
       } break;
 
       case kLogNumber:
-        if (GetVarint64(&input, &log_number_)) {
+        if (auto log_number = GetVarint<uint64_t>(input)) {
+          log_number_ = log_number->value;
+          input = log_number->remaining_input;
           has_log_number_ = true;
         } else {
           msg = "log number";
@@ -146,7 +148,9 @@ Status VersionEdit::DecodeFrom(const std::string_view& src) {
         break;
 
       case kPrevLogNumber:
-        if (GetVarint64(&input, &prev_log_number_)) {
+        if (auto prev_log_number = GetVarint<uint64_t>(input)) {
+          prev_log_number_ = prev_log_number->value;
+          input = prev_log_number->remaining_input;
           has_prev_log_number_ = true;
         } else {
           msg = "previous log number";
@@ -154,7 +158,9 @@ Status VersionEdit::DecodeFrom(const std::string_view& src) {
         break;
 
       case kNextFileNumber:
-        if (GetVarint64(&input, &next_file_number_)) {
+        if (auto next_file_number = GetVarint<uint64_t>(input)) {
+          next_file_number_ = next_file_number->value;
+          input = next_file_number->remaining_input;
           has_next_file_number_ = true;
         } else {
           msg = "next file number";
@@ -162,7 +168,9 @@ Status VersionEdit::DecodeFrom(const std::string_view& src) {
         break;
 
       case kLastSequence:
-        if (GetVarint64(&input, &last_sequence_)) {
+        if (auto last_sequence = GetVarint<uint64_t>(input)) {
+          last_sequence_ = last_sequence->value;
+          input = last_sequence->remaining_input;
           has_last_sequence_ = true;
         } else {
           msg = "last sequence number";
@@ -170,30 +178,50 @@ Status VersionEdit::DecodeFrom(const std::string_view& src) {
         break;
 
       case kCompactPointer:
-        if (GetLevel(&input, &level) && GetInternalKey(&input, &key)) {
-          compact_pointers_.push_back(std::make_pair(level, key));
-        } else {
-          msg = "compaction pointer";
+        if (auto level = GetLevel(input)) {
+          if (auto key = GetInternalKey(input)) {
+            compact_pointers_.push_back(std::make_pair(*level, *key));
+            continue;
+          }
         }
+        msg = "compaction pointer";
         break;
 
       case kDeletedFile:
-        if (GetLevel(&input, &level) && GetVarint64(&input, &number)) {
-          deleted_files_.insert(std::make_pair(level, number));
-        } else {
-          msg = "deleted file";
+        if (auto level = GetLevel(input)) {
+          auto number = GetVarint<uint64_t>(input);
+          if (number) {
+            input = number->remaining_input;
+            deleted_files_.insert(std::make_pair(*level, number->value));
+            continue;
+          }
         }
+        msg = "deleted file";
         break;
 
       case kNewFile:
-        if (GetLevel(&input, &level) && GetVarint64(&input, &f.number) &&
-            GetVarint64(&input, &f.file_size) &&
-            GetInternalKey(&input, &f.smallest) &&
-            GetInternalKey(&input, &f.largest)) {
-          new_files_.push_back(std::make_pair(level, f));
-        } else {
-          msg = "new-file entry";
+
+        if (auto level = GetLevel(input)) {
+          auto number = GetVarint<uint64_t>(input);
+          if (number) {
+            f.number = number->value;
+            input = number->remaining_input;
+            auto file_size = GetVarint<uint64_t>(input);
+            if (file_size) {
+              f.file_size = file_size->value;
+              input = file_size->remaining_input;
+              if (auto smallest = GetInternalKey(input)) {
+                f.smallest = *smallest;
+                if (auto largest = GetInternalKey(input)) {
+                  f.largest = *largest;
+                  new_files_.push_back(std::make_pair(*level, f));
+                  continue;
+                }
+              }
+            }
+          }
         }
+        msg = "new-file entry";
         break;
 
       default:
