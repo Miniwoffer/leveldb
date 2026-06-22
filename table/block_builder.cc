@@ -31,6 +31,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <sys/types.h>
 
 #include "leveldb/comparator.h"
 #include "leveldb/options.h"
@@ -63,9 +64,9 @@ size_t BlockBuilder::CurrentSizeEstimate() const {
 std::string_view BlockBuilder::Finish() {
   // Append restart array
   for (size_t i = 0; i < restarts_.size(); i++) {
-    PutFixed32(&buffer_, restarts_[i]);
+    PutFixed(buffer_, restarts_[i]);
   }
-  PutFixed32(&buffer_, restarts_.size());
+  PutFixed<uint32_t>(buffer_, restarts_.size());
   finished_ = true;
   return std::string_view(buffer_);
 }

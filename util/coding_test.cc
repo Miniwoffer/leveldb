@@ -13,7 +13,7 @@ namespace leveldb {
 TEST(Coding, Fixed32) {
   std::string s;
   for (uint32_t v = 0; v < 100000; v++) {
-    PutFixed32(&s, v);
+    PutFixed(s, v);
   }
 
   const char* p = s.data();
@@ -28,9 +28,9 @@ TEST(Coding, Fixed64) {
   std::string s;
   for (int power = 0; power <= 63; power++) {
     uint64_t v = static_cast<uint64_t>(1) << power;
-    PutFixed64(&s, v - 1);
-    PutFixed64(&s, v + 0);
-    PutFixed64(&s, v + 1);
+    PutFixed(s, v - 1);
+    PutFixed(s, v + 0);
+    PutFixed(s, v + 1);
   }
 
   const char* p = s.data();
@@ -54,7 +54,7 @@ TEST(Coding, Fixed64) {
 // Test that encoding routines generate little-endian encodings
 TEST(Coding, EncodingOutput) {
   std::string dst;
-  PutFixed32(&dst, 0x04030201);
+  PutFixed<uint32_t>(dst, 0x04030201);
   ASSERT_EQ(4, dst.size());
   ASSERT_EQ(0x01, static_cast<int>(dst[0]));
   ASSERT_EQ(0x02, static_cast<int>(dst[1]));
@@ -62,7 +62,7 @@ TEST(Coding, EncodingOutput) {
   ASSERT_EQ(0x04, static_cast<int>(dst[3]));
 
   dst.clear();
-  PutFixed64(&dst, 0x0807060504030201ull);
+  PutFixed<uint64_t>(dst, 0x0807060504030201ull);
   ASSERT_EQ(8, dst.size());
   ASSERT_EQ(0x01, static_cast<int>(dst[0]));
   ASSERT_EQ(0x02, static_cast<int>(dst[1]));

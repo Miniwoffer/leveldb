@@ -40,10 +40,10 @@ std::string_view FilterBlockBuilder::Finish() {
   // Append array of per-filter offsets
   const uint32_t array_offset = result_.size();
   for (size_t i = 0; i < filter_offsets_.size(); i++) {
-    PutFixed32(&result_, filter_offsets_[i]);
+    PutFixed(result_, filter_offsets_[i]);
   }
 
-  PutFixed32(&result_, array_offset);
+  PutFixed(result_, array_offset);
   result_.push_back(kFilterBaseLg);  // Save encoding parameter in result
   return std::string_view(result_);
 }

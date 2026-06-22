@@ -4,6 +4,7 @@
 
 #include "leveldb/cache.h"
 
+#include <cstdint>
 #include <vector>
 
 #include "util/coding.h"
@@ -13,9 +14,9 @@
 namespace leveldb {
 
 // Conversions between numeric keys/values and the types expected by Cache.
-static std::string EncodeKey(int k) {
+static std::string EncodeKey(uint32_t k) {
   std::string result;
-  PutFixed32(&result, k);
+  PutFixed(result, k);
   return result;
 }
 static int DecodeKey(const std::string_view& k) {

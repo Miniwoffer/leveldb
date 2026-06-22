@@ -9,6 +9,7 @@
 
 #include "port/port.h"
 #include "util/coding.h"
+#include "util/coding_v2.h"
 
 namespace leveldb {
 
@@ -20,7 +21,7 @@ static uint64_t PackSequenceAndType(uint64_t seq, ValueType t) {
 
 void AppendInternalKey(std::string* result, const ParsedInternalKey& key) {
   result->append(key.user_key.data(), key.user_key.size());
-  PutFixed64(result, PackSequenceAndType(key.sequence, key.type));
+  PutFixed(*result, PackSequenceAndType(key.sequence, key.type));
 }
 
 std::string ParsedInternalKey::DebugString() const {
@@ -74,8 +75,7 @@ void InternalKeyComparator::FindShortestSeparator(
       user_comparator_->Compare(user_start, tmp) < 0) {
     // User key has become shorter physically, but larger logically.
     // Tack on the earliest possible number to the shortened user key.
-    PutFixed64(&tmp,
-               PackSequenceAndType(kMaxSequenceNumber, kValueTypeForSeek));
+    PutFixed(tmp, PackSequenceAndType(kMaxSequenceNumber, kValueTypeForSeek));
     assert(this->Compare(*start, tmp) < 0);
     assert(this->Compare(tmp, limit) < 0);
     start->swap(tmp);
@@ -90,8 +90,7 @@ void InternalKeyComparator::FindShortSuccessor(std::string* key) const {
       user_comparator_->Compare(user_key, tmp) < 0) {
     // User key has become shorter physically, but larger logically.
     // Tack on the earliest possible number to the shortened user key.
-    PutFixed64(&tmp,
-               PackSequenceAndType(kMaxSequenceNumber, kValueTypeForSeek));
+    PutFixed(tmp, PackSequenceAndType(kMaxSequenceNumber, kValueTypeForSeek));
     assert(this->Compare(*key, tmp) < 0);
     key->swap(tmp);
   }
