@@ -50,7 +50,7 @@ class RecoveryTest : public testing::Test {
     db_ = nullptr;
   }
 
-  Status OpenWithStatus(Options* options = nullptr) {
+  std::expected<DB*, Status> OpenWithStatus(Options* options = nullptr) {
     Close();
     Options opts;
     if (options != nullptr) {
@@ -62,11 +62,13 @@ class RecoveryTest : public testing::Test {
     if (opts.env == nullptr) {
       opts.env = env_;
     }
-    return DB::Open(opts, dbname_, &db_);
+    return DB::Open(opts, dbname_);
   }
 
   void Open(Options* options = nullptr) {
-    ASSERT_LEVELDB_OK(OpenWithStatus(options));
+    auto res = OpenWithStatus(options);
+    ASSERT_TRUE(res);
+    db_ = res.value();
     ASSERT_EQ(1, NumLogs());
   }
 
@@ -332,7 +334,10 @@ TEST_F(RecoveryTest, ManifestMissing) {
   Close();
   RemoveManifestFile();
 
-  Status status = OpenWithStatus();
+  auto res = OpenWithStatus();
+  ASSERT_FALSE(res);
+  Status status = res.error();
+
 #if defined(LEVELDB_PLATFORM_CHROMIUM)
   // TODO(crbug.com/760362): See comment in MakeIOError() from env_chromium.cc.
   ASSERT_TRUE(status.IsIOError());

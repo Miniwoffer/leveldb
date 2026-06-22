@@ -223,8 +223,9 @@ TEST_F(MemEnvTest, DBTest) {
 
   const std::string_view keys[] = {{"aaa"}, {"bbb"}, {"ccc"}};
   const std::string_view vals[] = {{"foo"}, {"bar"}, {"baz"}};
-
-  ASSERT_LEVELDB_OK(DB::Open(options, "/dir/db", &db));
+  auto res = DB::Open(options, "/dir/db");
+  ASSERT_TRUE(res);
+  db = res.value();
   for (size_t i = 0; i < 3; ++i) {
     ASSERT_TRUE(db->Put(WriteOptions(), keys[i], vals[i]));
   }
