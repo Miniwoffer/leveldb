@@ -80,7 +80,8 @@ class LEVELDB_EXPORT DB {
   // Apply the specified updates to the database.
   // Returns OK on success, non-OK on failure.
   // Note: consider setting options.sync = true.
-  virtual Status Write(const WriteOptions& options, WriteBatch* updates) = 0;
+  virtual std::expected<void, Status> Write(const WriteOptions& options,
+                                            WriteBatch* updates) = 0;
 
   // If the database contains an entry for "key" returns string.
   //

@@ -343,7 +343,7 @@ class DBConstructor : public Constructor {
     for (const auto& kvp : data) {
       WriteBatch batch;
       batch.Put(std::string_view(kvp.first), kvp.second);
-      EXPECT_TRUE(db_->Write(WriteOptions(), &batch).ok());
+      EXPECT_TRUE(db_->Write(WriteOptions(), &batch));
     }
     return Status::OK();
   }
