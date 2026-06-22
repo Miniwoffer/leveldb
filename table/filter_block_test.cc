@@ -24,7 +24,7 @@ class TestHashFilter : public FilterPolicy {
                     std::string* dst) const override {
     for (const auto& key : keys) {
       uint32_t h = Hash(key.data(), key.size(), 1);
-      PutFixed32(dst, h);
+      PutFixed(*dst, h);
     }
   }
 

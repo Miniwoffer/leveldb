@@ -25,8 +25,6 @@
 namespace leveldb {
 
 // Standard Put... routines append to a string
-void PutFixed32(std::string* dst, uint32_t value);
-void PutFixed64(std::string* dst, uint64_t value);
 void PutLengthPrefixedView(std::string* dst, const std::string_view& value);
 
 // Standard Get... routines parse a value from the beginning of a

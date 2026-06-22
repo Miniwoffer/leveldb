@@ -116,6 +116,17 @@ inline std::span<E> EncodeFixed(std::span<E> data, T value) {
 }
 
 template <typename T>
+  requires std::is_integral_v<T>
+inline void PutFixed(std::string& data, T value) {
+  char buff[sizeof(T)];
+  std::memcpy(buff, &value, sizeof(T));
+  if constexpr (std::endian::native == std::endian::big) {
+    std::byteswap(buff);
+  }
+  data.append(buff, sizeof(T));
+}
+
+template <typename T>
   requires is_unsigned_integral<T>
 std::optional<DecodingResult<std::string_view>> GetLengthPrefixedData(
     std::string_view input) {
