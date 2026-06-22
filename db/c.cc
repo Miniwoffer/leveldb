@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <string.h>
 #include <string_view>
 
 #include "leveldb/cache.h"

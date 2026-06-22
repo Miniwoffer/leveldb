@@ -444,8 +444,7 @@ class PosixWritableFile final : public WritableFile {
     // the splitting was done incorrectly.
     assert(filename.find('/', separator_pos + 1) == std::string::npos);
 
-    return std::string_view(filename.data() + separator_pos + 1,
-                            filename.length() - separator_pos - 1);
+    return std::string_view(filename).substr(separator_pos + 1);
   }
 
   // True if the given file is a manifest file.
