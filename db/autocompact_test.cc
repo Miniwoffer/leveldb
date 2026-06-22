@@ -22,7 +22,9 @@ class AutoCompactTest : public testing::Test {
     DestroyDB(dbname_, options_);
     options_.create_if_missing = true;
     options_.compression = kNoCompression;
-    EXPECT_LEVELDB_OK(DB::Open(options_, dbname_, &db_));
+    auto res = DB::Open(options_, dbname_);
+    EXPECT_TRUE(res);
+    db_ = res.value();
   }
 
   ~AutoCompactTest() {

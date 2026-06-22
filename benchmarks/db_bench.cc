@@ -820,11 +820,12 @@ class Benchmark {
     options.reuse_logs = FLAGS_reuse_logs;
     options.compression =
         FLAGS_compression ? kSnappyCompression : kNoCompression;
-    Status s = DB::Open(options, FLAGS_db, &db_);
-    if (!s.ok()) {
-      std::fprintf(stderr, "open error: %s\n", s.ToString().c_str());
+    auto res = DB::Open(options, FLAGS_db);
+    if (!res) {
+      std::fprintf(stderr, "open error: %s\n", res.error().ToString().c_str());
       std::exit(1);
     }
+    db_ = res.value();
   }
 
   void OpenBench(ThreadState* thread) {

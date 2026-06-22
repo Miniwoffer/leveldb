@@ -42,18 +42,18 @@ class CorruptionTest : public testing::Test {
     delete tiny_cache_;
   }
 
-  Status TryReopen() {
+  std::expected<DB*, Status> TryReopen() {
     delete db_;
     db_ = nullptr;
-    return DB::Open(options_, dbname_, &db_);
+    return DB::Open(options_, dbname_);
   }
 
   void Reopen() {
-    auto ret = TryReopen();
-    if (!ret.ok()) {
-      FAIL() << ret.ToString();
+    auto res = TryReopen();
+    if (!res) {
+      FAIL() << res.error().ToString();
     }
-    ASSERT_LEVELDB_OK(ret);
+    db_ = res.value();
   }
 
   void RepairDB() {
@@ -211,8 +211,8 @@ TEST_F(CorruptionTest, Recovery) {
 
 TEST_F(CorruptionTest, RecoverWriteError) {
   env_.writable_file_error_ = true;
-  Status s = TryReopen();
-  ASSERT_FALSE(s.ok());
+  auto res = TryReopen();
+  ASSERT_FALSE(res);
 }
 
 TEST_F(CorruptionTest, NewFileErrorDuringWrite) {
@@ -310,8 +310,8 @@ TEST_F(CorruptionTest, CorruptedDescriptor) {
   dbi->TEST_CompactRange(0, nullptr, nullptr);
 
   Corrupt(kDescriptorFile, 0, 1000);
-  Status s = TryReopen();
-  ASSERT_FALSE(s.ok());
+  auto res = TryReopen();
+  ASSERT_FALSE(res);
 
   RepairDB();
   Reopen();

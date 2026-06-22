@@ -174,12 +174,14 @@ static char* CopyString(const std::string& str) {
 
 leveldb_t* leveldb_open(const leveldb_options_t* options, const char* name,
                         char** errptr) {
-  DB* db;
-  if (SaveError(errptr, DB::Open(options->rep, std::string(name), &db))) {
+  auto res = DB::Open(options->rep, std::string(name));
+  if (!res) {
+    SaveError(errptr, res.error());
     return nullptr;
   }
+
   leveldb_t* result = new leveldb_t;
-  result->rep = db;
+  result->rep = res.value();
   return result;
 }
 
