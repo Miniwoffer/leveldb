@@ -44,7 +44,7 @@ int MemTable::KeyComparator::operator()(const char* aptr,
 static const char* EncodeKey(std::string& scratch,
                              const std::string_view& target) {
   scratch.clear();
-  PutLengthPrefixedString<uint32_t>(scratch, target);
+  PutLengthPrefixedBlob<uint32_t>(scratch, target);
   return scratch.data();
 }
 static const char* EncodeKey(std::string* scratch,

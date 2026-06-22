@@ -24,9 +24,6 @@
 
 namespace leveldb {
 
-// Standard Put... routines append to a string
-void PutLengthPrefixedView(std::string* dst, const std::string_view& value);
-
 // Standard Get... routines parse a value from the beginning of a
 // std::string_view and advance the slice past the parsed value.
 bool GetVarint32(std::string_view* input, uint32_t* value);
@@ -42,17 +39,6 @@ const char* GetVarint64Ptr(const char* p, const char* limit, uint64_t* v);
 
 // Returns the length of the varint32 or varint64 encoding of "v"
 int VarintLength(uint64_t v);
-
-// Lower-level versions of Put... that write directly into a character buffer
-// REQUIRES: dst has enough space for the value being written
-
-inline void EncodeFixed32(char* dst, uint32_t value) {
-  EncodeFixed(std::span(dst, 4), value);
-}
-
-inline void EncodeFixed64(char* dst, uint64_t value) {
-  EncodeFixed(std::span(dst, 8), value);
-}
 
 // Lower-level versions of Get... that read directly from a character buffer
 // without any bounds checking.

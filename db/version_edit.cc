@@ -46,7 +46,7 @@ void VersionEdit::EncodeTo(std::string* dst) const { EncodeTo(*dst); }
 void VersionEdit::EncodeTo(std::string& dst) const {
   if (has_comparator_) {
     PutVarint<uint32_t>(dst, kComparator);
-    PutLengthPrefixedString<uint32_t>(dst, comparator_);
+    PutLengthPrefixedBlob<uint32_t>(dst, comparator_);
   }
   if (has_log_number_) {
     PutVarint<uint32_t>(dst, kLogNumber);
@@ -68,8 +68,7 @@ void VersionEdit::EncodeTo(std::string& dst) const {
   for (size_t i = 0; i < compact_pointers_.size(); i++) {
     PutVarint<uint32_t>(dst, kCompactPointer);
     PutVarint<uint32_t>(dst, compact_pointers_[i].first);  // level
-    PutLengthPrefixedString<uint32_t>(dst,
-                                      compact_pointers_[i].second.Encode());
+    PutLengthPrefixedBlob<uint32_t>(dst, compact_pointers_[i].second.Encode());
   }
 
   for (const auto& deleted_file_kvp : deleted_files_) {
@@ -84,8 +83,8 @@ void VersionEdit::EncodeTo(std::string& dst) const {
     PutVarint<uint32_t>(dst, new_files_[i].first);  // level
     PutVarint<uint64_t>(dst, f.number);
     PutVarint<uint64_t>(dst, f.file_size);
-    PutLengthPrefixedString<uint32_t>(dst, f.smallest.Encode());
-    PutLengthPrefixedString<uint32_t>(dst, f.largest.Encode());
+    PutLengthPrefixedBlob<uint32_t>(dst, f.smallest.Encode());
+    PutLengthPrefixedBlob<uint32_t>(dst, f.largest.Encode());
   }
 }
 

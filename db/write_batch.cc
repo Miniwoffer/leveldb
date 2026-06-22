@@ -18,6 +18,7 @@
 #include "db/dbformat.h"
 #include "db/memtable.h"
 #include "db/write_batch_internal.h"
+#include <span>
 
 #include "leveldb/db.h"
 
@@ -89,7 +90,7 @@ int WriteBatchInternal::Count(const WriteBatch* b) {
 }
 
 void WriteBatchInternal::SetCount(WriteBatch* b, int n) {
-  EncodeFixed32(&b->rep_[8], n);
+  EncodeFixed<uint32_t>(std::span(&b->rep_[8], 4), n);
 }
 
 SequenceNumber WriteBatchInternal::Sequence(const WriteBatch* b) {
@@ -97,20 +98,20 @@ SequenceNumber WriteBatchInternal::Sequence(const WriteBatch* b) {
 }
 
 void WriteBatchInternal::SetSequence(WriteBatch* b, SequenceNumber seq) {
-  EncodeFixed64(&b->rep_[0], seq);
+  EncodeFixed<uint64_t>(std::span(&b->rep_[0], 8), seq);
 }
 
 void WriteBatch::Put(const std::string_view key, const std::string_view value) {
   WriteBatchInternal::SetCount(this, WriteBatchInternal::Count(this) + 1);
   rep_.push_back(static_cast<char>(kTypeValue));
-  PutLengthPrefixedView(&rep_, key);
-  PutLengthPrefixedView(&rep_, value);
+  PutLengthPrefixedBlob<uint32_t>(rep_, key);
+  PutLengthPrefixedBlob<uint32_t>(rep_, value);
 }
 
 void WriteBatch::Delete(const std::string_view key) {
   WriteBatchInternal::SetCount(this, WriteBatchInternal::Count(this) + 1);
   rep_.push_back(static_cast<char>(kTypeDeletion));
-  PutLengthPrefixedView(&rep_, key);
+  PutLengthPrefixedBlob<uint32_t>(rep_, key);
 }
 
 void WriteBatch::Append(const WriteBatch& source) {
