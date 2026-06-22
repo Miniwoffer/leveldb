@@ -4,7 +4,9 @@
 
 #include "db/log_writer.h"
 
+#include "db/log_format.h"
 #include <cstdint>
+#include <span>
 
 #include "leveldb/env.h"
 
@@ -94,7 +96,7 @@ Status Writer::EmitPhysicalRecord(RecordType t, const char* ptr,
   // Compute the crc of the record type and the payload.
   uint32_t crc = crc32c::Extend(type_crc_[t], ptr, length);
   crc = crc32c::Mask(crc);  // Adjust for storage
-  EncodeFixed32(buf, crc);
+  EncodeFixed<uint32_t>(std::span(buf, 8), crc);
 
   // Write the header and the payload
   Status s = dest_->Append(std::string_view(buf, kHeaderSize));

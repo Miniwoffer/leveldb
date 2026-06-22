@@ -78,7 +78,7 @@ inline void PutVarint(std::string& dst, T v) {
 
 template <typename T>
   requires is_unsigned_integral<T>
-inline void PutLengthPrefixedString(std::string& dst, std::string_view v) {
+inline void PutLengthPrefixedBlob(std::string& dst, std::string_view v) {
   PutVarint<T>(dst, (T)v.size());
   dst.append(v);
 }

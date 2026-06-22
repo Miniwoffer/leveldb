@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
+#include <span>
+
 #include "leveldb/filter_policy.h"
 
 #include "util/coding.h"
@@ -15,7 +17,7 @@ namespace leveldb {
 static const int kVerbose = 1;
 
 static std::string_view Key(int i, char* buffer) {
-  EncodeFixed32(buffer, i);
+  EncodeFixed<uint32_t>(std::span<char>(buffer, 4), i);
   return std::string_view(buffer, sizeof(uint32_t));
 }
 

@@ -4,6 +4,7 @@
 
 #include "db/log_reader.h"
 #include "db/log_writer.h"
+#include <cstdint>
 
 #include "leveldb/env.h"
 
@@ -94,7 +95,8 @@ class LogTest : public testing::Test {
     // Compute crc of type/len/data
     uint32_t crc = crc32c::Value(&dest_.contents_[header_offset + 6], 1 + len);
     crc = crc32c::Mask(crc);
-    EncodeFixed32(&dest_.contents_[header_offset], crc);
+    EncodeFixed<uint32_t>(std::span<char>(&dest_.contents_[header_offset], 4),
+                          crc);
   }
 
   void ForceError() { source_.force_error_ = true; }

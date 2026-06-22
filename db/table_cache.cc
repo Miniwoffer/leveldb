@@ -5,6 +5,7 @@
 #include "db/table_cache.h"
 
 #include "db/filename.h"
+#include <array>
 
 #include "leveldb/env.h"
 #include "leveldb/table.h"
@@ -42,9 +43,9 @@ TableCache::~TableCache() { delete cache_; }
 
 std::expected<Cache::Handle*, Status> TableCache::FindTable(
     uint64_t file_number, uint64_t file_size) {
-  char buf[sizeof(file_number)];
-  EncodeFixed64(buf, file_number);
-  std::string_view key(buf, sizeof(buf));
+  std::array<char, sizeof(file_number)> buf;
+  EncodeFixed<uint64_t, char>(buf, file_number);
+  std::string_view key(buf);
   if (auto lookup_res = cache_->Lookup(key)) {
     return *lookup_res;
   }
@@ -121,9 +122,9 @@ std::expected<std::string, Status> TableCache::Get(
 }
 
 void TableCache::Evict(uint64_t file_number) {
-  char buf[sizeof(file_number)];
-  EncodeFixed64(buf, file_number);
-  cache_->Erase(std::string_view(buf, sizeof(buf)));
+  std::array<char, sizeof(file_number)> buf;
+  EncodeFixed<uint64_t, char>(buf, file_number);
+  cache_->Erase(std::string_view(buf));
 }
 
 }  // namespace leveldb

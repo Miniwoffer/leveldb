@@ -10,6 +10,7 @@
 #include "db/memtable.h"
 #include "db/table_cache.h"
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <expected>
 #include <tuple>
@@ -163,7 +164,7 @@ bool SomeFileOverlapsRange(const InternalKeyComparator& icmp,
 // information about the files in the level.  For a given entry, key()
 // is the largest key that occurs in the file, and value() is an
 // 16-byte value containing the file number and file size, both
-// encoded using EncodeFixed64.
+// encoded using EncodeFixed<uint64_t>.
 class Version::LevelFileNumIterator : public Iterator {
  public:
   LevelFileNumIterator(const InternalKeyComparator& icmp,
@@ -196,9 +197,10 @@ class Version::LevelFileNumIterator : public Iterator {
   }
   std::string_view value() const override {
     assert(Valid());
-    EncodeFixed64(value_buf_, (*flist_)[index_]->number);
-    EncodeFixed64(value_buf_ + 8, (*flist_)[index_]->file_size);
-    return std::string_view(value_buf_, sizeof(value_buf_));
+    auto span =
+        EncodeFixed<uint64_t, char>(value_buf_, (*flist_)[index_]->number);
+    EncodeFixed<uint64_t>(span, (*flist_)[index_]->file_size);
+    return std::string_view(value_buf_);
   }
   Status status() const override { return Status::OK(); }
 
@@ -208,7 +210,7 @@ class Version::LevelFileNumIterator : public Iterator {
   uint32_t index_;
 
   // Backing store for value().  Holds the file number and size.
-  mutable char value_buf_[16];
+  mutable std::array<char, 16> value_buf_;
 };
 
 static Iterator* GetFileIterator(void* arg, const ReadOptions& options,

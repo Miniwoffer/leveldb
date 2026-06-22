@@ -4,6 +4,7 @@
 
 #include "leveldb/table_builder.h"
 
+#include <array>
 #include <cassert>
 
 #include "leveldb/comparator.h"
@@ -199,12 +200,14 @@ void TableBuilder::WriteRawBlock(const std::string_view& block_contents,
   handle->set_size(block_contents.size());
   r->status = r->file->Append(block_contents);
   if (r->status.ok()) {
-    char trailer[kBlockTrailerSize];
+    std::array<char, kBlockTrailerSize> trailer;
     trailer[0] = type;
     uint32_t crc = crc32c::Value(block_contents.data(), block_contents.size());
-    crc = crc32c::Extend(crc, trailer, 1);  // Extend crc to cover block type
-    EncodeFixed32(trailer + 1, crc32c::Mask(crc));
-    r->status = r->file->Append(std::string_view(trailer, kBlockTrailerSize));
+    crc = crc32c::Extend(crc, trailer.data(),
+                         1);  // Extend crc to cover block type
+    EncodeFixed<uint32_t>(std::span<char>(trailer.begin() + 1, trailer.end()),
+                          crc32c::Mask(crc));
+    r->status = r->file->Append(std::string_view(trailer));
     if (r->status.ok()) {
       r->offset += block_contents.size() + kBlockTrailerSize;
     }

@@ -4,6 +4,10 @@
 
 #include "leveldb/table.h"
 
+#include <array>
+#include <cstdint>
+#include <span>
+
 #include "leveldb/cache.h"
 #include "leveldb/comparator.h"
 #include "leveldb/env.h"
@@ -167,10 +171,12 @@ Iterator* Table::BlockReader(void* arg, const ReadOptions& options,
   if (s.ok()) {
     BlockContents contents;
     if (block_cache != nullptr) {
-      char cache_key_buffer[16];
-      EncodeFixed64(cache_key_buffer, table->rep_->cache_id);
-      EncodeFixed64(cache_key_buffer + 8, handle.offset());
-      std::string_view key(cache_key_buffer, sizeof(cache_key_buffer));
+      std::array<char, 16> cache_key_buffer;
+      // char cache_key_buffer[16];
+      auto span =
+          EncodeFixed<uint64_t, char>(cache_key_buffer, table->rep_->cache_id);
+      EncodeFixed<uint64_t>(span, handle.offset());
+      std::string_view key(cache_key_buffer);
 
       if ((cache_handle = block_cache->Lookup(key))) {
         block = reinterpret_cast<Block*>(block_cache->Value(*cache_handle));
