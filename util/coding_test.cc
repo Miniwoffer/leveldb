@@ -172,10 +172,10 @@ TEST(Coding, Varint64Truncation) {
 
 TEST(Coding, Strings) {
   std::string s;
-  PutLengthPrefixedView(&s, std::string_view(""));
-  PutLengthPrefixedView(&s, std::string_view("foo"));
-  PutLengthPrefixedView(&s, std::string_view("bar"));
-  PutLengthPrefixedView(&s, std::string_view(std::string(200, 'x')));
+  PutLengthPrefixedView(&s, "");
+  PutLengthPrefixedView(&s, "foo");
+  PutLengthPrefixedView(&s, "bar");
+  PutLengthPrefixedView(&s, std::string(200, 'x'));
 
   std::string_view input(s);
   auto v = GetLengthPrefixedView(input);

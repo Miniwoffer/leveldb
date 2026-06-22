@@ -107,12 +107,11 @@ bool ParseFileName(const std::string& filename, uint64_t* number,
       return false;
     }
     std::string_view suffix = rest;
-    if (suffix == std::string_view(".log")) {
+    if (suffix == ".log") {
       *type = kLogFile;
-    } else if (suffix == std::string_view(".sst") ||
-               suffix == std::string_view(".ldb")) {
+    } else if (suffix == ".sst" || suffix == ".ldb") {
       *type = kTableFile;
-    } else if (suffix == std::string_view(".dbtmp")) {
+    } else if (suffix == ".dbtmp") {
       *type = kTempFile;
     } else {
       return false;

@@ -588,9 +588,7 @@ void DBImpl::CompactRange(const std::string_view* begin,
     MutexLock l(&mutex_);
     Version* base = versions_->current();
     for (int level = 1; level < config::kNumLevels; level++) {
-      if (base->OverlapInLevel(level,
-                               static_cast<const std::string_view*>(begin),
-                               static_cast<const std::string_view*>(end))) {
+      if (base->OverlapInLevel(level, begin, end)) {
         max_level_with_files = level;
       }
     }

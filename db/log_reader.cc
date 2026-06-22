@@ -136,7 +136,7 @@ bool Reader::ReadRecord(std::string_view* record, std::string* scratch) {
                            "missing start of fragmented record(2)");
         } else {
           scratch->append(fragment.data(), fragment.size());
-          *record = std::string_view(*scratch);
+          *record = *scratch;
           last_record_offset_ = prospective_record_offset;
           return true;
         }
