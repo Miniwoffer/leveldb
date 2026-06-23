@@ -4,6 +4,8 @@
 
 #include "table/filter_block.h"
 
+#include <cstdint>
+
 #include "leveldb/filter_policy.h"
 
 #include "util/coding.h"
@@ -32,7 +34,8 @@ class TestHashFilter : public FilterPolicy {
                    const std::string_view filter) const override {
     uint32_t h = Hash(key.data(), key.size(), 1);
     for (size_t i = 0; i + 4 <= filter.size(); i += 4) {
-      if (h == DecodeFixed32(filter.data() + i)) {
+      if (h == DecodeFixed<uint32_t>(
+                   std::string_view(filter.data() + i, sizeof(uint32_t)))) {
         return true;
       }
     }

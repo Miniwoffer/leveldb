@@ -21,7 +21,7 @@ static std::string EncodeKey(uint32_t k) {
 }
 static int DecodeKey(const std::string_view& k) {
   assert(k.size() == 4);
-  return DecodeFixed32(k.data());
+  return DecodeFixed<uint32_t>(k);
 }
 static void* EncodeValue(uintptr_t v) { return reinterpret_cast<void*>(v); }
 static int DecodeValue(void* v) { return reinterpret_cast<uintptr_t>(v); }

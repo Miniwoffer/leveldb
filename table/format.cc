@@ -4,12 +4,13 @@
 
 #include "table/format.h"
 
+#include <cstdint>
+
 #include "leveldb/env.h"
 #include "leveldb/options.h"
 
 #include "table/block.h"
 #include "util/coding.h"
-#include "util/coding_v2.h"
 #include "util/crc32c.h"
 
 namespace leveldb {
@@ -54,8 +55,9 @@ Status Footer::DecodeFrom(std::string_view* input) {
   }
 
   const char* magic_ptr = input->data() + kEncodedLength - 8;
-  const uint32_t magic_lo = DecodeFixed32(magic_ptr);
-  const uint32_t magic_hi = DecodeFixed32(magic_ptr + 4);
+  const uint32_t magic_lo = DecodeFixed<uint32_t>(std::string_view(magic_ptr));
+  const uint32_t magic_hi =
+      DecodeFixed<uint32_t>(std::string_view(magic_ptr + 4));
   const uint64_t magic = ((static_cast<uint64_t>(magic_hi) << 32) |
                           (static_cast<uint64_t>(magic_lo)));
   if (magic != kTableMagicNumber) {
@@ -98,7 +100,8 @@ Status ReadBlock(RandomAccessFile* file, const ReadOptions& options,
   // Check the crc of the type and the block contents
   const char* data = contents.data();  // Pointer to where Read put the data
   if (options.verify_checksums) {
-    const uint32_t crc = crc32c::Unmask(DecodeFixed32(data + n + 1));
+    const uint32_t crc = crc32c::Unmask(DecodeFixed<uint32_t>(
+        std::string_view(data + n + 1, sizeof(uint32_t))));
     const uint32_t actual = crc32c::Value(data, n + 1);
     if (actual != crc) {
       delete[] buf;

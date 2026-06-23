@@ -9,7 +9,6 @@
 
 #include "port/port.h"
 #include "util/coding.h"
-#include "util/coding_v2.h"
 
 namespace leveldb {
 
@@ -53,8 +52,10 @@ int InternalKeyComparator::Compare(const std::string_view& akey,
   //    decreasing type (though sequence# should be enough to disambiguate)
   int r = user_comparator_->Compare(ExtractUserKey(akey), ExtractUserKey(bkey));
   if (r == 0) {
-    const uint64_t anum = DecodeFixed64(akey.data() + akey.size() - 8);
-    const uint64_t bnum = DecodeFixed64(bkey.data() + bkey.size() - 8);
+    const uint64_t anum = DecodeFixed<uint64_t>(
+        std::string_view(akey.data() + akey.size() - 8, SIZE_MAX));
+    const uint64_t bnum = DecodeFixed<uint64_t>(
+        std::string_view(bkey.data() + bkey.size() - 8, SIZE_MAX));
     if (anum > bnum) {
       r = -1;
     } else if (anum < bnum) {

@@ -247,7 +247,8 @@ static constexpr const uint32_t kCRC32Xor = static_cast<uint32_t>(0xffffffffU);
 
 // Reads a little-endian 32-bit integer from a 32-bit-aligned buffer.
 inline uint32_t ReadUint32LE(const uint8_t* buffer) {
-  return DecodeFixed32(reinterpret_cast<const char*>(buffer));
+  return DecodeFixed<uint32_t>(std::string_view(
+      reinterpret_cast<const char*>(buffer), sizeof(uint32_t)));
 }
 
 // Returns the smallest address >= the given address that is aligned to N bytes.

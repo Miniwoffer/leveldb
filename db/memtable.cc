@@ -14,7 +14,6 @@
 #include "leveldb/iterator.h"
 
 #include "util/coding.h"
-#include "util/coding_v2.h"
 
 namespace leveldb {
 
