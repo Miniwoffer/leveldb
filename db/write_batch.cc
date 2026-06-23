@@ -88,7 +88,7 @@ Status WriteBatch::Iterate(Handler* handler) const {
 }
 
 int WriteBatchInternal::Count(const WriteBatch* b) {
-  return DecodeFixed32(b->rep_.data() + 8);
+  return DecodeFixed<uint32_t>(std::string_view(b->rep_).substr(8));
 }
 
 void WriteBatchInternal::SetCount(WriteBatch* b, int n) {
@@ -96,7 +96,7 @@ void WriteBatchInternal::SetCount(WriteBatch* b, int n) {
 }
 
 SequenceNumber WriteBatchInternal::Sequence(const WriteBatch* b) {
-  return SequenceNumber(DecodeFixed64(b->rep_.data()));
+  return SequenceNumber(DecodeFixed<uint64_t>(b->rep_));
 }
 
 void WriteBatchInternal::SetSequence(WriteBatch* b, SequenceNumber seq) {

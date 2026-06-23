@@ -21,7 +21,8 @@ namespace leveldb {
 
 inline uint32_t Block::NumRestarts() const {
   assert(size_ >= sizeof(uint32_t));
-  return DecodeFixed32(data_ + size_ - sizeof(uint32_t));
+  return DecodeFixed<uint32_t>(
+      std::string_view(data_ + size_ - sizeof(uint32_t), sizeof(uint32_t)));
 }
 
 Block::Block(const BlockContents& contents)
@@ -119,7 +120,8 @@ class Block::Iter : public Iterator {
 
   uint32_t GetRestartPoint(uint32_t index) {
     assert(index < num_restarts_);
-    return DecodeFixed32(data_ + restarts_ + index * sizeof(uint32_t));
+    return DecodeFixed<uint32_t>(std::string_view(
+        data_ + restarts_ + index * sizeof(uint32_t), sizeof(uint32_t)));
   }
 
   void SeekToRestartPoint(uint32_t index) {

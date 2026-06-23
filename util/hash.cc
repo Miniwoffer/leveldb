@@ -5,6 +5,7 @@
 #include "util/hash.h"
 
 #include <cstring>
+#include <string_view>
 
 #include "util/coding.h"
 
@@ -28,7 +29,7 @@ uint32_t Hash(const char* data, size_t n, uint32_t seed) {
 
   // Pick up four bytes at a time
   while (limit - data >= 4) {
-    uint32_t w = DecodeFixed32(data);
+    uint32_t w = DecodeFixed<uint32_t>(std::string_view(data, 4));
     data += 4;
     h += w;
     h *= m;

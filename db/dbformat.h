@@ -180,7 +180,8 @@ inline bool ParseInternalKey(const std::string_view& internal_key,
                              ParsedInternalKey* result) {
   const size_t n = internal_key.size();
   if (n < 8) return false;
-  uint64_t num = DecodeFixed64(internal_key.data() + n - 8);
+  uint64_t num = DecodeFixed<uint64_t>(
+      std::string_view(internal_key.data() + n - 8, SIZE_MAX));
   uint8_t c = num & 0xff;
   result->sequence = num >> 8;
   result->type = static_cast<ValueType>(c);

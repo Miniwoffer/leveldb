@@ -4,6 +4,9 @@
 
 #include "table/filter_block.h"
 
+#include <cstdint>
+#include <string_view>
+
 #include "leveldb/filter_policy.h"
 
 #include "util/coding.h"
@@ -80,7 +83,8 @@ FilterBlockReader::FilterBlockReader(const FilterPolicy* policy,
   size_t n = contents.size();
   if (n < 5) return;  // 1 byte for base_lg_ and 4 for start of offset array
   base_lg_ = contents[n - 1];
-  uint32_t last_word = DecodeFixed32(contents.data() + n - 5);
+  uint32_t last_word = DecodeFixed<uint32_t>(
+      std::string_view(contents.data() + n - 5, sizeof(uint32_t)));
   if (last_word > n - 5) return;
   data_ = contents.data();
   offset_ = data_ + last_word;
@@ -91,8 +95,9 @@ bool FilterBlockReader::KeyMayMatch(uint64_t block_offset,
                                     const std::string_view key) {
   uint64_t index = block_offset >> base_lg_;
   if (index < num_) {
-    uint32_t start = DecodeFixed32(offset_ + index * 4);
-    uint32_t limit = DecodeFixed32(offset_ + index * 4 + 4);
+    std::string_view view(offset_ + index * 4, 8);
+    uint32_t start = DecodeFixed<uint32_t>(view);
+    uint32_t limit = DecodeFixed<uint32_t>(view.substr(4));
     if (start <= limit && limit <= static_cast<size_t>(offset_ - data_)) {
       std::string_view filter = std::string_view{data_ + start, limit - start};
       return policy_->KeyMayMatch(key, filter);

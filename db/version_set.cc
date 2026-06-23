@@ -220,8 +220,8 @@ static Iterator* GetFileIterator(void* arg, const ReadOptions& options,
     return NewErrorIterator(
         Status::Corruption("FileReader invoked with unexpected value"));
   } else {
-    return cache->NewIterator(options, DecodeFixed64(file_value.data()),
-                              DecodeFixed64(file_value.data() + 8));
+    return cache->NewIterator(options, DecodeFixed<uint64_t>(file_value),
+                              DecodeFixed<uint64_t>(file_value.data() + 8));
   }
 }
 

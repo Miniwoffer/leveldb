@@ -5,6 +5,7 @@
 #include "db/log_reader.h"
 
 #include <cstdio>
+#include <string_view>
 
 #include "leveldb/env.h"
 
@@ -243,7 +244,8 @@ unsigned int Reader::ReadPhysicalRecord(std::string_view* result) {
 
     // Check crc
     if (checksum_) {
-      uint32_t expected_crc = crc32c::Unmask(DecodeFixed32(header));
+      uint32_t expected_crc = crc32c::Unmask(
+          DecodeFixed<uint32_t>(std::string_view(header, SIZE_MAX)));
       uint32_t actual_crc = crc32c::Value(header + 6, 1 + length);
       if (actual_crc != expected_crc) {
         // Drop the rest of the buffer since "length" itself may have
