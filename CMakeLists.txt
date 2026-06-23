@@ -175,7 +175,6 @@ target_sources(leveldb
     "util/arena.h"
     "util/bloom.cc"
     "util/cache.cc"
-    "util/coding.cc"
     "util/coding.h"
     "util/comparator.cc"
     "util/crc32c.cc"
