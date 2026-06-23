@@ -21,42 +21,26 @@ class LEVELDB_EXPORT Error {
   };
 
   Error(ErrorCode c) noexcept : code_(c) {}
-  Error& operator=(Error&& other) {
+  ~Error() = default;
+  Error(const Error&) = default;
+  Error& operator=(const Error&) = default;
+  Error(const Error&& other) { *this = std::move(other); }
+  Error& operator=(const Error&& other) {
     code_ = other.code_;
     return *this;
   }
-  Error(Error&& other) { *this = std::move(other); }
 
-  Error& operator=(const Error&) = default;
-  Error(const Error&) = default;
-  ~Error() = default;
-
-  ErrorCode code() const { return code_; }
-
-  virtual std::string ToString() const {
-    switch (code()) {
-      case NotFound:
-        return "Not found";
-      case Corruption:
-        return "Corruption";
-      case NotSupported:
-        return "Not implemented";
-      case InvalidArgument:
-        return "Invalid argument";
-      case IOError:
-        return "IO error";
-      default:
-        assert(0);
-        return "Invalid error code";
-    }
-  }
-
-  bool operator==(const ErrorCode other) const { return code() == other; }
-  bool operator==(const Error& other) const { return code() == other.code(); }
+  std::string ToString() const;
+  ErrorCode code() const;
+  bool operator==(const ErrorCode rhs) const { return code() == rhs; }
+  bool operator==(const Error& rhs) const { return code() == rhs.code(); }
 
  private:
   friend class DetailedError;
-  ErrorCode code_;
+  Error() = default;
+
+  ErrorCode code_{IS_DETAILED_ERROR_};
+  static const ErrorCode IS_DETAILED_ERROR_{static_cast<const ErrorCode>(0)};
 };
 
 template <typename T>
@@ -66,63 +50,57 @@ concept is_string_like =
 
 class LEVELDB_EXPORT DetailedError : public Error {
  public:
+  // Status has support for 1 or 2 messsages, this can take an arbitrary
+  // number
   template <typename... Args>
     requires(is_string_like<Args> && ...)
-  DetailedError(ErrorCode c, Args... args) : Error(c) {
-    std::string messages[] = {args...};
-    message_ = std::make_unique<std::string>();
-    for (auto m : messages) {
-      *message_ += m + std::string(": ");
+  DetailedError(ErrorCode c, Args... args) {
+    std::string_view messages[] = {args...};
+    state_ = std::make_unique<std::string>();
+    state_->push_back(static_cast<char>(c));
+    for (const auto& m : messages) {
+      state_->append(m.data(), m.size());
+      state_->append(": ", 2);
     }
-    // Remove last ": "
-    message_->resize(message_->size() - 2);
+    state_->resize(state_->size() - 2);  // Remove last ": "
   }
-
-  DetailedError& operator=(DetailedError&& other) {
-    if (this != &other) {
-      std::string* others_message = other.message_.release();
-      message_.reset(others_message);
-      code_ = other.code_;
-      other.code_ = static_cast<ErrorCode>(0);
-    }
-    return *this;
-  };
 
   DetailedError(DetailedError&& other) : Error(std::move(other)) {
     *this = std::move(other);
   }
-
-  DetailedError(const DetailedError&) = default;
-  DetailedError& operator=(const DetailedError&) = default;
-  ~DetailedError() = default;
-
-  std::string ToString() const {
-    std::string error_string;
-    switch (code()) {
-      case NotFound:
-        error_string = "Not found: ";
-        break;
-      case Corruption:
-        error_string = "Corruption: ";
-        break;
-      case NotSupported:
-        error_string = "Not implemented: ";
-        break;
-      case InvalidArgument:
-        error_string = "Invalid argument: ";
-        break;
-      case IOError:
-        error_string = "IO error: ";
-        break;
-      default:
-        return "Invalid error code";
+  DetailedError& operator=(DetailedError&& other) {
+    if (this != &other) {
+      std::string* others_message = other.state_.release();
+      state_.reset(others_message);
     }
-    error_string += *message_;
-    return error_string;
+    return *this;
+  };
+
+  DetailedError(const DetailedError& other) : Error(other) { *this = other; }
+  DetailedError& operator=(const DetailedError& other) {
+    state_ = std::make_unique<std::string>(*other.state_);
+    return *this;
   }
 
+  ~DetailedError() = default;
+
+  ErrorCode code() const { return static_cast<ErrorCode>((*state_)[0]); }
+
  private:
-  std::unique_ptr<std::string> message_{nullptr};
+  friend class Error;
+  std::unique_ptr<std::string> state_{nullptr};
+
+  std::string_view message() const {
+    return {&(*state_)[1], state_->size() - 1};
+  }
 };
+
+inline Error::ErrorCode Error::code() const {
+  if (code_ != IS_DETAILED_ERROR_) {
+    return code_;
+  }
+  const DetailedError* detailed = static_cast<const DetailedError*>(this);
+  return detailed->code();
+}
 
 }  // namespace leveldb
