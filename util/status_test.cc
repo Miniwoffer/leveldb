@@ -6,12 +6,20 @@
 
 #include <utility>
 
+#include "leveldb/error.h"
+
 #include "gtest/gtest.h"
 
 namespace leveldb {
 
 TEST(Status, MoveConstructor) {
   {
+    Error e(Error::Code::IOError, "foo");
+    Error e2(Error::Code::NotFound);
+    ASSERT_EQ(sizeof(e), sizeof(std::unique_ptr<std::string>));
+    ASSERT_EQ("IO error: foo", e.ToString());
+    ASSERT_EQ("Not found", e2.ToString());
+
     Status ok = Status::OK();
     Status ok2 = std::move(ok);
 
