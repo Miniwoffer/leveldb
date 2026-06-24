@@ -165,14 +165,10 @@ class CorruptionTest : public testing::Test {
   }
 
   int Property(const std::string& name) {
-    std::string property;
-    int result;
-    if (db_->GetProperty(name, &property) &&
-        sscanf(property.c_str(), "%d", &result) == 1) {
-      return result;
-    } else {
-      return -1;
+    if (auto prop = db_->GetProperty(name)) {
+      return stoi(prop.value());
     }
+    return -1;
   }
 
   // Return the ith key

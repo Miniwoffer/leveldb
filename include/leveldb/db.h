@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <expected>
+#include <optional>
 #include <string_view>
 
 #include "leveldb/export.h"
@@ -126,8 +127,8 @@ class LEVELDB_EXPORT DB {
   //     of the sstables that make up the db contents.
   //  "leveldb.approximate-memory-usage" - returns the approximate number of
   //     bytes of memory in use by the DB.
-  virtual bool GetProperty(const std::string_view& property,
-                           std::string* value) = 0;
+  virtual std::optional<std::string> GetProperty(
+      const std::string_view property) = 0;
 
   // For each i in [0,n-1], store in "sizes[i]", the approximate
   // file system space used by keys in "[range[i].start .. range[i].limit)".
