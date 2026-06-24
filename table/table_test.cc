@@ -717,11 +717,11 @@ TEST_F(Harness, RandomizedLongDB) {
   // We must have created enough data to force merging
   int files = 0;
   for (int level = 0; level < config::kNumLevels; level++) {
-    std::string value;
     char name[100];
     std::snprintf(name, sizeof(name), "leveldb.num-files-at-level%d", level);
-    ASSERT_TRUE(db()->GetProperty(name, &value));
-    files += atoi(value.c_str());
+    auto value = db()->GetProperty(name);
+    ASSERT_TRUE(value);
+    files += stoi(value.value());
   }
   ASSERT_GT(files, 0);
 }

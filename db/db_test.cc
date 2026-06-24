@@ -446,10 +446,10 @@ class DBTest : public testing::Test {
   }
 
   int NumTableFilesAtLevel(int level) {
-    std::string property;
-    EXPECT_TRUE(db_->GetProperty(
-        "leveldb.num-files-at-level" + NumberToString(level), &property));
-    return std::stoi(property);
+    auto prop =
+        db_->GetProperty("leveldb.num-files-at-level" + NumberToString(level));
+    EXPECT_TRUE(prop);
+    return std::stoi(prop.value());
   }
 
   int TotalTableFiles() {
@@ -525,9 +525,9 @@ class DBTest : public testing::Test {
   }
 
   std::string DumpSSTableList() {
-    std::string property;
-    db_->GetProperty("leveldb.sstables", &property);
-    return property;
+    auto prop = db_->GetProperty("leveldb.sstables");
+    EXPECT_TRUE(prop);
+    return prop.value();
   }
 
   std::string IterStatus(Iterator* iter) {
@@ -662,9 +662,9 @@ TEST_F(DBTest, GetFromVersions) {
 TEST_F(DBTest, GetMemUsage) {
   do {
     ASSERT_TRUE(Put("foo", "v1"));
-    std::string val;
-    ASSERT_TRUE(db_->GetProperty("leveldb.approximate-memory-usage", &val));
-    int mem_usage = std::stoi(val);
+    auto val = db_->GetProperty("leveldb.approximate-memory-usage");
+    ASSERT_TRUE(val);
+    int mem_usage = std::stoi(val.value());
     ASSERT_GT(mem_usage, 0);
     ASSERT_LT(mem_usage, 5 * 1024 * 1024);
   } while (ChangeOptions());
@@ -2197,9 +2197,9 @@ class ModelDB : public DB {
     return {};
   }
 
-  bool GetProperty(const std::string_view& property,
-                   std::string* value) override {
-    return false;
+  std::optional<std::string> GetProperty(
+      const std::string_view property) override {
+    return {};
   }
   void GetApproximateSizes(const Range* r, int n, uint64_t* sizes) override {
     for (int i = 0; i < n; i++) {

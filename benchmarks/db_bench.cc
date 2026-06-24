@@ -5,6 +5,7 @@
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
+#include <print>
 #include <sys/types.h>
 
 #include "leveldb/cache.h"
@@ -1032,11 +1033,8 @@ class Benchmark {
   void Compact(ThreadState* thread) { db_->CompactRange(nullptr, nullptr); }
 
   void PrintStats(const char* key) {
-    std::string stats;
-    if (!db_->GetProperty(key, &stats)) {
-      stats = "(failed)";
-    }
-    std::fprintf(stdout, "\n%s\n", stats.c_str());
+    std::string stats = db_->GetProperty(key).value_or("(failed)");
+    std::print(stdout, "\n{}\n", stats);
   }
 
   static void WriteToFile(void* arg, const char* buf, int n) {

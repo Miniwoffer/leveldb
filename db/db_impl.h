@@ -11,6 +11,7 @@
 #include <atomic>
 #include <deque>
 #include <expected>
+#include <optional>
 #include <set>
 #include <string>
 
@@ -53,8 +54,8 @@ class DBImpl : public DB {
   Iterator* NewIterator(const ReadOptions&) override;
   const Snapshot* GetSnapshot() override;
   void ReleaseSnapshot(const Snapshot* snapshot) override;
-  bool GetProperty(const std::string_view& property,
-                   std::string* value) override;
+  std::optional<std::string> GetProperty(
+      const std::string_view property) override;
   void GetApproximateSizes(const Range* range, int n, uint64_t* sizes) override;
   void CompactRange(const std::string_view* begin,
                     const std::string_view* end) override;

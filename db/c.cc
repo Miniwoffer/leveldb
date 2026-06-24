@@ -253,10 +253,9 @@ void leveldb_release_snapshot(leveldb_t* db,
 }
 
 char* leveldb_property_value(leveldb_t* db, const char* propname) {
-  std::string tmp;
-  if (db->rep->GetProperty(std::string_view(propname), &tmp)) {
+  if (auto prop = db->rep->GetProperty(std::string_view(propname))) {
     // We use strdup() since we expect human readable output.
-    return strdup(tmp.c_str());
+    return strdup(prop.value().c_str());
   } else {
     return nullptr;
   }
