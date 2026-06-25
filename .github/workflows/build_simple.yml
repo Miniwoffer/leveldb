@@ -44,6 +44,9 @@ jobs:
       with:
         submodules: true
 
+    - name: Check formating
+      run: cd "${{github.workspace}}" && bash .ci/format.sh
+
     - name: Install dependencies on Linux
       if: ${{ runner.os == 'Linux' }}
       # libgoogle-perftools-dev is temporarily removed from the package list
