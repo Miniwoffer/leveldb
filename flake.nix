@@ -49,7 +49,8 @@
                     gbenchmark
                     lcov
                     vcpkg
-                    vcpkg-tool
+                  vcpkg-tool
+                  snappy
                     self.formatter.${system}
                   ]
                   ++ lib.optionals (!stdenv.hostPlatform.isDarwin) [ gdb ];

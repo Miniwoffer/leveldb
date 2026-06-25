@@ -246,8 +246,7 @@ const leveldb_snapshot_t* leveldb_create_snapshot(leveldb_t* db) {
   return result;
 }
 
-void leveldb_release_snapshot(leveldb_t* db,
-                              const leveldb_snapshot_t* snapshot) {
+void leveldb_release_snapshot(const leveldb_snapshot_t* snapshot) {
   delete snapshot;
 }
 
