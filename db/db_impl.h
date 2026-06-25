@@ -30,9 +30,19 @@ class Version;
 class VersionEdit;
 class VersionSet;
 
-class DBImpl : public DB {
+class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
+  struct Private {
+    explicit Private() = default;
+  };
+
  public:
-  DBImpl(const Options& options, const std::string& dbname);
+  DBImpl() = delete;
+
+  static std::shared_ptr<DBImpl> Create(const Options& options,
+                                        const std::string& dbname);
+
+  DBImpl(Private, const Options& options, const std::string& dbname);
+  std::shared_ptr<DBImpl> getptr() { return shared_from_this(); }
 
   DBImpl(const DBImpl&) = delete;
   DBImpl& operator=(const DBImpl&) = delete;
@@ -84,6 +94,7 @@ class DBImpl : public DB {
 
  private:
   friend class DB;
+
   struct CompactionState;
   struct Writer;
 

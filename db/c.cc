@@ -46,7 +46,7 @@ using leveldb::WriteOptions;
 extern "C" {
 
 struct leveldb_t {
-  DB* rep;
+  std::shared_ptr<DB> rep;
 };
 struct leveldb_iterator_t {
   Iterator* rep;
@@ -185,10 +185,7 @@ leveldb_t* leveldb_open(const leveldb_options_t* options, const char* name,
   return result;
 }
 
-void leveldb_close(leveldb_t* db) {
-  delete db->rep;
-  delete db;
-}
+void leveldb_close(leveldb_t* db) { delete db; }
 
 void leveldb_put(leveldb_t* db, const leveldb_writeoptions_t* options,
                  const char* key, size_t keylen, const char* val, size_t vallen,

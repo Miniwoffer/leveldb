@@ -11,6 +11,7 @@
 #include <atomic>
 #include <cinttypes>
 #include <expected>
+#include <memory>
 #include <string>
 
 #include "leveldb/cache.h"
@@ -265,7 +266,7 @@ class DBTest : public testing::Test {
  public:
   std::string dbname_;
   SpecialEnv* env_;
-  DB* db_;
+  std::shared_ptr<DB> db_;
 
   Options last_options_;
 
@@ -278,7 +279,7 @@ class DBTest : public testing::Test {
   }
 
   ~DBTest() {
-    delete db_;
+    db_ = nullptr;
     DestroyDB(dbname_, Options());
     delete env_;
     delete filter_policy_;
@@ -316,7 +317,9 @@ class DBTest : public testing::Test {
     return options;
   }
 
-  DBImpl* dbfull() { return reinterpret_cast<DBImpl*>(db_); }
+  std::shared_ptr<DBImpl> dbfull() {
+    return std::static_pointer_cast<DBImpl>(db_);
+  }
 
   void Reopen(Options* options = nullptr) {
     auto res = TryReopen(options);
@@ -324,13 +327,9 @@ class DBTest : public testing::Test {
     db_ = res.value();
   }
 
-  void Close() {
-    delete db_;
-    db_ = nullptr;
-  }
+  void Close() { db_ = nullptr; }
 
   void DestroyAndReopen(Options* options = nullptr) {
-    delete db_;
     db_ = nullptr;
     DestroyDB(dbname_, Options());
     auto res = TryReopen(options);
@@ -338,8 +337,7 @@ class DBTest : public testing::Test {
     db_ = res.value();
   }
 
-  std::expected<DB*, Status> TryReopen(Options* options) {
-    delete db_;
+  std::expected<std::shared_ptr<DB>, Status> TryReopen(Options* options) {
     db_ = nullptr;
     Options opts;
     if (options != nullptr) {
@@ -1690,7 +1688,7 @@ TEST_F(DBTest, DBOpen_Options) {
   DestroyDB(dbname, Options());
 
   // Does not exist, and create_if_missing == false: error
-  DB* db = nullptr;
+  std::shared_ptr<DB> db = nullptr;
   Options opts;
   opts.create_if_missing = false;
   auto res = DB::Open(opts, dbname);
@@ -1702,10 +1700,9 @@ TEST_F(DBTest, DBOpen_Options) {
   opts.create_if_missing = true;
   res = DB::Open(opts, dbname);
   ASSERT_TRUE(res);
-  db = res.value();
+  db = std::move(res.value());
   ASSERT_TRUE(db != nullptr);
 
-  delete db;
   db = nullptr;
 
   // Does exist, and error_if_exists == true: error
@@ -1721,10 +1718,9 @@ TEST_F(DBTest, DBOpen_Options) {
   opts.error_if_exists = false;
   res = DB::Open(opts, dbname);
   ASSERT_TRUE(res);
-  db = res.value();
+  db = std::move(res.value());
   ASSERT_TRUE(db != nullptr);
 
-  delete db;
   db = nullptr;
 }
 
@@ -1764,15 +1760,17 @@ TEST_F(DBTest, DestroyEmptyDir) {
 
 TEST_F(DBTest, DestroyOpenDB) {
   std::string dbname = testing::TempDir() + "open_db_dir";
-  env_->RemoveDir(dbname);
+
+  ASSERT_LEVELDB_OK(DestroyDB(dbname, Options()));
+
   ASSERT_FALSE(env_->FileExists(dbname));
 
   Options opts;
   opts.create_if_missing = true;
-  DB* db = nullptr;
+  std::shared_ptr<DB> db = nullptr;
   auto res = DB::Open(opts, dbname);
   ASSERT_TRUE(res);
-  db = res.value();
+  db = std::move(res.value());
   ASSERT_TRUE(db != nullptr);
 
   // Must fail to destroy an open db.
@@ -1780,7 +1778,6 @@ TEST_F(DBTest, DestroyOpenDB) {
   ASSERT_FALSE(DestroyDB(dbname, Options()).ok());
   ASSERT_TRUE(env_->FileExists(dbname));
 
-  delete db;
   db = nullptr;
 
   // Should succeed destroying a closed db.
@@ -2050,7 +2047,7 @@ struct MTThread {
 static void MTThreadBody(void* arg) {
   MTThread* t = reinterpret_cast<MTThread*>(arg);
   int id = t->id;
-  DB* db = t->state->test->db_;
+  std::shared_ptr<DB> db = t->state->test->db_;
   int counter = 0;
   std::fprintf(stderr, "... starting thread %d\n", id);
   Random rnd(1000 + id);
@@ -2240,7 +2237,7 @@ class ModelDB : public DB {
   KVMap map_;
 };
 
-static bool CompareIterators(int step, DB* model, DB* db,
+static bool CompareIterators(int step, DB* model, std::shared_ptr<DB> db,
                              std::shared_ptr<const Snapshot> model_snap,
                              std::shared_ptr<const Snapshot> db_snap) {
   ReadOptions options;

@@ -3,6 +3,7 @@
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
 #include "db/db_impl.h"
+#include <memory>
 
 #include "leveldb/cache.h"
 #include "leveldb/db.h"
@@ -28,7 +29,6 @@ class AutoCompactTest : public testing::Test {
   }
 
   ~AutoCompactTest() {
-    delete db_;
     DestroyDB(dbname_, Options());
     delete tiny_cache_;
   }
@@ -52,7 +52,7 @@ class AutoCompactTest : public testing::Test {
   std::string dbname_;
   Cache* tiny_cache_;
   Options options_;
-  DB* db_;
+  std::shared_ptr<DB> db_;
 };
 
 static const int kValueSize = 200 * 1024;
@@ -63,7 +63,7 @@ static const int kCount = kTotalSize / kValueSize;
 // compacted (verified by checking the size of the key space).
 void AutoCompactTest::DoReads(int n) {
   std::string value(kValueSize, 'x');
-  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
+  std::shared_ptr<DBImpl> dbi = std::static_pointer_cast<DBImpl>(db_);
 
   // Fill database
   for (int i = 0; i < kCount; i++) {

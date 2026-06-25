@@ -38,13 +38,9 @@ class CorruptionTest : public testing::Test {
     options_.create_if_missing = false;
   }
 
-  ~CorruptionTest() {
-    delete db_;
-    delete tiny_cache_;
-  }
+  ~CorruptionTest() { delete tiny_cache_; }
 
-  std::expected<DB*, Status> TryReopen() {
-    delete db_;
+  std::expected<std::shared_ptr<DB>, Status> TryReopen() {
     db_ = nullptr;
     return DB::Open(options_, dbname_);
   }
@@ -58,7 +54,6 @@ class CorruptionTest : public testing::Test {
   }
 
   void RepairDB() {
-    delete db_;
     db_ = nullptr;
     ASSERT_LEVELDB_OK(::leveldb::RepairDB(dbname_, options_));
   }
@@ -191,7 +186,7 @@ class CorruptionTest : public testing::Test {
 
   test::ErrorEnv env_;
   Options options_;
-  DB* db_;
+  std::shared_ptr<DB> db_;
 
  private:
   std::string dbname_;
@@ -234,7 +229,7 @@ TEST_F(CorruptionTest, NewFileErrorDuringWrite) {
 
 TEST_F(CorruptionTest, TableFile) {
   Build(100);
-  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
+  std::shared_ptr<DBImpl> dbi = std::static_pointer_cast<DBImpl>(db_);
   dbi->TEST_CompactMemTable();
   dbi->TEST_CompactRange(0, nullptr, nullptr);
   dbi->TEST_CompactRange(1, nullptr, nullptr);
@@ -248,7 +243,7 @@ TEST_F(CorruptionTest, TableFileRepair) {
   options_.paranoid_checks = true;
   Reopen();
   Build(100);
-  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
+  std::shared_ptr<DBImpl> dbi = std::static_pointer_cast<DBImpl>(db_);
   dbi->TEST_CompactMemTable();
   dbi->TEST_CompactRange(0, nullptr, nullptr);
   dbi->TEST_CompactRange(1, nullptr, nullptr);
@@ -261,7 +256,7 @@ TEST_F(CorruptionTest, TableFileRepair) {
 
 TEST_F(CorruptionTest, TableFileIndexData) {
   Build(10000);  // Enough to build multiple Tables
-  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
+  std::shared_ptr<DBImpl> dbi = std::static_pointer_cast<DBImpl>(db_);
   dbi->TEST_CompactMemTable();
 
   Corrupt(kTableFile, -2000, 500);
@@ -305,7 +300,7 @@ TEST_F(CorruptionTest, SequenceNumberRecovery) {
 
 TEST_F(CorruptionTest, CorruptedDescriptor) {
   ASSERT_TRUE(db_->Put(WriteOptions(), std::string_view("foo"), "hello"));
-  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
+  std::shared_ptr<DBImpl> dbi = std::static_pointer_cast<DBImpl>(db_);
   dbi->TEST_CompactMemTable();
   dbi->TEST_CompactRange(0, nullptr, nullptr);
 
@@ -324,7 +319,7 @@ TEST_F(CorruptionTest, CorruptedDescriptor) {
 
 TEST_F(CorruptionTest, CompactionInputError) {
   Build(10);
-  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
+  std::shared_ptr<DBImpl> dbi = std::static_pointer_cast<DBImpl>(db_);
   dbi->TEST_CompactMemTable();
   const int last = config::kMaxMemCompactLevel;
   ASSERT_EQ(1, Property("leveldb.num-files-at-level" + NumberToString(last)));
@@ -341,7 +336,7 @@ TEST_F(CorruptionTest, CompactionInputErrorParanoid) {
   options_.paranoid_checks = true;
   options_.write_buffer_size = 512 << 10;
   Reopen();
-  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
+  std::shared_ptr<DBImpl> dbi = std::static_pointer_cast<DBImpl>(db_);
 
   // Make multiple inputs so we need to compact.
   for (int i = 0; i < 2; i++) {
@@ -360,7 +355,7 @@ TEST_F(CorruptionTest, CompactionInputErrorParanoid) {
 
 TEST_F(CorruptionTest, UnrelatedKeys) {
   Build(10);
-  DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
+  std::shared_ptr<DBImpl> dbi = std::static_pointer_cast<DBImpl>(db_);
   dbi->TEST_CompactMemTable();
   Corrupt(kTableFile, 100, 1);
 
