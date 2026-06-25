@@ -871,7 +871,7 @@ class Benchmark {
   }
 
   void ReadSequential(ThreadState* thread) {
-    Iterator* iter = db_->NewIterator(ReadOptions());
+    auto iter = db_->NewIterator(ReadOptions());
     int i = 0;
     int64_t bytes = 0;
     for (iter->SeekToFirst(); i < reads_ && iter->Valid(); iter->Next()) {
@@ -879,12 +879,11 @@ class Benchmark {
       thread->stats.FinishedSingleOp();
       ++i;
     }
-    delete iter;
     thread->stats.AddBytes(bytes);
   }
 
   void ReadReverse(ThreadState* thread) {
-    Iterator* iter = db_->NewIterator(ReadOptions());
+    auto iter = db_->NewIterator(ReadOptions());
     int i = 0;
     int64_t bytes = 0;
     for (iter->SeekToLast(); i < reads_ && iter->Valid(); iter->Prev()) {
@@ -892,7 +891,6 @@ class Benchmark {
       thread->stats.FinishedSingleOp();
       ++i;
     }
-    delete iter;
     thread->stats.AddBytes(bytes);
   }
 
@@ -942,12 +940,11 @@ class Benchmark {
     int found = 0;
     KeyBuffer key;
     for (int i = 0; i < reads_; i++) {
-      Iterator* iter = db_->NewIterator(options);
+      auto iter = db_->NewIterator(options);
       const int k = thread->rand.Uniform(FLAGS_num);
       key.Set(k);
       iter->Seek(key.ToView());
       if (iter->Valid() && iter->key() == key.ToView()) found++;
-      delete iter;
       thread->stats.FinishedSingleOp();
     }
     char msg[100];
@@ -957,7 +954,7 @@ class Benchmark {
 
   void SeekOrdered(ThreadState* thread) {
     ReadOptions options;
-    Iterator* iter = db_->NewIterator(options);
+    auto iter = db_->NewIterator(options);
     int found = 0;
     int k = 0;
     KeyBuffer key;
@@ -968,7 +965,6 @@ class Benchmark {
       if (iter->Valid() && iter->key() == key.ToView()) found++;
       thread->stats.FinishedSingleOp();
     }
-    delete iter;
     char msg[100];
     std::snprintf(msg, sizeof(msg), "(%d of %d found)", found, num_);
     thread->stats.AddMessage(msg);

@@ -61,7 +61,7 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
 
   std::expected<std::string, Status> Get(const ReadOptions& options,
                                          const std::string_view key) override;
-  Iterator* NewIterator(const ReadOptions&) override;
+  std::unique_ptr<Iterator> NewIterator(const ReadOptions&) override;
   std::optional<std::string> GetProperty(
       const std::string_view property) override;
   std::shared_ptr<const Snapshot> GetSnapshot() override;

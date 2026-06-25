@@ -83,28 +83,29 @@ class CorruptionTest : public testing::Test {
     int bad_values = 0;
     int correct = 0;
     std::string value_space;
-    Iterator* iter = db_->NewIterator(ReadOptions());
-    for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
-      uint64_t key;
-      std::string_view in(iter->key());
-      if (in == "" || in == "~") {
-        // Ignore boundary keys.
-        continue;
-      }
-      if (!ConsumeDecimalNumber(&in, &key) || !in.empty() ||
-          key < next_expected) {
-        bad_keys++;
-        continue;
-      }
-      missed += (key - next_expected);
-      next_expected = key + 1;
-      if (iter->value() != Value(key, &value_space)) {
-        bad_values++;
-      } else {
-        correct++;
+    {
+      auto iter = db_->NewIterator(ReadOptions());
+      for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+        uint64_t key;
+        std::string_view in(iter->key());
+        if (in == "" || in == "~") {
+          // Ignore boundary keys.
+          continue;
+        }
+        if (!ConsumeDecimalNumber(&in, &key) || !in.empty() ||
+            key < next_expected) {
+          bad_keys++;
+          continue;
+        }
+        missed += (key - next_expected);
+        next_expected = key + 1;
+        if (iter->value() != Value(key, &value_space)) {
+          bad_values++;
+        } else {
+          correct++;
+        }
       }
     }
-    delete iter;
 
     std::fprintf(
         stderr,

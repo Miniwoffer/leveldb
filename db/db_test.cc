@@ -380,7 +380,7 @@ class DBTest : public testing::Test {
   std::string Contents() {
     std::vector<std::string> forward;
     std::string result;
-    Iterator* iter = db_->NewIterator(ReadOptions());
+    auto iter = db_->NewIterator(ReadOptions());
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
       std::string s = IterStatus(iter);
       result.push_back('(');
@@ -398,7 +398,6 @@ class DBTest : public testing::Test {
     }
     EXPECT_EQ(matched, forward.size());
 
-    delete iter;
     return result;
   }
 
@@ -529,7 +528,7 @@ class DBTest : public testing::Test {
     return prop.value();
   }
 
-  std::string IterStatus(Iterator* iter) {
+  std::string IterStatus(std::unique_ptr<Iterator>& iter) {
     std::string result;
     if (iter->Valid()) {
       result = std::string(iter->key()) + "->" + std::string(iter->value());
@@ -719,17 +718,16 @@ TEST_F(DBTest, IterateOverEmptySnapshot) {
     ASSERT_TRUE(Put("foo", "v1"));
     ASSERT_TRUE(Put("foo", "v2"));
 
-    Iterator* iterator1 = db_->NewIterator(read_options);
-    iterator1->SeekToFirst();
-    ASSERT_FALSE(iterator1->Valid());
-    delete iterator1;
-
+    {
+      auto iterator1 = db_->NewIterator(read_options);
+      iterator1->SeekToFirst();
+      ASSERT_FALSE(iterator1->Valid());
+    }
     dbfull()->TEST_CompactMemTable();
 
-    Iterator* iterator2 = db_->NewIterator(read_options);
+    auto iterator2 = db_->NewIterator(read_options);
     iterator2->SeekToFirst();
     ASSERT_FALSE(iterator2->Valid());
-    delete iterator2;
 
   } while (ChangeOptions());
 }
@@ -815,7 +813,7 @@ TEST_F(DBTest, GetEncountersEmptyLevel) {
 }
 
 TEST_F(DBTest, IterEmpty) {
-  Iterator* iter = db_->NewIterator(ReadOptions());
+  auto iter = db_->NewIterator(ReadOptions());
 
   iter->SeekToFirst();
   ASSERT_EQ(IterStatus(iter), "(invalid)");
@@ -825,13 +823,11 @@ TEST_F(DBTest, IterEmpty) {
 
   iter->Seek("foo");
   ASSERT_EQ(IterStatus(iter), "(invalid)");
-
-  delete iter;
 }
 
 TEST_F(DBTest, IterSingle) {
   ASSERT_TRUE(Put("a", "va"));
-  Iterator* iter = db_->NewIterator(ReadOptions());
+  auto iter = db_->NewIterator(ReadOptions());
 
   iter->SeekToFirst();
   ASSERT_EQ(IterStatus(iter), "a->va");
@@ -863,15 +859,13 @@ TEST_F(DBTest, IterSingle) {
 
   iter->Seek("b");
   ASSERT_EQ(IterStatus(iter), "(invalid)");
-
-  delete iter;
 }
 
 TEST_F(DBTest, IterMulti) {
   ASSERT_TRUE(Put("a", "va"));
   ASSERT_TRUE(Put("b", "vb"));
   ASSERT_TRUE(Put("c", "vc"));
-  Iterator* iter = db_->NewIterator(ReadOptions());
+  auto iter = db_->NewIterator(ReadOptions());
 
   iter->SeekToFirst();
   ASSERT_EQ(IterStatus(iter), "a->va");
@@ -946,8 +940,6 @@ TEST_F(DBTest, IterMulti) {
   ASSERT_EQ(IterStatus(iter), "a->va");
   iter->Prev();
   ASSERT_EQ(IterStatus(iter), "(invalid)");
-
-  delete iter;
 }
 
 TEST_F(DBTest, IterSmallAndLargeMix) {
@@ -957,7 +949,7 @@ TEST_F(DBTest, IterSmallAndLargeMix) {
   ASSERT_TRUE(Put("d", std::string(100000, 'd')));
   ASSERT_TRUE(Put("e", std::string(100000, 'e')));
 
-  Iterator* iter = db_->NewIterator(ReadOptions());
+  auto iter = db_->NewIterator(ReadOptions());
 
   iter->SeekToFirst();
   ASSERT_EQ(IterStatus(iter), "a->va");
@@ -984,8 +976,6 @@ TEST_F(DBTest, IterSmallAndLargeMix) {
   ASSERT_EQ(IterStatus(iter), "a->va");
   iter->Prev();
   ASSERT_EQ(IterStatus(iter), "(invalid)");
-
-  delete iter;
 }
 
 TEST_F(DBTest, IterMultiWithDelete) {
@@ -996,12 +986,11 @@ TEST_F(DBTest, IterMultiWithDelete) {
     ASSERT_TRUE(Delete("b"));
     ASSERT_EQ("NOT_FOUND", Get("b"));
 
-    Iterator* iter = db_->NewIterator(ReadOptions());
+    auto iter = db_->NewIterator(ReadOptions());
     iter->Seek("c");
     ASSERT_EQ(IterStatus(iter), "c->vc");
     iter->Prev();
     ASSERT_EQ(IterStatus(iter), "a->va");
-    delete iter;
   } while (ChangeOptions());
 }
 
@@ -1014,14 +1003,13 @@ TEST_F(DBTest, IterMultiWithDeleteAndCompaction) {
     ASSERT_TRUE(Delete("b"));
     ASSERT_EQ("NOT_FOUND", Get("b"));
 
-    Iterator* iter = db_->NewIterator(ReadOptions());
+    auto iter = db_->NewIterator(ReadOptions());
     iter->Seek("c");
     ASSERT_EQ(IterStatus(iter), "c->vc");
     iter->Prev();
     ASSERT_EQ(IterStatus(iter), "a->va");
     iter->Seek("b");
     ASSERT_EQ(IterStatus(iter), "c->vc");
-    delete iter;
   } while (ChangeOptions());
 }
 
@@ -1338,7 +1326,7 @@ TEST_F(DBTest, IteratorPinsRef) {
   Put("foo", "hello");
 
   // Get iterator that will yield the current contents of the DB.
-  Iterator* iter = db_->NewIterator(ReadOptions());
+  auto iter = db_->NewIterator(ReadOptions());
 
   // Write to force compactions
   Put("foo", "newvalue1");
@@ -1353,7 +1341,6 @@ TEST_F(DBTest, IteratorPinsRef) {
   ASSERT_EQ("hello", std::string(iter->value()));
   iter->Next();
   ASSERT_FALSE(iter->Valid());
-  delete iter;
 }
 
 TEST_F(DBTest, Snapshot) {
@@ -2151,15 +2138,15 @@ class ModelDB : public DB {
     assert(false);  // Not implemented
     return std::unexpected(Status::NotFound(std::string(key)));
   }
-  Iterator* NewIterator(const ReadOptions& options) override {
+  std::unique_ptr<Iterator> NewIterator(const ReadOptions& options) override {
     if (options.snapshot == nullptr) {
       KVMap* saved = new KVMap;
       *saved = map_;
-      return new ModelIter(saved, true);
+      return std::make_unique<ModelIter>(saved, true);
     } else {
       const KVMap* snapshot_state = &(
           reinterpret_cast<const ModelSnapshot*>(options.snapshot.get())->map_);
-      return new ModelIter(snapshot_state, false);
+      return std::make_unique<ModelIter>(snapshot_state, false);
     }
   }
   std::shared_ptr<const Snapshot> GetSnapshot() override {
@@ -2242,9 +2229,9 @@ static bool CompareIterators(int step, DB* model, std::shared_ptr<DB> db,
                              std::shared_ptr<const Snapshot> db_snap) {
   ReadOptions options;
   options.snapshot = model_snap;
-  Iterator* miter = model->NewIterator(options);
+  auto miter = model->NewIterator(options);
   options.snapshot = db_snap;
-  Iterator* dbiter = db->NewIterator(options);
+  auto dbiter = db->NewIterator(options);
   bool ok = true;
   int count = 0;
   std::vector<std::string> seek_keys;
@@ -2317,8 +2304,6 @@ static bool CompareIterators(int step, DB* model, std::shared_ptr<DB> db,
   }
 
   std::fprintf(stderr, "%d entries compared: ok=%d\n", count, ok);
-  delete miter;
-  delete dbiter;
   return ok;
 }
 
