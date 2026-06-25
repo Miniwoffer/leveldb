@@ -14,12 +14,17 @@ namespace leveldb {
 
 TEST(Status, MoveConstructor) {
   {
-    Error e(Error::Code::IOError, "foo");
-    Error e2(Error::Code::NotFound);
-    ASSERT_EQ(sizeof(e), sizeof(std::unique_ptr<std::string>));
-    ASSERT_EQ("IO error: foo", e.ToString());
-    ASSERT_EQ("Not found", e2.ToString());
+    Error e(Error::Code::NotFound);
+    ASSERT_EQ(8, sizeof(e));
+    ASSERT_EQ("Not found", e.ToString());
+    ASSERT_TRUE(e == Error::Code::NotFound);
 
+    Error e2(Error::Code::IOError, "foo");
+    ASSERT_EQ(8, sizeof(e2));
+    ASSERT_EQ("IO error: foo", e2.ToString());
+    Error e3 = e2;
+  }
+  {
     Status ok = Status::OK();
     Status ok2 = std::move(ok);
 
