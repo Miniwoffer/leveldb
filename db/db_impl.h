@@ -52,10 +52,9 @@ class DBImpl : public DB {
   std::expected<std::string, Status> Get(const ReadOptions& options,
                                          const std::string_view key) override;
   Iterator* NewIterator(const ReadOptions&) override;
-  const Snapshot* GetSnapshot() override;
-  void ReleaseSnapshot(const Snapshot* snapshot) override;
   std::optional<std::string> GetProperty(
       const std::string_view property) override;
+  std::shared_ptr<const Snapshot> GetSnapshot() override;
   void GetApproximateSizes(const Range* range, int n, uint64_t* sizes) override;
   void CompactRange(const std::string_view* begin,
                     const std::string_view* end) override;

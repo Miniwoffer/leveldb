@@ -11,6 +11,7 @@
 #include "db/log_reader.h"
 #include "db/log_writer.h"
 #include "db/memtable.h"
+#include "db/snapshot.h"
 #include "db/table_cache.h"
 #include "db/version_set.h"
 #include "db/write_batch_internal.h"
@@ -20,6 +21,7 @@
 #include <cstdio>
 #include <expected>
 #include <format>
+#include <memory>
 #include <set>
 #include <string>
 #include <vector>
@@ -1123,9 +1125,9 @@ std::expected<std::string, Status> DBImpl::Get(const ReadOptions& options,
                                                const std::string_view key) {
   MutexLock l(&mutex_);
   SequenceNumber snapshot;
-  if (options.snapshot != nullptr) {
-    snapshot =
-        static_cast<const SnapshotImpl*>(options.snapshot)->sequence_number();
+  if (options.snapshot) {
+    snapshot = static_cast<const SnapshotImpl*>(options.snapshot.get())
+                   ->sequence_number();
   } else {
     snapshot = versions_->LastSequence();
   }
@@ -1170,10 +1172,10 @@ Iterator* DBImpl::NewIterator(const ReadOptions& options) {
   uint32_t seed;
   Iterator* iter = NewInternalIterator(options, &latest_snapshot, &seed);
   return NewDBIterator(this, user_comparator(), iter,
-                       (options.snapshot != nullptr
-                            ? static_cast<const SnapshotImpl*>(options.snapshot)
-                                  ->sequence_number()
-                            : latest_snapshot),
+                       (options.snapshot ? static_cast<const SnapshotImpl*>(
+                                               options.snapshot.get())
+                                               ->sequence_number()
+                                         : latest_snapshot),
                        seed);
 }
 
@@ -1184,14 +1186,13 @@ void DBImpl::RecordReadSample(std::string_view key) {
   }
 }
 
-const Snapshot* DBImpl::GetSnapshot() {
+std::shared_ptr<const Snapshot> DBImpl::GetSnapshot() {
   MutexLock l(&mutex_);
-  return snapshots_.New(versions_->LastSequence());
-}
-
-void DBImpl::ReleaseSnapshot(const Snapshot* snapshot) {
-  MutexLock l(&mutex_);
-  snapshots_.Delete(static_cast<const SnapshotImpl*>(snapshot));
+  auto ptr = snapshots_.New(versions_->LastSequence());
+  return std::shared_ptr<const Snapshot>(ptr, [this](const SnapshotImpl* ptr) {
+    MutexLock l{&mutex_};
+    snapshots_.Delete(ptr);
+  });
 }
 
 // Convenience methods

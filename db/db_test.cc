@@ -362,7 +362,8 @@ class DBTest : public testing::Test {
     return db_->Delete(WriteOptions(), k);
   }
 
-  std::string Get(const std::string& k, const Snapshot* snapshot = nullptr) {
+  std::string Get(const std::string& k,
+                  std::shared_ptr<const Snapshot> snapshot = {}) {
     ReadOptions options;
     options.snapshot = snapshot;
     std::string_view key(k);
@@ -676,14 +677,13 @@ TEST_F(DBTest, GetSnapshot) {
     for (int i = 0; i < 2; i++) {
       std::string key = (i == 0) ? std::string("foo") : std::string(200, 'x');
       ASSERT_TRUE(Put(key, "v1"));
-      const Snapshot* s1 = db_->GetSnapshot();
+      auto s1 = db_->GetSnapshot();
       ASSERT_TRUE(Put(key, "v2"));
       ASSERT_EQ("v2", Get(key));
       ASSERT_EQ("v1", Get(key, s1));
       dbfull()->TEST_CompactMemTable();
       ASSERT_EQ("v2", Get(key));
       ASSERT_EQ("v1", Get(key, s1));
-      db_->ReleaseSnapshot(s1);
     }
   } while (ChangeOptions());
 }
@@ -694,28 +694,28 @@ TEST_F(DBTest, GetIdenticalSnapshots) {
     for (int i = 0; i < 2; i++) {
       std::string key = (i == 0) ? std::string("foo") : std::string(200, 'x');
       ASSERT_TRUE(Put(key, "v1"));
-      const Snapshot* s1 = db_->GetSnapshot();
-      const Snapshot* s2 = db_->GetSnapshot();
-      const Snapshot* s3 = db_->GetSnapshot();
+      auto s1 = db_->GetSnapshot();
+      auto s2 = db_->GetSnapshot();
+      auto s3 = db_->GetSnapshot();
       ASSERT_TRUE(Put(key, "v2"));
       ASSERT_EQ("v2", Get(key));
       ASSERT_EQ("v1", Get(key, s1));
       ASSERT_EQ("v1", Get(key, s2));
       ASSERT_EQ("v1", Get(key, s3));
-      db_->ReleaseSnapshot(s1);
+      s1 = {};
       dbfull()->TEST_CompactMemTable();
       ASSERT_EQ("v2", Get(key));
       ASSERT_EQ("v1", Get(key, s2));
-      db_->ReleaseSnapshot(s2);
+      s2 = {};
       ASSERT_EQ("v1", Get(key, s3));
-      db_->ReleaseSnapshot(s3);
+      s3 = {};
     }
   } while (ChangeOptions());
 }
 
 TEST_F(DBTest, IterateOverEmptySnapshot) {
   do {
-    const Snapshot* snapshot = db_->GetSnapshot();
+    auto snapshot = db_->GetSnapshot();
     ReadOptions read_options;
     read_options.snapshot = snapshot;
     ASSERT_TRUE(Put("foo", "v1"));
@@ -733,7 +733,6 @@ TEST_F(DBTest, IterateOverEmptySnapshot) {
     ASSERT_FALSE(iterator2->Valid());
     delete iterator2;
 
-    db_->ReleaseSnapshot(snapshot);
   } while (ChangeOptions());
 }
 
@@ -1362,11 +1361,11 @@ TEST_F(DBTest, IteratorPinsRef) {
 TEST_F(DBTest, Snapshot) {
   do {
     Put("foo", "v1");
-    const Snapshot* s1 = db_->GetSnapshot();
+    auto s1 = db_->GetSnapshot();
     Put("foo", "v2");
-    const Snapshot* s2 = db_->GetSnapshot();
+    auto s2 = db_->GetSnapshot();
     Put("foo", "v3");
-    const Snapshot* s3 = db_->GetSnapshot();
+    auto s3 = db_->GetSnapshot();
 
     Put("foo", "v4");
     ASSERT_EQ("v1", Get("foo", s1));
@@ -1374,16 +1373,16 @@ TEST_F(DBTest, Snapshot) {
     ASSERT_EQ("v3", Get("foo", s3));
     ASSERT_EQ("v4", Get("foo"));
 
-    db_->ReleaseSnapshot(s3);
+    s3 = {};
     ASSERT_EQ("v1", Get("foo", s1));
     ASSERT_EQ("v2", Get("foo", s2));
     ASSERT_EQ("v4", Get("foo"));
 
-    db_->ReleaseSnapshot(s1);
+    s1 = {};
     ASSERT_EQ("v2", Get("foo", s2));
     ASSERT_EQ("v4", Get("foo"));
 
-    db_->ReleaseSnapshot(s2);
+    s2 = {};
     ASSERT_EQ("v4", Get("foo"));
   } while (ChangeOptions());
 }
@@ -1396,7 +1395,7 @@ TEST_F(DBTest, HiddenValuesAreRemoved) {
     std::string big = RandomString(&rnd, 50000);
     Put("foo", big);
     Put("pastfoo", "v");
-    const Snapshot* snapshot = db_->GetSnapshot();
+    auto snapshot = db_->GetSnapshot();
     Put("foo", "tiny");
     Put("pastfoo2", "v2");  // Advance sequence number one more
 
@@ -1405,7 +1404,7 @@ TEST_F(DBTest, HiddenValuesAreRemoved) {
 
     ASSERT_EQ(big, Get("foo", snapshot));
     ASSERT_TRUE(Between(Size("", "pastfoo"), 50000, 60000));
-    db_->ReleaseSnapshot(snapshot);
+    snapshot = {};
     ASSERT_EQ(AllEntriesFor("foo"), "[ tiny, " + big + " ]");
     std::string_view x("x");
     dbfull()->TEST_CompactRange(0, nullptr, &x);
@@ -2161,20 +2160,17 @@ class ModelDB : public DB {
       *saved = map_;
       return new ModelIter(saved, true);
     } else {
-      const KVMap* snapshot_state =
-          &(reinterpret_cast<const ModelSnapshot*>(options.snapshot)->map_);
+      const KVMap* snapshot_state = &(
+          reinterpret_cast<const ModelSnapshot*>(options.snapshot.get())->map_);
       return new ModelIter(snapshot_state, false);
     }
   }
-  const Snapshot* GetSnapshot() override {
+  std::shared_ptr<const Snapshot> GetSnapshot() override {
     ModelSnapshot* snapshot = new ModelSnapshot;
     snapshot->map_ = map_;
-    return snapshot;
+    return std::shared_ptr<const Snapshot>(snapshot);
   }
 
-  void ReleaseSnapshot(const Snapshot* snapshot) override {
-    delete reinterpret_cast<const ModelSnapshot*>(snapshot);
-  }
   std::expected<void, Status> Write(const WriteOptions& options,
                                     WriteBatch* batch) override {
     class Handler : public WriteBatch::Handler {
@@ -2245,8 +2241,8 @@ class ModelDB : public DB {
 };
 
 static bool CompareIterators(int step, DB* model, DB* db,
-                             const Snapshot* model_snap,
-                             const Snapshot* db_snap) {
+                             std::shared_ptr<const Snapshot> model_snap,
+                             std::shared_ptr<const Snapshot> db_snap) {
   ReadOptions options;
   options.snapshot = model_snap;
   Iterator* miter = model->NewIterator(options);
@@ -2334,8 +2330,8 @@ TEST_F(DBTest, Randomized) {
   do {
     ModelDB model(CurrentOptions());
     const int N = 10000;
-    const Snapshot* model_snap = nullptr;
-    const Snapshot* db_snap = nullptr;
+    std::shared_ptr<const Snapshot> model_snap{};
+    std::shared_ptr<const Snapshot> db_snap{};
     std::string k, v;
     for (int step = 0; step < N; step++) {
       if (step % 100 == 0) {
@@ -2382,8 +2378,8 @@ TEST_F(DBTest, Randomized) {
         // Save a snapshot from each DB this time that we'll use next
         // time we compare things, to make sure the current state is
         // preserved with the snapshot
-        if (model_snap != nullptr) model.ReleaseSnapshot(model_snap);
-        if (db_snap != nullptr) db_->ReleaseSnapshot(db_snap);
+        if (model_snap) model_snap = {};
+        if (db_snap) db_snap = {};
 
         Reopen();
         ASSERT_TRUE(CompareIterators(step, &model, db_, nullptr, nullptr));
@@ -2392,8 +2388,6 @@ TEST_F(DBTest, Randomized) {
         db_snap = db_->GetSnapshot();
       }
     }
-    if (model_snap != nullptr) model.ReleaseSnapshot(model_snap);
-    if (db_snap != nullptr) db_->ReleaseSnapshot(db_snap);
   } while (ChangeOptions());
 }
 
