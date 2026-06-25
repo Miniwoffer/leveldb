@@ -6,6 +6,7 @@
 #include "db/filename.h"
 #include "db/log_format.h"
 #include "db/version_set.h"
+#include <cstdio>
 #include <sys/types.h>
 
 #include "leveldb/cache.h"
@@ -166,7 +167,10 @@ class CorruptionTest : public testing::Test {
 
   int Property(const std::string& name) {
     if (auto prop = db_->GetProperty(name)) {
-      return stoi(prop.value());
+      int resp;
+      if (sscanf(prop->c_str(), "%d", &resp) == 1) {
+        return resp;
+      }
     }
     return -1;
   }
