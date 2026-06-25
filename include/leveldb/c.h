@@ -103,7 +103,7 @@ LEVELDB_EXPORT leveldb_iterator_t* leveldb_create_iterator(
 LEVELDB_EXPORT const leveldb_snapshot_t* leveldb_create_snapshot(leveldb_t* db);
 
 LEVELDB_EXPORT void leveldb_release_snapshot(
-    leveldb_t* db, const leveldb_snapshot_t* snapshot);
+    const leveldb_snapshot_t* snapshot);
 
 /* Returns NULL if property name is unknown.
    Else returns a pointer to a malloc()-ed null-terminated value. */
