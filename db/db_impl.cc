@@ -1194,10 +1194,14 @@ void DBImpl::RecordReadSample(std::string_view key) {
 std::shared_ptr<const Snapshot> DBImpl::GetSnapshot() {
   MutexLock l(&mutex_);
   auto ptr = snapshots_.New(versions_->LastSequence());
-  return std::shared_ptr<const Snapshot>(ptr, [this](const SnapshotImpl* ptr) {
-    MutexLock l{&mutex_};
-    snapshots_.Delete(ptr);
-  });
+  auto db_ref = weak_from_this();
+  return std::shared_ptr<const Snapshot>(ptr,
+                                         [db_ref](const SnapshotImpl* ptr) {
+                                           if (auto db = db_ref.lock()) {
+                                             MutexLock l{&db->mutex_};
+                                             db->snapshots_.Delete(ptr);
+                                           }
+                                         });
 }
 
 // Convenience methods
