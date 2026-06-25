@@ -1172,11 +1172,11 @@ std::expected<std::string, Status> DBImpl::Get(const ReadOptions& options,
   return ret;
 }
 
-Iterator* DBImpl::NewIterator(const ReadOptions& options) {
+std::unique_ptr<Iterator> DBImpl::NewIterator(const ReadOptions& options) {
   SequenceNumber latest_snapshot;
   uint32_t seed;
   Iterator* iter = NewInternalIterator(options, &latest_snapshot, &seed);
-  return NewDBIterator(this, user_comparator(), iter,
+  return NewDBIterator(shared_from_this(), user_comparator(), iter,
                        (options.snapshot ? static_cast<const SnapshotImpl*>(
                                                options.snapshot.get())
                                                ->sequence_number()

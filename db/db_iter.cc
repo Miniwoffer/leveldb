@@ -7,6 +7,7 @@
 #include "db/db_impl.h"
 #include "db/dbformat.h"
 #include "db/filename.h"
+#include <memory>
 
 #include "leveldb/env.h"
 #include "leveldb/iterator.h"
@@ -47,8 +48,8 @@ class DBIter : public Iterator {
   //     just before all entries whose user key == this->key().
   enum Direction { kForward, kReverse };
 
-  DBIter(DBImpl* db, const Comparator* cmp, Iterator* iter, SequenceNumber s,
-         uint32_t seed)
+  DBIter(std::shared_ptr<DBImpl> db, const Comparator* cmp, Iterator* iter,
+         SequenceNumber s, uint32_t seed)
       : db_(db),
         user_comparator_(cmp),
         iter_(iter),
@@ -108,7 +109,7 @@ class DBIter : public Iterator {
     return rnd_.Uniform(2 * config::kReadBytesPeriod);
   }
 
-  DBImpl* db_;
+  std::shared_ptr<DBImpl> db_;
   const Comparator* const user_comparator_;
   Iterator* const iter_;
   SequenceNumber const sequence_;
@@ -311,10 +312,13 @@ void DBIter::SeekToLast() {
 
 }  // anonymous namespace
 
-Iterator* NewDBIterator(DBImpl* db, const Comparator* user_key_comparator,
-                        Iterator* internal_iter, SequenceNumber sequence,
-                        uint32_t seed) {
-  return new DBIter(db, user_key_comparator, internal_iter, sequence, seed);
+std::unique_ptr<Iterator> NewDBIterator(std::shared_ptr<DBImpl> db,
+                                        const Comparator* user_key_comparator,
+                                        Iterator* internal_iter,
+                                        SequenceNumber sequence,
+                                        uint32_t seed) {
+  return std::make_unique<DBIter>(db, user_key_comparator, internal_iter,
+                                  sequence, seed);
 }
 
 }  // namespace leveldb

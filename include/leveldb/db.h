@@ -102,11 +102,12 @@ class LEVELDB_EXPORT DB {
   //
   // Caller should delete the iterator when it is no longer needed.
   // The returned iterator should be deleted before this db is deleted.
-  virtual Iterator* NewIterator(const ReadOptions& options) = 0;
+  virtual std::unique_ptr<Iterator> NewIterator(const ReadOptions& options) = 0;
 
   // Return a handle to the current DB state.  Iterators created with
   // this handle will all observe a stable snapshot of the current DB
-  // state.  The caller must either delete or clear(ptr = {}) the shared_ptr once done
+  // state.  The caller must either delete or clear(ptr = {}) the shared_ptr
+  // once done
   virtual std::shared_ptr<const Snapshot> GetSnapshot() = 0;
 
   // DB implementations can export properties about their state

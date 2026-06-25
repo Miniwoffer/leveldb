@@ -236,16 +236,17 @@ TEST_F(MemEnvTest, DBTest) {
     ASSERT_TRUE(*res == vals[i]);
   }
 
-  Iterator* iterator = db->NewIterator(ReadOptions());
-  iterator->SeekToFirst();
-  for (size_t i = 0; i < 3; ++i) {
-    ASSERT_TRUE(iterator->Valid());
-    ASSERT_TRUE(keys[i] == iterator->key());
-    ASSERT_TRUE(vals[i] == iterator->value());
-    iterator->Next();
+  {
+    auto iterator = db->NewIterator(ReadOptions());
+    iterator->SeekToFirst();
+    for (size_t i = 0; i < 3; ++i) {
+      ASSERT_TRUE(iterator->Valid());
+      ASSERT_TRUE(keys[i] == iterator->key());
+      ASSERT_TRUE(vals[i] == iterator->value());
+      iterator->Next();
+    }
+    ASSERT_TRUE(!iterator->Valid());
   }
-  ASSERT_TRUE(!iterator->Valid());
-  delete iterator;
 
   std::shared_ptr<DBImpl> dbi = std::static_pointer_cast<DBImpl>(db);
   ASSERT_LEVELDB_OK(dbi->TEST_CompactMemTable());

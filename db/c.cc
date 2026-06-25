@@ -49,7 +49,7 @@ struct leveldb_t {
   std::shared_ptr<DB> rep;
 };
 struct leveldb_iterator_t {
-  Iterator* rep;
+  std::unique_ptr<Iterator> rep;
 };
 struct leveldb_writebatch_t {
   WriteBatch rep;
@@ -295,10 +295,7 @@ void leveldb_repair_db(const leveldb_options_t* options, const char* name,
   SaveError(errptr, RepairDB(name, options->rep));
 }
 
-void leveldb_iter_destroy(leveldb_iterator_t* iter) {
-  delete iter->rep;
-  delete iter;
-}
+void leveldb_iter_destroy(leveldb_iterator_t* iter) { delete iter; }
 
 uint8_t leveldb_iter_valid(const leveldb_iterator_t* iter) {
   return iter->rep->Valid();

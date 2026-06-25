@@ -166,7 +166,7 @@ class Constructor {
   // Construct the data structure from the data in "data"
   virtual Status FinishImpl(const Options& options, const KVMap& data) = 0;
 
-  virtual Iterator* NewIterator() const = 0;
+  virtual std::unique_ptr<Iterator> NewIterator() const = 0;
 
   const KVMap& data() const { return data_; }
 
@@ -200,8 +200,8 @@ class BlockConstructor : public Constructor {
     block_ = new Block(contents);
     return Status::OK();
   }
-  Iterator* NewIterator() const override {
-    return block_->NewIterator(comparator_);
+  std::unique_ptr<Iterator> NewIterator() const override {
+    return std::unique_ptr<Iterator>(block_->NewIterator(comparator_));
   }
 
  private:
@@ -238,8 +238,8 @@ class TableConstructor : public Constructor {
     return Table::Open(table_options, source_, sink.contents().size(), &table_);
   }
 
-  Iterator* NewIterator() const override {
-    return table_->NewIterator(ReadOptions());
+  std::unique_ptr<Iterator> NewIterator() const override {
+    return std::unique_ptr<Iterator>(table_->NewIterator(ReadOptions()));
   }
 
   uint64_t ApproximateOffsetOf(const std::string_view& key) const {
@@ -321,8 +321,9 @@ class MemTableConstructor : public Constructor {
     }
     return Status::OK();
   }
-  Iterator* NewIterator() const override {
-    return new KeyConvertingIterator(memtable_->NewIterator());
+  std::unique_ptr<Iterator> NewIterator() const override {
+    return std::unique_ptr<KeyConvertingIterator>(
+        new KeyConvertingIterator(memtable_->NewIterator()));
   }
 
  private:
@@ -348,7 +349,7 @@ class DBConstructor : public Constructor {
     }
     return Status::OK();
   }
-  Iterator* NewIterator() const override {
+  std::unique_ptr<Iterator> NewIterator() const override {
     return db_->NewIterator(ReadOptions());
   }
 
@@ -458,7 +459,7 @@ class Harness : public testing::Test {
 
   void TestForwardScan(const std::vector<std::string>& keys,
                        const KVMap& data) {
-    Iterator* iter = constructor_->NewIterator();
+    auto iter = constructor_->NewIterator();
     ASSERT_TRUE(!iter->Valid());
     iter->SeekToFirst();
     for (KVMap::const_iterator model_iter = data.begin();
@@ -467,12 +468,11 @@ class Harness : public testing::Test {
       iter->Next();
     }
     ASSERT_TRUE(!iter->Valid());
-    delete iter;
   }
 
   void TestBackwardScan(const std::vector<std::string>& keys,
                         const KVMap& data) {
-    Iterator* iter = constructor_->NewIterator();
+    auto iter = constructor_->NewIterator();
     ASSERT_TRUE(!iter->Valid());
     iter->SeekToLast();
     for (KVMap::const_reverse_iterator model_iter = data.rbegin();
@@ -481,13 +481,12 @@ class Harness : public testing::Test {
       iter->Prev();
     }
     ASSERT_TRUE(!iter->Valid());
-    delete iter;
   }
 
   void TestRandomAccess(Random* rnd, const std::vector<std::string>& keys,
                         const KVMap& data) {
     static const bool kVerbose = false;
-    Iterator* iter = constructor_->NewIterator();
+    auto iter = constructor_->NewIterator();
     ASSERT_TRUE(!iter->Valid());
     KVMap::const_iterator model_iter = data.begin();
     if (kVerbose) std::fprintf(stderr, "---\n");
@@ -550,7 +549,6 @@ class Harness : public testing::Test {
         }
       }
     }
-    delete iter;
   }
 
   std::string ToString(const KVMap& data, const KVMap::const_iterator& it) {
@@ -570,7 +568,7 @@ class Harness : public testing::Test {
     }
   }
 
-  std::string ToString(const Iterator* it) {
+  std::string ToString(const std::unique_ptr<Iterator>& it) {
     if (!it->Valid()) {
       return "END";
     } else {

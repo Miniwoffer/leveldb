@@ -86,12 +86,14 @@ void AutoCompactTest::DoReads(int n) {
   std::string limit_key = Key(n);
   for (int read = 0; true; read++) {
     ASSERT_LT(read, 100) << "Taking too long to compact";
-    Iterator* iter = db_->NewIterator(ReadOptions());
-    for (iter->SeekToFirst();
-         iter->Valid() && std::string(iter->key()) < limit_key; iter->Next()) {
-      // Drop data
+    {
+      auto iter = db_->NewIterator(ReadOptions());
+      for (iter->SeekToFirst();
+           iter->Valid() && std::string(iter->key()) < limit_key;
+           iter->Next()) {
+        // Drop data
+      }
     }
-    delete iter;
     // Wait a little bit to allow any triggered compactions to complete.
     Env::Default()->SleepForMicroseconds(1000000);
     uint64_t size = Size(Key(0), Key(n));
