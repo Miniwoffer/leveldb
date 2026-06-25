@@ -219,7 +219,7 @@ TEST_F(MemEnvTest, DBTest) {
   Options options;
   options.create_if_missing = true;
   options.env = env_;
-  DB* db;
+  std::shared_ptr<DB> db;
 
   const std::string_view keys[] = {{"aaa"}, {"bbb"}, {"ccc"}};
   const std::string_view vals[] = {{"foo"}, {"bar"}, {"baz"}};
@@ -247,7 +247,7 @@ TEST_F(MemEnvTest, DBTest) {
   ASSERT_TRUE(!iterator->Valid());
   delete iterator;
 
-  DBImpl* dbi = reinterpret_cast<DBImpl*>(db);
+  std::shared_ptr<DBImpl> dbi = std::static_pointer_cast<DBImpl>(db);
   ASSERT_LEVELDB_OK(dbi->TEST_CompactMemTable());
 
   for (size_t i = 0; i < 3; ++i) {
@@ -255,8 +255,6 @@ TEST_F(MemEnvTest, DBTest) {
     ASSERT_TRUE(res);
     ASSERT_TRUE(*res == vals[i]);
   }
-
-  delete db;
 }
 
 }  // namespace leveldb

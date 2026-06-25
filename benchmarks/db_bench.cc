@@ -433,7 +433,7 @@ class Benchmark {
  private:
   Cache* cache_;
   const FilterPolicy* filter_policy_;
-  DB* db_;
+  std::shared_ptr<DB> db_;
   int num_;
   int value_size_;
   int entries_per_batch_;
@@ -549,7 +549,7 @@ class Benchmark {
   }
 
   ~Benchmark() {
-    delete db_;
+    db_ = nullptr;
     delete cache_;
     delete filter_policy_;
   }
@@ -663,7 +663,6 @@ class Benchmark {
                        std::string(name).c_str());
           method = nullptr;
         } else {
-          delete db_;
           db_ = nullptr;
           DestroyDB(FLAGS_db, Options());
           Open();
@@ -831,7 +830,7 @@ class Benchmark {
 
   void OpenBench(ThreadState* thread) {
     for (int i = 0; i < num_; i++) {
-      delete db_;
+      db_ = nullptr;
       Open();
       thread->stats.FinishedSingleOp();
     }

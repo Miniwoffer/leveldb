@@ -170,7 +170,9 @@ class Constructor {
 
   const KVMap& data() const { return data_; }
 
-  virtual DB* db() const { return nullptr; }  // Overridden in DBConstructor
+  virtual std::shared_ptr<DB> db() const {
+    return nullptr;
+  }  // Overridden in DBConstructor
 
  private:
   KVMap data_;
@@ -335,9 +337,8 @@ class DBConstructor : public Constructor {
     db_ = nullptr;
     NewDB();
   }
-  ~DBConstructor() override { delete db_; }
+  ~DBConstructor() override {}
   Status FinishImpl(const Options& options, const KVMap& data) override {
-    delete db_;
     db_ = nullptr;
     NewDB();
     for (const auto& kvp : data) {
@@ -351,7 +352,7 @@ class DBConstructor : public Constructor {
     return db_->NewIterator(ReadOptions());
   }
 
-  DB* db() const override { return db_; }
+  std::shared_ptr<DB> db() const override { return db_; }
 
  private:
   void NewDB() {
@@ -371,7 +372,7 @@ class DBConstructor : public Constructor {
   }
 
   const Comparator* const comparator_;
-  DB* db_;
+  std::shared_ptr<DB> db_;
 };
 
 enum TestType { TABLE_TEST, BLOCK_TEST, MEMTABLE_TEST, DB_TEST };
@@ -606,7 +607,7 @@ class Harness : public testing::Test {
   }
 
   // Returns nullptr if not running against a DB
-  DB* db() const { return constructor_->db(); }
+  std::shared_ptr<DB> db() const { return constructor_->db(); }
 
  private:
   Options options_;

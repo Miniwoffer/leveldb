@@ -128,7 +128,12 @@ static int TableCacheSize(const Options& sanitized_options) {
   return sanitized_options.max_open_files - kNumNonTableCacheFiles;
 }
 
-DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
+std::shared_ptr<DBImpl> DBImpl::Create(const Options& options,
+                                       const std::string& dbname) {
+  return std::make_shared<DBImpl>(Private(), options, dbname);
+}
+
+DBImpl::DBImpl(Private, const Options& raw_options, const std::string& dbname)
     : env_(raw_options.env),
       internal_comparator_(raw_options.comparator),
       internal_filter_policy_(raw_options.filter_policy),
@@ -1497,9 +1502,12 @@ std::expected<void, Status> DB::Delete(const WriteOptions& opt,
 
 DB::~DB() = default;
 
-std::expected<DB*, Status> DB::Open(const Options& options,
-                                    const std::string& dbname) {
-  DBImpl* impl = new DBImpl(options, dbname);
+std::expected<std::shared_ptr<DB>, Status> DB::Open(
+    const Options& options, const std::string_view dbname) {
+  std::string dbname_ = std::string(dbname);
+  // TODO: Propegate string_view down instead of creating a string
+  auto impl = DBImpl::Create(options, dbname_);
+
   impl->mutex_.Lock();
   VersionEdit edit;
   // Recover handles create_if_missing, error_if_exists
@@ -1509,7 +1517,7 @@ std::expected<DB*, Status> DB::Open(const Options& options,
     // Create new log and a corresponding memtable.
     uint64_t new_log_number = impl->versions_->NewFileNumber();
     WritableFile* lfile;
-    s = options.env->NewWritableFile(LogFileName(dbname, new_log_number),
+    s = options.env->NewWritableFile(LogFileName(dbname_, new_log_number),
                                      &lfile);
     if (s.ok()) {
       edit.SetLogNumber(new_log_number);
@@ -1533,8 +1541,6 @@ std::expected<DB*, Status> DB::Open(const Options& options,
   if (s.ok()) {
     assert(impl->mem_ != nullptr);
     return impl;
-  } else {
-    delete impl;
   }
   return std::unexpected(s);
 }

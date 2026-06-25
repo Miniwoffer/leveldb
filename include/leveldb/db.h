@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <expected>
+#include <memory>
 #include <optional>
 #include <string_view>
 #include <utility>
@@ -56,8 +57,8 @@ class LEVELDB_EXPORT DB {
   // OK on success.
   // Stores nullptr in *dbptr and returns a non-OK status on error.
   // Caller should delete *dbptr when it is no longer needed.
-  static std::expected<DB*, Status> Open(const Options& options,
-                                         const std::string& name);
+  static std::expected<std::shared_ptr<DB>, Status> Open(
+      const Options& options, const std::string_view name);
 
   DB() = default;
 

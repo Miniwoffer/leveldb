@@ -31,7 +31,9 @@ class RecoveryTest : public testing::Test {
     DestroyDB(dbname_, Options());
   }
 
-  DBImpl* dbfull() const { return reinterpret_cast<DBImpl*>(db_); }
+  std::shared_ptr<DBImpl> dbfull() const {
+    return std::static_pointer_cast<DBImpl>(db_);
+  }
   Env* env() const { return env_; }
 
   bool CanAppend() {
@@ -45,12 +47,10 @@ class RecoveryTest : public testing::Test {
     }
   }
 
-  void Close() {
-    delete db_;
-    db_ = nullptr;
-  }
+  void Close() { db_ = nullptr; }
 
-  std::expected<DB*, Status> OpenWithStatus(Options* options = nullptr) {
+  std::expected<std::shared_ptr<DB>, Status> OpenWithStatus(
+      Options* options = nullptr) {
     Close();
     Options opts;
     if (options != nullptr) {
@@ -162,7 +162,7 @@ class RecoveryTest : public testing::Test {
  private:
   std::string dbname_;
   Env* env_;
-  DB* db_;
+  std::shared_ptr<DB> db_;
 };
 
 TEST_F(RecoveryTest, ManifestReused) {
