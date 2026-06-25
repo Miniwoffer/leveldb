@@ -363,7 +363,7 @@ class DBTest : public testing::Test {
   }
 
   std::string Get(const std::string& k,
-                  std::shared_ptr<const Snapshot> snapshot = {}) {
+                  std::shared_ptr<const Snapshot> snapshot = nullptr) {
     ReadOptions options;
     options.snapshot = snapshot;
     std::string_view key(k);
