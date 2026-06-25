@@ -55,7 +55,7 @@ struct leveldb_writebatch_t {
   WriteBatch rep;
 };
 struct leveldb_snapshot_t {
-  const Snapshot* rep;
+  std::shared_ptr<const Snapshot> rep;
 };
 struct leveldb_readoptions_t {
   ReadOptions rep;
@@ -248,7 +248,6 @@ const leveldb_snapshot_t* leveldb_create_snapshot(leveldb_t* db) {
 
 void leveldb_release_snapshot(leveldb_t* db,
                               const leveldb_snapshot_t* snapshot) {
-  db->rep->ReleaseSnapshot(snapshot->rep);
   delete snapshot;
 }
 

@@ -6,6 +6,7 @@
 #define STORAGE_LEVELDB_DB_SNAPSHOT_H_
 
 #include "db/dbformat.h"
+
 #include "leveldb/db.h"
 
 namespace leveldb {
@@ -74,8 +75,7 @@ class SnapshotList {
   // The snapshot must have been created by calling New() on this list.
   //
   // The snapshot pointer should not be const, because its memory is
-  // deallocated. However, that would force us to change DB::ReleaseSnapshot(),
-  // which is in the API, and currently takes a const Snapshot.
+  // deallocated.
   void Delete(const SnapshotImpl* snapshot) {
 #if !defined(NDEBUG)
     assert(snapshot->list_ == this);

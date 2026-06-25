@@ -5,11 +5,13 @@
 #ifndef STORAGE_LEVELDB_INCLUDE_DB_H_
 #define STORAGE_LEVELDB_INCLUDE_DB_H_
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <expected>
 #include <optional>
 #include <string_view>
+#include <utility>
 
 #include "leveldb/export.h"
 #include "leveldb/iterator.h"
@@ -103,13 +105,8 @@ class LEVELDB_EXPORT DB {
 
   // Return a handle to the current DB state.  Iterators created with
   // this handle will all observe a stable snapshot of the current DB
-  // state.  The caller must call ReleaseSnapshot(result) when the
-  // snapshot is no longer needed.
-  virtual const Snapshot* GetSnapshot() = 0;
-
-  // Release a previously acquired snapshot.  The caller must not
-  // use "snapshot" after this call.
-  virtual void ReleaseSnapshot(const Snapshot* snapshot) = 0;
+  // state.  The caller must either delete or clear(ptr = {}) the shared_ptr once done
+  virtual std::shared_ptr<const Snapshot> GetSnapshot() = 0;
 
   // DB implementations can export properties about their state
   // via this method.  If "property" is a valid property understood by this
