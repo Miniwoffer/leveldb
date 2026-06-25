@@ -299,7 +299,7 @@ int main(int argc, char** argv) {
     CheckGet(db, roptions, "foo", "hello");
     leveldb_readoptions_set_snapshot(roptions, NULL);
     CheckGet(db, roptions, "foo", NULL);
-    leveldb_release_snapshot(db, snap);
+    leveldb_release_snapshot(snap);
   }
 
   StartPhase("repair");
