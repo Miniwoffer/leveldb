@@ -1469,22 +1469,25 @@ std::optional<std::string> DBImpl::GetProperty(
   return {};
 }
 
-void DBImpl::GetApproximateSizes(const Range* range, int n, uint64_t* sizes) {
+std::vector<uint64_t> DBImpl::GetApproximateSizes(
+    const std::span<const Range> ranges) {
+  std::vector<uint64_t> ret(ranges.size());
+
   // TODO(opt): better implementation
   MutexLock l(&mutex_);
   Version* v = versions_->current();
   v->Ref();
 
-  for (int i = 0; i < n; i++) {
-    // Convert user_key into a corresponding internal key.
-    InternalKey k1(range[i].start, kMaxSequenceNumber, kValueTypeForSeek);
-    InternalKey k2(range[i].limit, kMaxSequenceNumber, kValueTypeForSeek);
+  auto itr = ret.begin();
+  for (auto range : ranges) {
+    InternalKey k1(range.start, kMaxSequenceNumber, kValueTypeForSeek);
+    InternalKey k2(range.limit, kMaxSequenceNumber, kValueTypeForSeek);
     uint64_t start = versions_->ApproximateOffsetOf(v, k1);
     uint64_t limit = versions_->ApproximateOffsetOf(v, k2);
-    sizes[i] = (limit >= start ? limit - start : 0);
+    *itr++ = (limit >= start ? limit - start : 0);
   }
-
   v->Unref();
+  return ret;
 }
 
 // Default implementations of convenience methods that subclasses of DB

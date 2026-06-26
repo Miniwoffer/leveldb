@@ -482,10 +482,7 @@ class DBTest : public testing::Test {
   }
 
   uint64_t Size(const std::string_view& start, const std::string_view& limit) {
-    Range r(start, limit);
-    uint64_t size;
-    db_->GetApproximateSizes(&r, 1, &size);
-    return size;
+    return db_->GetApproximateSizes(std::vector({Range(start, limit)}))[0];
   }
 
   void Compact(const std::string_view& start, const std::string_view& limit) {
@@ -2181,10 +2178,8 @@ class ModelDB : public DB {
       const std::string_view property) override {
     return {};
   }
-  void GetApproximateSizes(const Range* r, int n, uint64_t* sizes) override {
-    for (int i = 0; i < n; i++) {
-      sizes[i] = 0;
-    }
+  std::vector<uint64_t> GetApproximateSizes(std::span<const Range> r) override {
+    return std::vector<uint64_t>(r.size(), 0);
   }
   void CompactRange(const std::string_view* start,
                     const std::string_view* end) override {}

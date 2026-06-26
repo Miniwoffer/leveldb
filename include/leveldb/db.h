@@ -6,13 +6,16 @@
 #define STORAGE_LEVELDB_INCLUDE_DB_H_
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstdio>
 #include <expected>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "leveldb/export.h"
 #include "leveldb/iterator.h"
@@ -129,16 +132,17 @@ class LEVELDB_EXPORT DB {
   virtual std::optional<std::string> GetProperty(
       const std::string_view property) = 0;
 
-  // For each i in [0,n-1], store in "sizes[i]", the approximate
-  // file system space used by keys in "[range[i].start .. range[i].limit)".
+  // For each range given in ranges calculates the approximate file system
+  // space used that range
   //
   // Note that the returned sizes measure file system space usage, so
   // if the user data compresses by a factor of ten, the returned
   // sizes will be one-tenth the size of the corresponding user data size.
   //
   // The results may not include the sizes of recently written data.
-  virtual void GetApproximateSizes(const Range* range, int n,
-                                   uint64_t* sizes) = 0;
+
+  virtual std::vector<uint64_t> GetApproximateSizes(
+      std::span<const Range> ranges) = 0;
 
   // Compact the underlying storage for the key range [*begin,*end].
   // In particular, deleted and overwritten versions are discarded,
