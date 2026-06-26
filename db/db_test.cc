@@ -485,8 +485,9 @@ class DBTest : public testing::Test {
     return db_->GetApproximateSizes(std::vector({Range(start, limit)}))[0];
   }
 
-  void Compact(const std::string_view& start, const std::string_view& limit) {
-    db_->CompactRange(&start, &limit);
+  void Compact(const Range range) { db_->Compact(range); }
+  void Compact(const std::string_view start, const std::string_view limit) {
+    Compact(Range(start, limit));
   }
 
   // Do n memtable compactions, each of which produces an sstable
@@ -1663,7 +1664,7 @@ TEST_F(DBTest, ManualCompaction) {
   // Compact all
   MakeTables(1, "a", "z");
   ASSERT_EQ("0,1,2", FilesPerLevel());
-  db_->CompactRange(nullptr, nullptr);
+  db_->Compact();
   ASSERT_EQ("0,0,1", FilesPerLevel());
 }
 
@@ -2181,8 +2182,7 @@ class ModelDB : public DB {
   std::vector<uint64_t> GetApproximateSizes(std::span<const Range> r) override {
     return std::vector<uint64_t>(r.size(), 0);
   }
-  void CompactRange(const std::string_view* start,
-                    const std::string_view* end) override {}
+  void Compact(const Range range) override {}
 
  private:
   class ModelIter : public Iterator {

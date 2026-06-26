@@ -277,13 +277,16 @@ void leveldb_approximate_sizes(leveldb_t* db, int num_ranges,
 void leveldb_compact_range(leveldb_t* db, const char* start_key,
                            size_t start_key_len, const char* limit_key,
                            size_t limit_key_len) {
-  std::string_view a, b;
-  db->rep->CompactRange(
-      // Pass null std::string_view if corresponding "const char*" is null
-      (start_key ? (a = std::string_view(start_key, start_key_len), &a)
-                 : nullptr),
-      (limit_key ? (b = std::string_view(limit_key, limit_key_len), &b)
-                 : nullptr));
+  Range range = {};
+
+  if (start_key) {
+    range.start = std::string_view(start_key, start_key_len);
+  }
+
+  if (limit_key) {
+    range.limit = std::string_view(limit_key, limit_key_len);
+  }
+  db->rep->Compact(range);
 }
 
 void leveldb_destroy_db(const leveldb_options_t* options, const char* name,

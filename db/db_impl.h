@@ -70,8 +70,7 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
   std::vector<uint64_t> GetApproximateSizes(
       std::span<const Range> range) override;
 
-  void CompactRange(const std::string_view* begin,
-                    const std::string_view* end) override;
+  void Compact(const Range range = {}) override;
 
   // Extra methods (for testing) that are not in the public DB interface
 
