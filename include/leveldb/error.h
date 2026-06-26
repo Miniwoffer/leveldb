@@ -21,9 +21,7 @@ consteval auto CodeBaseType() {
     return unsigned{};
   }
 }
-
 using code_t = decltype(CodeBaseType());
-
 }  // namespace
 
 class LEVELDB_EXPORT Error {
@@ -95,6 +93,11 @@ class LEVELDB_EXPORT Error {
   }
 
   bool operator==(const Code rhs) const { return code_ == rhs; }
+  bool IsNotFound() const { return code_ == Code::NotFound; }
+  bool IsCorruption() const { return code_ == Code::Corruption; }
+  bool IsIOError() const { return code_ == Code::IOError; }
+  bool IsNotSupportedError() const { return code_ == Code::NotSupported; }
+  bool IsInvalidArgument() const { return code_ == Code::InvalidArgument; }
 
   std::string ToString() const {
     std::string error_string;
@@ -120,7 +123,7 @@ class LEVELDB_EXPORT Error {
 
     if (HasMessage()) {
       error_string.append(": ");
-      error_string.append(GetMessage());
+      error_string.append(std::move(GetMessage()));
     }
 
     return error_string;
@@ -137,7 +140,7 @@ class LEVELDB_EXPORT Error {
   inline static std::map<code_t, std::string> messages_;
 
   // Can deliberately overflow
-  code_t GetNextKey() {
+  code_t GetNextKey() const {
     code_t z = 0, o = 1;
     next_key_.compare_exchange_strong(z, o);
     code_t key = next_key_.fetch_add(1);
@@ -147,7 +150,7 @@ class LEVELDB_EXPORT Error {
 
   bool HasMessage() const { return msg_key_ != 0; }
 
-  std::string_view GetMessage() const { return messages_.at(msg_key_); }
+  std::string GetMessage() const { return messages_.at(msg_key_); }
 
   void SetMessage(std::string&& msg) const {
     std::lock_guard<std::mutex> guard(msg_mu_);
