@@ -1,7 +1,6 @@
 
 #include <atomic>
 #include <cassert>
-#include <concepts>
 #include <cstdint>
 #include <map>
 #include <mutex>
@@ -25,10 +24,6 @@ consteval auto CodeBaseType() {
 
 using code_t = decltype(CodeBaseType());
 
-template <typename T>
-concept is_string_like =
-    std::same_as<std::string, T> || std::same_as<std::string_view, T> ||
-    std::same_as<const char*, T> || std::same_as<const char&, T>;
 }  // namespace
 
 class LEVELDB_EXPORT Error {
@@ -44,40 +39,53 @@ class LEVELDB_EXPORT Error {
   Error(Code c) noexcept : code_(c) {}
 
   template <typename... Args>
-    requires(is_string_like<Args> && ...)
+    requires(std::convertible_to<Args, std::string_view> && ...)
   Error(Code c, Args... args) : code_(c), msg_key_(GetNextKey()) {
-    std::string_view messages[] = {args...};
-    std::string message;
-    for (const auto& m : messages) {
-      message.append(m);
-      message.append(": ");
-    }
-    message.resize(message.size() - 2);  // Remove last ": "
-    SetMessage(std::move(message));
+    size_t total_sz = (std::string_view{args}.size() + ...) +
+                      (sizeof...(Args) > 1 ? (sizeof...(Args) - 1) * 2 : 0);
+
+    std::string buffer;
+    buffer.reserve(total_sz);
+
+    bool first = true;
+    auto append_fn = [&](std::string_view sv) {
+      if (!first) {
+        buffer.append(": ");
+      }
+      buffer.append(sv);
+      first = false;
+    };
+
+    (append_fn(std::string_view{args}), ...);
+    SetMessage(std::move(buffer));
   }
 
   ~Error() {
     if (HasMessage()) {
-      EraseMessage();
+      DeleteMessage();
     }
   }
 
   Error(const Error& other) { *this = other; }
   Error& operator=(const Error& other) {
-    if (HasMessage()) {
-      EraseMessage();
+    if (this != &other) {
+      if (HasMessage()) {
+        DeleteMessage();
+      }
+      code_ = other.code_;
+      msg_key_ = other.msg_key_;
+      // DeleteMessage() is safe to call repeatedly on the same key, so this
+      // saves copying the message
     }
-    code_ = other.code_;
-    // std::map::erase does nothing if no element with the provided key
-    // exists, so multiple Errors calling erase on the same key is safe,
-    // and this prevents creating copies of the same error message.
-    msg_key_ = other.msg_key_;
     return *this;
   }
 
   Error(Error&& other) noexcept { *this = std::move(other); }
   Error& operator=(Error&& other) noexcept {
     if (this != &other) {
+      if (HasMessage()) {
+        DeleteMessage();
+      }
       code_ = other.code_;
       msg_key_ = other.msg_key_;
       other.code_ = static_cast<Code>(0);
@@ -139,22 +147,14 @@ class LEVELDB_EXPORT Error {
 
   bool HasMessage() const { return msg_key_ != 0; }
 
-  const std::string& GetMessage() const {
-    // const version of .at() is thread-safe
-    return messages_.at(msg_key_);
-  }
+  std::string_view GetMessage() const { return messages_.at(msg_key_); }
 
-  void SetMessage(const std::string& msg) const {
-    std::lock_guard<std::mutex> guard(msg_mu_);
-    messages_[msg_key_] = msg;
-  }
-
-  void SetMessage(const std::string&& msg) const {
+  void SetMessage(std::string&& msg) const {
     std::lock_guard<std::mutex> guard(msg_mu_);
     messages_[msg_key_] = std::move(msg);
   }
 
-  void EraseMessage() const {
+  void DeleteMessage() const {
     std::lock_guard<std::mutex> guard(msg_mu_);
     messages_.erase(msg_key_);
   }
