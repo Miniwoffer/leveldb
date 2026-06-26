@@ -43,7 +43,7 @@ class LEVELDB_EXPORT Snapshot {
 // A range of keys
 struct LEVELDB_EXPORT Range {
   Range() = default;
-  Range(const std::string_view& s, const std::string_view& l)
+  Range(const std::string_view s, const std::string_view l)
       : start(s), limit(l) {}
 
   std::string_view start;  // Included in the range
@@ -144,18 +144,15 @@ class LEVELDB_EXPORT DB {
   virtual std::vector<uint64_t> GetApproximateSizes(
       std::span<const Range> ranges) = 0;
 
-  // Compact the underlying storage for the key range [*begin,*end].
+  // Compact the underlying storage for the key range [start, end].
   // In particular, deleted and overwritten versions are discarded,
   // and the data is rearranged to reduce the cost of operations
   // needed to access the data.  This operation should typically only
   // be invoked by users who understand the underlying implementation.
   //
-  // begin==nullptr is treated as a key before all keys in the database.
-  // end==nullptr is treated as a key after all keys in the database.
-  // Therefore the following call will compact the entire database:
-  //    db->CompactRange(nullptr, nullptr);
-  virtual void CompactRange(const std::string_view* begin,
-                            const std::string_view* end) = 0;
+  // start.empty() is treated as a key before all keys in the database.
+  // limit.empty() is treated as a key after all keys in the database.
+  virtual void Compact(const Range range = {}) = 0;
 };
 
 // Destroy the contents of the specified database.

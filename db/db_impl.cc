@@ -589,8 +589,14 @@ void DBImpl::CompactMemTable() {
   }
 }
 
-void DBImpl::CompactRange(const std::string_view* begin,
-                          const std::string_view* end) {
+void DBImpl::Compact(const Range range) {
+  const std::string_view *begin = nullptr, *end = nullptr;
+  if (!range.start.empty()) {
+    begin = &range.start;
+  }
+  if (!range.limit.empty()) {
+    end = &range.limit;
+  }
   int max_level_with_files = 1;
   {
     MutexLock l(&mutex_);

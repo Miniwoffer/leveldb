@@ -1025,7 +1025,7 @@ class Benchmark {
     }
   }
 
-  void Compact(ThreadState* thread) { db_->CompactRange(nullptr, nullptr); }
+  void Compact(ThreadState* thread) { db_->Compact(); }
 
   void PrintStats(const char* key) {
     std::string stats = db_->GetProperty(key).value_or("(failed)");

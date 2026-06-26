@@ -346,7 +346,7 @@ TEST_F(CorruptionTest, CompactionInputErrorParanoid) {
     Corrupt(kTableFile, 100, 1);
     env_.SleepForMicroseconds(100000);
   }
-  dbi->CompactRange(nullptr, nullptr);
+  dbi->Compact();
 
   // Write must fail because of corrupted table
   std::string tmp1, tmp2;
