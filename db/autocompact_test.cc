@@ -4,6 +4,7 @@
 
 #include "db/db_impl.h"
 #include <memory>
+#include <vector>
 
 #include "leveldb/cache.h"
 #include "leveldb/db.h"
@@ -40,10 +41,7 @@ class AutoCompactTest : public testing::Test {
   }
 
   uint64_t Size(const std::string_view& start, const std::string_view& limit) {
-    Range r(start, limit);
-    uint64_t size;
-    db_->GetApproximateSizes(&r, 1, &size);
-    return size;
+    return db_->GetApproximateSizes(std::vector({Range(start, limit)}))[0];
   }
 
   void DoReads(int n);

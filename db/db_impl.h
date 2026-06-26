@@ -13,7 +13,9 @@
 #include <expected>
 #include <optional>
 #include <set>
+#include <span>
 #include <string>
+#include <vector>
 
 #include "leveldb/db.h"
 #include "leveldb/env.h"
@@ -65,7 +67,9 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
   std::optional<std::string> GetProperty(
       const std::string_view property) override;
   std::shared_ptr<const Snapshot> GetSnapshot() override;
-  void GetApproximateSizes(const Range* range, int n, uint64_t* sizes) override;
+  std::vector<uint64_t> GetApproximateSizes(
+      std::span<const Range> range) override;
+
   void CompactRange(const std::string_view* begin,
                     const std::string_view* end) override;
 

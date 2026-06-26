@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <iterator>
 #include <string_view>
 
 #include "leveldb/cache.h"
@@ -262,15 +263,15 @@ void leveldb_approximate_sizes(leveldb_t* db, int num_ranges,
                                const char* const* range_limit_key,
                                const size_t* range_limit_key_len,
                                uint64_t* sizes) {
-  Range* ranges = new Range[num_ranges];
+  std::vector<Range> ranges(num_ranges);
   for (int i = 0; i < num_ranges; i++) {
     ranges[i].start =
         std::string_view(range_start_key[i], range_start_key_len[i]);
     ranges[i].limit =
         std::string_view(range_limit_key[i], range_limit_key_len[i]);
   }
-  db->rep->GetApproximateSizes(ranges, num_ranges, sizes);
-  delete[] ranges;
+  auto resp = db->rep->GetApproximateSizes(ranges);
+  std::memcpy(sizes, resp.data(), sizeof(uint64_t) * num_ranges);
 }
 
 void leveldb_compact_range(leveldb_t* db, const char* start_key,
