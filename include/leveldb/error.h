@@ -1,9 +1,11 @@
 
+#include <algorithm>
 #include <atomic>
 #include <cassert>
 #include <cstdint>
 #include <map>
 #include <mutex>
+#include <ranges>
 #include <string>
 
 #include "leveldb/export.h"
@@ -39,22 +41,10 @@ class LEVELDB_EXPORT Error {
   template <typename... Args>
     requires(std::convertible_to<Args, std::string_view> && ...)
   Error(Code c, Args... args) : code_(c), msg_key_(GetNextKey()) {
-    size_t total_sz = (std::string_view{args}.size() + ...) +
-                      (sizeof...(Args) > 1 ? (sizeof...(Args) - 1) * 2 : 0);
-
+    std::string_view msgs_arr[] = {std::string_view(args)...};
+    auto joined_view = msgs_arr | std::views::join_with(std::string_view(": "));
     std::string buffer;
-    buffer.reserve(total_sz);
-
-    bool first = true;
-    auto append_fn = [&](std::string_view sv) {
-      if (!first) {
-        buffer.append(": ");
-      }
-      buffer.append(sv);
-      first = false;
-    };
-
-    (append_fn(std::string_view{args}), ...);
+    std::ranges::copy(joined_view, std::back_inserter(buffer));
     SetMessage(std::move(buffer));
   }
 
