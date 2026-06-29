@@ -18,15 +18,15 @@ Env::Env() = default;
 
 Env::~Env() = default;
 
-Status Env::NewAppendableFile(const std::string& fname, WritableFile** result) {
-  return Status::NotSupported("NewAppendableFile", fname);
+Error Env::NewAppendableFile(const std::string& fname, WritableFile** result) {
+  return Error::NotSupported("NewAppendableFile", fname);
 }
 
-Status Env::RemoveDir(const std::string& dirname) { return DeleteDir(dirname); }
-Status Env::DeleteDir(const std::string& dirname) { return RemoveDir(dirname); }
+Error Env::RemoveDir(const std::string& dirname) { return DeleteDir(dirname); }
+Error Env::DeleteDir(const std::string& dirname) { return RemoveDir(dirname); }
 
-Status Env::RemoveFile(const std::string& fname) { return DeleteFile(fname); }
-Status Env::DeleteFile(const std::string& fname) { return RemoveFile(fname); }
+Error Env::RemoveFile(const std::string& fname) { return DeleteFile(fname); }
+Error Env::DeleteFile(const std::string& fname) { return RemoveFile(fname); }
 
 SequentialFile::~SequentialFile() = default;
 
@@ -47,50 +47,50 @@ void Log(Logger* info_log, const char* format, ...) {
   }
 }
 
-static Status DoWriteStringToFile(Env* env, const std::string_view& data,
-                                  const std::string& fname, bool should_sync) {
+static Error DoWriteStringToFile(Env* env, const std::string_view& data,
+                                 const std::string& fname, bool should_sync) {
   WritableFile* file;
-  Status s = env->NewWritableFile(fname, &file);
-  if (!s.ok()) {
-    return s;
+  Error e = env->NewWritableFile(fname, &file);
+  if (!e.ok()) {
+    return e;
   }
-  s = file->Append(data);
-  if (s.ok() && should_sync) {
-    s = file->Sync();
+  e = file->Append(data);
+  if (e.ok() && should_sync) {
+    e = file->Sync();
   }
-  if (s.ok()) {
-    s = file->Close();
+  if (e.ok()) {
+    e = file->Close();
   }
   delete file;  // Will auto-close if we did not close above
-  if (!s.ok()) {
+  if (!e.ok()) {
     env->RemoveFile(fname);
   }
-  return s;
+  return e;
 }
 
-Status WriteStringToFile(Env* env, const std::string_view& data,
-                         const std::string& fname) {
+Error WriteStringToFile(Env* env, const std::string_view& data,
+                        const std::string& fname) {
   return DoWriteStringToFile(env, data, fname, false);
 }
 
-Status WriteStringToFileSync(Env* env, const std::string_view& data,
-                             const std::string& fname) {
+Error WriteStringToFileSync(Env* env, const std::string_view& data,
+                            const std::string& fname) {
   return DoWriteStringToFile(env, data, fname, true);
 }
 
-Status ReadFileToString(Env* env, const std::string& fname, std::string* data) {
+Error ReadFileToString(Env* env, const std::string& fname, std::string* data) {
   data->clear();
   SequentialFile* file;
-  Status s = env->NewSequentialFile(fname, &file);
-  if (!s.ok()) {
-    return s;
+  Error e = env->NewSequentialFile(fname, &file);
+  if (!e.ok()) {
+    return e;
   }
   static const int kBufferSize = 8192;
   char* space = new char[kBufferSize];
   while (true) {
     std::string_view fragment;
-    s = file->Read(kBufferSize, &fragment, space);
-    if (!s.ok()) {
+    e = file->Read(kBufferSize, &fragment, space);
+    if (!e.ok()) {
       break;
     }
     data->append(fragment.data(), fragment.size());
@@ -100,7 +100,7 @@ Status ReadFileToString(Env* env, const std::string& fname, std::string* data) {
   }
   delete[] space;
   delete file;
-  return s;
+  return e;
 }
 
 EnvWrapper::~EnvWrapper() {}

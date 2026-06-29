@@ -41,7 +41,7 @@ class LEVELDB_EXPORT Table {
   // for the duration of the returned table's lifetime.
   //
   // *file must remain live while this Table is in use.
-  static Status Open(const Options& options, RandomAccessFile* file,
+  static Error Open(const Options& options, RandomAccessFile* file,
                      uint64_t file_size, Table** table);
 
   Table(const Table&) = delete;
@@ -74,9 +74,9 @@ class LEVELDB_EXPORT Table {
   // Calls (*handle_result)(arg, ...) with the entry found after a call
   // to Seek(key).  May not make such a call if filter policy says
   // that key is not present.
-  std::expected<std::string, Status> InternalGet(
+  std::expected<std::string, Error> InternalGet(
       const ReadOptions&, const std::string_view& key,
-      std::function<std::expected<std::string, Status>(const std::string_view&,
+      std::function<std::expected<std::string, Error>(const std::string_view&,
                                                        const std::string_view&)>
           handle_result);
   void ReadMeta(const Footer& footer);

@@ -38,7 +38,7 @@ class WriteBatchInternal {
 
   static void SetContents(WriteBatch* batch, const std::string_view& contents);
 
-  static Status InsertInto(const WriteBatch* batch, MemTable* memtable);
+  static Error InsertInto(const WriteBatch* batch, MemTable* memtable);
 
   static void Append(WriteBatch* dst, const WriteBatch* src);
 };

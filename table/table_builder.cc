@@ -41,7 +41,7 @@ struct TableBuilder::Rep {
   Options index_block_options;
   WritableFile* file;
   uint64_t offset;
-  Status status;
+  Error err;
   BlockBuilder data_block;
   BlockBuilder index_block;
   std::string last_key;
@@ -77,12 +77,12 @@ TableBuilder::~TableBuilder() {
   delete rep_;
 }
 
-Status TableBuilder::ChangeOptions(const Options& options) {
+Error TableBuilder::ChangeOptions(const Options& options) {
   // Note: if more fields are added to Options, update
   // this function to catch changes that should not be allowed to
   // change in the middle of building a Table.
   if (options.comparator != rep_->options.comparator) {
-    return Status::InvalidArgument("changing comparator while building table");
+    return Error::InvalidArgument("changing comparator while building table");
   }
 
   // Note that any live BlockBuilders point to rep_->options and therefore
@@ -90,7 +90,7 @@ Status TableBuilder::ChangeOptions(const Options& options) {
   rep_->options = options;
   rep_->index_block_options = options;
   rep_->index_block_options.block_restart_interval = 1;
-  return Status::OK();
+  return Error::OK();
 }
 
 void TableBuilder::Add(const std::string_view& key,
@@ -135,7 +135,7 @@ void TableBuilder::Flush() {
   WriteBlock(&r->data_block, &r->pending_handle);
   if (ok()) {
     r->pending_index_entry = true;
-    r->status = r->file->Flush();
+    r->err = r->file->Flush();
   }
   if (r->filter_block != nullptr) {
     r->filter_block->StartBlock(r->offset);
@@ -198,8 +198,8 @@ void TableBuilder::WriteRawBlock(const std::string_view& block_contents,
   Rep* r = rep_;
   handle->set_offset(r->offset);
   handle->set_size(block_contents.size());
-  r->status = r->file->Append(block_contents);
-  if (r->status.ok()) {
+  r->err = r->file->Append(block_contents);
+  if (r->err.ok()) {
     std::array<char, kBlockTrailerSize> trailer;
     trailer[0] = type;
     uint32_t crc = crc32c::Value(block_contents.data(), block_contents.size());
@@ -207,16 +207,16 @@ void TableBuilder::WriteRawBlock(const std::string_view& block_contents,
                          1);  // Extend crc to cover block type
     EncodeFixed<uint32_t>(std::span<char>(trailer.begin() + 1, trailer.end()),
                           crc32c::Mask(crc));
-    r->status = r->file->Append(std::string_view(trailer));
-    if (r->status.ok()) {
+    r->err = r->file->Append(std::string_view(trailer));
+    if (r->err.ok()) {
       r->offset += block_contents.size() + kBlockTrailerSize;
     }
   }
 }
 
-Status TableBuilder::status() const { return rep_->status; }
+Error TableBuilder::error() const { return rep_->err; }
 
-Status TableBuilder::Finish() {
+Error TableBuilder::Finish() {
   Rep* r = rep_;
   Flush();
   assert(!r->closed);
@@ -265,12 +265,13 @@ Status TableBuilder::Finish() {
     footer.set_index_handle(index_block_handle);
     std::string footer_encoding;
     footer.EncodeTo(&footer_encoding);
-    r->status = r->file->Append(footer_encoding);
-    if (r->status.ok()) {
+    r->err = r->file->Append(footer_encoding);
+    if (r->err.ok()) {
       r->offset += footer_encoding.size();
     }
   }
-  return r->status;
+
+  return r->err;
 }
 
 void TableBuilder::Abandon() {

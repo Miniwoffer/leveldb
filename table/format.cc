@@ -25,17 +25,17 @@ void BlockHandle::EncodeTo(std::string& dst) const {
 }
 void BlockHandle::EncodeTo(std::string* dst) const { return EncodeTo(*dst); }
 
-Status BlockHandle::DecodeFrom(std::string_view* input) {
+Error BlockHandle::DecodeFrom(std::string_view* input) {
   if (auto offset = GetVarint<uint64_t>(*input)) {
     *input = offset->remaining_input;
     offset_ = offset->value;
     if (auto size = GetVarint<uint64_t>(*input)) {
       *input = size->remaining_input;
       size_ = size->value;
-      return Status::OK();
+      return Error::OK();
     }
   }
-  return Status::Corruption("bad block handle");
+  return Error::Corruption("bad block handle");
 }
 
 void Footer::EncodeTo(std::string* dst) const {
@@ -49,9 +49,9 @@ void Footer::EncodeTo(std::string* dst) const {
   (void)original_size;  // Disable unused variable warning.
 }
 
-Status Footer::DecodeFrom(std::string_view* input) {
+Error Footer::DecodeFrom(std::string_view* input) {
   if (input->size() < kEncodedLength) {
-    return Status::Corruption("not an sstable (footer too short)");
+    return Error::Corruption("not an sstable (footer too short)");
   }
 
   const char* magic_ptr = input->data() + kEncodedLength - 8;
@@ -61,10 +61,10 @@ Status Footer::DecodeFrom(std::string_view* input) {
   const uint64_t magic = ((static_cast<uint64_t>(magic_hi) << 32) |
                           (static_cast<uint64_t>(magic_lo)));
   if (magic != kTableMagicNumber) {
-    return Status::Corruption("not an sstable (bad magic number)");
+    return Error::Corruption("not an sstable (bad magic number)");
   }
 
-  Status result = metaindex_handle_.DecodeFrom(input);
+  Error result = metaindex_handle_.DecodeFrom(input);
   if (result.ok()) {
     result = index_handle_.DecodeFrom(input);
   }
@@ -76,8 +76,8 @@ Status Footer::DecodeFrom(std::string_view* input) {
   return result;
 }
 
-Status ReadBlock(RandomAccessFile* file, const ReadOptions& options,
-                 const BlockHandle& handle, BlockContents* result) {
+Error ReadBlock(RandomAccessFile* file, const ReadOptions& options,
+                const BlockHandle& handle, BlockContents* result) {
   result->data = std::string_view();
   result->cachable = false;
   result->heap_allocated = false;
@@ -87,14 +87,14 @@ Status ReadBlock(RandomAccessFile* file, const ReadOptions& options,
   size_t n = static_cast<size_t>(handle.size());
   char* buf = new char[n + kBlockTrailerSize];
   std::string_view contents;
-  Status s = file->Read(handle.offset(), n + kBlockTrailerSize, &contents, buf);
-  if (!s.ok()) {
+  Error e = file->Read(handle.offset(), n + kBlockTrailerSize, &contents, buf);
+  if (!e.ok()) {
     delete[] buf;
-    return s;
+    return e;
   }
   if (contents.size() != n + kBlockTrailerSize) {
     delete[] buf;
-    return Status::Corruption("truncated block read");
+    return Error::Corruption("truncated block read");
   }
 
   // Check the crc of the type and the block contents
@@ -105,8 +105,8 @@ Status ReadBlock(RandomAccessFile* file, const ReadOptions& options,
     const uint32_t actual = crc32c::Value(data, n + 1);
     if (actual != crc) {
       delete[] buf;
-      s = Status::Corruption("block checksum mismatch");
-      return s;
+      e = Error::Corruption("block checksum mismatch");
+      return e;
     }
   }
 
@@ -132,13 +132,13 @@ Status ReadBlock(RandomAccessFile* file, const ReadOptions& options,
       size_t ulength = 0;
       if (!port::Snappy_GetUncompressedLength(data, n, &ulength)) {
         delete[] buf;
-        return Status::Corruption("corrupted snappy compressed block length");
+        return Error::Corruption("corrupted snappy compressed block length");
       }
       char* ubuf = new char[ulength];
       if (!port::Snappy_Uncompress(data, n, ubuf)) {
         delete[] buf;
         delete[] ubuf;
-        return Status::Corruption("corrupted snappy compressed block contents");
+        return Error::Corruption("corrupted snappy compressed block contents");
       }
       delete[] buf;
       result->data = std::string_view(ubuf, ulength);
@@ -150,13 +150,13 @@ Status ReadBlock(RandomAccessFile* file, const ReadOptions& options,
       size_t ulength = 0;
       if (!port::Zstd_GetUncompressedLength(data, n, &ulength)) {
         delete[] buf;
-        return Status::Corruption("corrupted zstd compressed block length");
+        return Error::Corruption("corrupted zstd compressed block length");
       }
       char* ubuf = new char[ulength];
       if (!port::Zstd_Uncompress(data, n, ubuf)) {
         delete[] buf;
         delete[] ubuf;
-        return Status::Corruption("corrupted zstd compressed block contents");
+        return Error::Corruption("corrupted zstd compressed block contents");
       }
       delete[] buf;
       result->data = std::string_view(ubuf, ulength);
@@ -166,10 +166,10 @@ Status ReadBlock(RandomAccessFile* file, const ReadOptions& options,
     }
     default:
       delete[] buf;
-      return Status::Corruption("bad block type");
+      return Error::Corruption("bad block type");
   }
 
-  return Status::OK();
+  return Error::OK();
 }
 
 }  // namespace leveldb

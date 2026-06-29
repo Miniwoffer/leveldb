@@ -113,7 +113,7 @@ static std::optional<uint32_t> GetLevel(std::string_view& input) {
   return {};
 }
 
-Status VersionEdit::DecodeFrom(const std::string_view& src) {
+Error VersionEdit::DecodeFrom(const std::string_view& src) {
   Clear();
   std::string_view input = src;
   const char* msg = nullptr;
@@ -234,9 +234,9 @@ Status VersionEdit::DecodeFrom(const std::string_view& src) {
     msg = "invalid tag";
   }
 
-  Status result;
+  Error result;
   if (msg != nullptr) {
-    result = Status::Corruption("VersionEdit", msg);
+    result = Error::Corruption("VersionEdit", msg);
   }
   return result;
 }

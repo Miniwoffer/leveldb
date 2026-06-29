@@ -34,14 +34,14 @@ Writer::Writer(WritableFile* dest, uint64_t dest_length)
 
 Writer::~Writer() = default;
 
-Status Writer::AddRecord(const std::string_view& slice) {
+Error Writer::AddRecord(const std::string_view& slice) {
   const char* ptr = slice.data();
   size_t left = slice.size();
 
   // Fragment the record if necessary and emit it.  Note that if slice
   // is empty, we still want to iterate once to emit a single
   // zero-length record
-  Status s;
+  Error e;
   bool begin = true;
   do {
     const int leftover = kBlockSize - block_offset_;
@@ -74,16 +74,15 @@ Status Writer::AddRecord(const std::string_view& slice) {
       type = kMiddleType;
     }
 
-    s = EmitPhysicalRecord(type, ptr, fragment_length);
+    e = EmitPhysicalRecord(type, ptr, fragment_length);
     ptr += fragment_length;
     left -= fragment_length;
     begin = false;
-  } while (s.ok() && left > 0);
-  return s;
+  } while (e.ok() && left > 0);
+  return e;
 }
 
-Status Writer::EmitPhysicalRecord(RecordType t, const char* ptr,
-                                  size_t length) {
+Error Writer::EmitPhysicalRecord(RecordType t, const char* ptr, size_t length) {
   assert(length <= 0xffff);  // Must fit in two bytes
   assert(block_offset_ + kHeaderSize + length <= kBlockSize);
 
@@ -99,15 +98,15 @@ Status Writer::EmitPhysicalRecord(RecordType t, const char* ptr,
   EncodeFixed<uint32_t>(std::span(buf, 8), crc);
 
   // Write the header and the payload
-  Status s = dest_->Append(std::string_view(buf, kHeaderSize));
-  if (s.ok()) {
-    s = dest_->Append(std::string_view(ptr, length));
-    if (s.ok()) {
-      s = dest_->Flush();
+  Error e = dest_->Append(std::string_view(buf, kHeaderSize));
+  if (e.ok()) {
+    e = dest_->Append(std::string_view(ptr, length));
+    if (e.ok()) {
+      e = dest_->Flush();
     }
   }
   block_offset_ += kHeaderSize + length;
-  return s;
+  return e;
 }
 
 }  // namespace log

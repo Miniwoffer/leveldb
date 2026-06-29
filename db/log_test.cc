@@ -166,12 +166,12 @@ class LogTest : public testing::Test {
  private:
   class StringDest : public WritableFile {
    public:
-    Status Close() override { return Status::OK(); }
-    Status Flush() override { return Status::OK(); }
-    Status Sync() override { return Status::OK(); }
-    Status Append(const std::string_view& slice) override {
+    Error Close() override { return Error::OK(); }
+    Error Flush() override { return Error::OK(); }
+    Error Sync() override { return Error::OK(); }
+    Error Append(const std::string_view& slice) override {
       contents_.append(slice.data(), slice.size());
-      return Status::OK();
+      return Error::OK();
     }
 
     std::string contents_;
@@ -181,13 +181,13 @@ class LogTest : public testing::Test {
    public:
     StringSource() : force_error_(false), returned_partial_(false) {}
 
-    Status Read(size_t n, std::string_view* result, char* scratch) override {
+    Error Read(size_t n, std::string_view* result, char* scratch) override {
       EXPECT_TRUE(!returned_partial_) << "must not Read() after eof/error";
 
       if (force_error_) {
         force_error_ = false;
         returned_partial_ = true;
-        return Status::Corruption("read error");
+        return Error::Corruption("read error");
       }
 
       if (contents_.size() < n) {
@@ -196,18 +196,18 @@ class LogTest : public testing::Test {
       }
       *result = std::string_view(contents_.data(), n);
       contents_.remove_prefix(n);
-      return Status::OK();
+      return Error::OK();
     }
 
-    Status Skip(uint64_t n) override {
+    Error Skip(uint64_t n) override {
       if (n > contents_.size()) {
         contents_ = {};
-        return Status::NotFound("in-memory file skipped past end");
+        return Error::NotFound("in-memory file skipped past end");
       }
 
       contents_.remove_prefix(n);
 
-      return Status::OK();
+      return Error::OK();
     }
 
     std::string_view contents_;
@@ -218,7 +218,7 @@ class LogTest : public testing::Test {
   class ReportCollector : public Reader::Reporter {
    public:
     ReportCollector() : dropped_bytes_(0) {}
-    void Corruption(size_t bytes, const Status& status) override {
+    void Corruption(size_t bytes, const Error& status) override {
       dropped_bytes_ += bytes;
       message_.append(status.ToString());
     }

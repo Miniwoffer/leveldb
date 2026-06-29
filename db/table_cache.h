@@ -44,10 +44,10 @@ class TableCache {
 
   // If a seek to internal key "k" in specified file finds an entry,
   // call (*handle_result)(arg, found_key, found_value).
-  std::expected<std::string, Status> Get(
+  std::expected<std::string, Error> Get(
       const ReadOptions& options, uint64_t file_number, uint64_t file_size,
       const std::string_view& k,
-      std::function<std::expected<std::string, Status>(const std::string_view&,
+      std::function<std::expected<std::string, Error>(const std::string_view&,
                                                        const std::string_view&)>
           handle_result);
 
@@ -55,7 +55,7 @@ class TableCache {
   void Evict(uint64_t file_number);
 
  private:
-  std::expected<Cache::Handle*, Status> FindTable(uint64_t file_number,
+  std::expected<Cache::Handle*, Error> FindTable(uint64_t file_number,
                                                   uint64_t file_size);
 
   Env* const env_;

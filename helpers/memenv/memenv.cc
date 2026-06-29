@@ -69,11 +69,11 @@ class FileState {
     size_ = 0;
   }
 
-  Status Read(uint64_t offset, size_t n, std::string_view* result,
+  Error Read(uint64_t offset, size_t n, std::string_view* result,
               char* scratch) const {
     MutexLock lock(&blocks_mutex_);
     if (offset > size_) {
-      return Status::IOError("Offset greater than file size.");
+      return Error::IOError("Offset greater than file size.");
     }
     const uint64_t available = size_ - offset;
     if (n > available) {
@@ -81,7 +81,7 @@ class FileState {
     }
     if (n == 0) {
       *result = std::string_view();
-      return Status::OK();
+      return Error::OK();
     }
 
     assert(offset / kBlockSize <= std::numeric_limits<size_t>::max());
@@ -104,10 +104,10 @@ class FileState {
     }
 
     *result = std::string_view(scratch, n);
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status Append(const std::string_view& data) {
+  Error Append(const std::string_view& data) {
     const char* src = data.data();
     size_t src_len = data.size();
 
@@ -134,7 +134,7 @@ class FileState {
       size_ += avail;
     }
 
-    return Status::OK();
+    return Error::OK();
   }
 
  private:
@@ -159,24 +159,24 @@ class SequentialFileImpl : public SequentialFile {
 
   ~SequentialFileImpl() override { file_->Unref(); }
 
-  Status Read(size_t n, std::string_view* result, char* scratch) override {
-    Status s = file_->Read(pos_, n, result, scratch);
+  Error Read(size_t n, std::string_view* result, char* scratch) override {
+    Error s = file_->Read(pos_, n, result, scratch);
     if (s.ok()) {
       pos_ += result->size();
     }
     return s;
   }
 
-  Status Skip(uint64_t n) override {
+  Error Skip(uint64_t n) override {
     if (pos_ > file_->Size()) {
-      return Status::IOError("pos_ > file_->Size()");
+      return Error::IOError("pos_ > file_->Size()");
     }
     const uint64_t available = file_->Size() - pos_;
     if (n > available) {
       n = available;
     }
     pos_ += n;
-    return Status::OK();
+    return Error::OK();
   }
 
  private:
@@ -190,7 +190,7 @@ class RandomAccessFileImpl : public RandomAccessFile {
 
   ~RandomAccessFileImpl() override { file_->Unref(); }
 
-  Status Read(uint64_t offset, size_t n, std::string_view* result,
+  Error Read(uint64_t offset, size_t n, std::string_view* result,
               char* scratch) const override {
     return file_->Read(offset, n, result, scratch);
   }
@@ -205,13 +205,13 @@ class WritableFileImpl : public WritableFile {
 
   ~WritableFileImpl() override { file_->Unref(); }
 
-  Status Append(const std::string_view& data) override {
+  Error Append(const std::string_view& data) override {
     return file_->Append(data);
   }
 
-  Status Close() override { return Status::OK(); }
-  Status Flush() override { return Status::OK(); }
-  Status Sync() override { return Status::OK(); }
+  Error Close() override { return Error::OK(); }
+  Error Flush() override { return Error::OK(); }
+  Error Sync() override { return Error::OK(); }
 
  private:
   FileState* file_;
@@ -233,31 +233,31 @@ class InMemoryEnv : public EnvWrapper {
   }
 
   // Partial implementation of the Env interface.
-  Status NewSequentialFile(const std::string& fname,
+  Error NewSequentialFile(const std::string& fname,
                            SequentialFile** result) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(fname) == file_map_.end()) {
       *result = nullptr;
-      return Status::IOError(fname, "File not found");
+      return Error::IOError(fname, "File not found");
     }
 
     *result = new SequentialFileImpl(file_map_[fname]);
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status NewRandomAccessFile(const std::string& fname,
+  Error NewRandomAccessFile(const std::string& fname,
                              RandomAccessFile** result) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(fname) == file_map_.end()) {
       *result = nullptr;
-      return Status::IOError(fname, "File not found");
+      return Error::IOError(fname, "File not found");
     }
 
     *result = new RandomAccessFileImpl(file_map_[fname]);
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status NewWritableFile(const std::string& fname,
+  Error NewWritableFile(const std::string& fname,
                          WritableFile** result) override {
     MutexLock lock(&mutex_);
     FileSystem::iterator it = file_map_.find(fname);
@@ -274,10 +274,10 @@ class InMemoryEnv : public EnvWrapper {
     }
 
     *result = new WritableFileImpl(file);
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status NewAppendableFile(const std::string& fname,
+  Error NewAppendableFile(const std::string& fname,
                            WritableFile** result) override {
     MutexLock lock(&mutex_);
     FileState** sptr = &file_map_[fname];
@@ -287,7 +287,7 @@ class InMemoryEnv : public EnvWrapper {
       file->Ref();
     }
     *result = new WritableFileImpl(file);
-    return Status::OK();
+    return Error::OK();
   }
 
   bool FileExists(const std::string& fname) override {
@@ -295,7 +295,7 @@ class InMemoryEnv : public EnvWrapper {
     return file_map_.find(fname) != file_map_.end();
   }
 
-  Status GetChildren(const std::string& dir,
+  Error GetChildren(const std::string& dir,
                      std::vector<std::string>* result) override {
     MutexLock lock(&mutex_);
     result->clear();
@@ -309,7 +309,7 @@ class InMemoryEnv : public EnvWrapper {
       }
     }
 
-    return Status::OK();
+    return Error::OK();
   }
 
   void RemoveFileInternal(const std::string& fname)
@@ -322,61 +322,61 @@ class InMemoryEnv : public EnvWrapper {
     file_map_.erase(fname);
   }
 
-  Status RemoveFile(const std::string& fname) override {
+  Error RemoveFile(const std::string& fname) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(fname) == file_map_.end()) {
-      return Status::IOError(fname, "File not found");
+      return Error::IOError(fname, "File not found");
     }
 
     RemoveFileInternal(fname);
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status CreateDir(const std::string& dirname) override { return Status::OK(); }
+  Error CreateDir(const std::string& dirname) override { return Error::OK(); }
 
-  Status RemoveDir(const std::string& dirname) override { return Status::OK(); }
+  Error RemoveDir(const std::string& dirname) override { return Error::OK(); }
 
-  Status GetFileSize(const std::string& fname, uint64_t* file_size) override {
+  Error GetFileSize(const std::string& fname, uint64_t* file_size) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(fname) == file_map_.end()) {
-      return Status::IOError(fname, "File not found");
+      return Error::IOError(fname, "File not found");
     }
 
     *file_size = file_map_[fname]->Size();
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status RenameFile(const std::string& src,
+  Error RenameFile(const std::string& src,
                     const std::string& target) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(src) == file_map_.end()) {
-      return Status::IOError(src, "File not found");
+      return Error::IOError(src, "File not found");
     }
 
     RemoveFileInternal(target);
     file_map_[target] = file_map_[src];
     file_map_.erase(src);
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status LockFile(const std::string& fname, FileLock** lock) override {
+  Error LockFile(const std::string& fname, FileLock** lock) override {
     *lock = new FileLock;
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status UnlockFile(FileLock* lock) override {
+  Error UnlockFile(FileLock* lock) override {
     delete lock;
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status GetTestDirectory(std::string* path) override {
+  Error GetTestDirectory(std::string* path) override {
     *path = "/test";
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status NewLogger(const std::string& fname, Logger** result) override {
+  Error NewLogger(const std::string& fname, Logger** result) override {
     *result = new NoOpLogger;
-    return Status::OK();
+    return Error::OK();
   }
 
  private:

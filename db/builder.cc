@@ -15,18 +15,18 @@
 
 namespace leveldb {
 
-Status BuildTable(const std::string& dbname, Env* env, const Options& options,
-                  TableCache* table_cache, Iterator* iter, FileMetaData* meta) {
-  Status s;
+Error BuildTable(const std::string& dbname, Env* env, const Options& options,
+                 TableCache* table_cache, Iterator* iter, FileMetaData* meta) {
+  Error e;
   meta->file_size = 0;
   iter->SeekToFirst();
 
   std::string fname = TableFileName(dbname, meta->number);
   if (iter->Valid()) {
     WritableFile* file;
-    s = env->NewWritableFile(fname, &file);
-    if (!s.ok()) {
-      return s;
+    e = env->NewWritableFile(fname, &file);
+    if (!e.ok()) {
+      return e;
     }
 
     TableBuilder* builder = new TableBuilder(options, file);
@@ -41,43 +41,43 @@ Status BuildTable(const std::string& dbname, Env* env, const Options& options,
     }
 
     // Finish and check for builder errors
-    s = builder->Finish();
-    if (s.ok()) {
+    e = builder->Finish();
+    if (e.ok()) {
       meta->file_size = builder->FileSize();
       assert(meta->file_size > 0);
     }
     delete builder;
 
     // Finish and check for file errors
-    if (s.ok()) {
-      s = file->Sync();
+    if (e.ok()) {
+      e = file->Sync();
     }
-    if (s.ok()) {
-      s = file->Close();
+    if (e.ok()) {
+      e = file->Close();
     }
     delete file;
     file = nullptr;
 
-    if (s.ok()) {
+    if (e.ok()) {
       // Verify that the table is usable
       Iterator* it = table_cache->NewIterator(ReadOptions(), meta->number,
                                               meta->file_size);
-      s = it->status();
+      e = it->error();
       delete it;
     }
   }
 
   // Check for input iterator errors
-  if (!iter->status().ok()) {
-    s = iter->status();
+  if (!iter->error().ok()) {
+    e = iter->error();
   }
 
-  if (s.ok() && meta->file_size > 0) {
+  if (e.ok() && meta->file_size > 0) {
     // Keep it
   } else {
     env->RemoveFile(fname);
   }
-  return s;
+  return e;
 }
 
 }  // namespace leveldb
