@@ -8,8 +8,9 @@ cd build
 BUILD_TYPE="None"
 BUILD=false
 RUN=false
+RUN_FLAGS=""
 
-while getopts ":rbt:" opt; do
+while getopts ":rbt:f:" opt; do
     case $opt in
     r)
         RUN=true
@@ -20,6 +21,9 @@ while getopts ":rbt:" opt; do
     t)
         BUILD=true
         BUILD_TYPE="$OPTARG"
+        ;;
+    f)
+        RUN_FLAGS=$OPTARG
         ;;
     \?)
         echo "Invalid option: -$OPTARG" >&2
@@ -43,5 +47,6 @@ if $BUILD; then
 fi
 
 if $RUN; then
-    ./leveldb_tests
+    ./c_test
+    ./leveldb_tests $RUN_FLAGS
 fi
