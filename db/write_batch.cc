@@ -19,6 +19,7 @@
 #include "db/memtable.h"
 #include "db/write_batch_internal.h"
 #include <span>
+#include <string_view>
 
 #include "leveldb/db.h"
 
@@ -41,6 +42,12 @@ void WriteBatch::Clear() {
 }
 
 size_t WriteBatch::ApproximateSize() const { return rep_.size(); }
+WriteBatch::Iterator WriteBatch::begin() {
+  return WriteBatch::Iterator(std::string_view(rep_).substr(kHeader));
+};
+WriteBatch::Iterator WriteBatch::end() {
+  return WriteBatch::Iterator(std::string_view(rep_.end(), rep_.end()));
+};
 
 Status WriteBatch::Iterate(Handler* handler) const {
   std::string_view input(rep_);
@@ -154,6 +161,51 @@ void WriteBatchInternal::Append(WriteBatch* dst, const WriteBatch* src) {
   SetCount(dst, Count(dst) + Count(src));
   assert(src->rep_.size() >= kHeader);
   dst->rep_.append(src->rep_.data() + kHeader, src->rep_.size() - kHeader);
+}
+
+WriteBatch::Iterator& WriteBatch::Iterator::operator++() {
+  current = next;
+  ParseEntry();
+  return *this;
+}
+
+WriteBatch::Iterator WriteBatch::Iterator::operator++(int) {
+  auto tmp = *this;
+  current = next;
+  ParseEntry();
+  return tmp;
+}
+
+void WriteBatch::Iterator::ParseEntry() {
+  if (next.data() > current.data()) {
+    return;
+  }
+  if (!next.empty()) {
+    char tag = next[0];
+    next.remove_prefix(1);
+    switch (tag) {
+      case kTypeValue: {
+        auto key = GetLengthPrefixedBlob<uint32_t>(next);
+        assert(key);
+        next = key->remaining_input;
+
+        auto value = GetLengthPrefixedBlob<uint64_t>(next);
+        assert(value);
+        next = value->remaining_input;
+
+        entry = PutEntry{key->value, value->value};
+      } break;
+      case kTypeDeletion: {
+        auto key = GetLengthPrefixedBlob<uint32_t>(next);
+        assert(key);
+
+        next = key->remaining_input;
+        entry = DeleteEntry{key->value};
+      } break;
+      default:
+        assert(false);
+    }
+  }
 }
 
 }  // namespace leveldb

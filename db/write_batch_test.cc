@@ -4,6 +4,8 @@
 
 #include "db/memtable.h"
 #include "db/write_batch_internal.h"
+#include <expected>
+#include <variant>
 
 #include "leveldb/db.h"
 #include "leveldb/env.h"
@@ -130,6 +132,46 @@ TEST(WriteBatchTest, ApproximateSize) {
   batch.Delete(std::string_view("box"));
   size_t post_delete_size = batch.ApproximateSize();
   ASSERT_LT(two_keys_size, post_delete_size);
+}
+
+TEST(WriteBatchTest, Range) {
+  WriteBatch batch;
+
+  batch.Put(std::string_view("foo"), std::string_view("bar"));
+  size_t one_key_size = batch.ApproximateSize();
+
+  batch.Put(std::string_view("baz"), std::string_view("boo"));
+  size_t two_keys_size = batch.ApproximateSize();
+
+  batch.Delete(std::string_view("box"));
+  size_t post_delete_size = batch.ApproximateSize();
+
+  int i = 0;
+
+  for (auto entry : batch) {
+    switch (i++) {
+      case 0: {
+        ASSERT_TRUE(std::holds_alternative<WriteBatch::PutEntry>(entry));
+        auto e = std::get<WriteBatch::PutEntry>(entry);
+        ASSERT_EQ(e.key, "foo");
+        ASSERT_EQ(e.value, "bar");
+      } break;
+      case 1: {
+        ASSERT_TRUE(std::holds_alternative<WriteBatch::PutEntry>(entry));
+        auto e = std::get<WriteBatch::PutEntry>(entry);
+        ASSERT_EQ(e.key, "baz");
+        ASSERT_EQ(e.value, "boo");
+      } break;
+      case 2: {
+        ASSERT_TRUE(std::holds_alternative<WriteBatch::DeleteEntry>(entry));
+        auto e = std::get<WriteBatch::DeleteEntry>(entry);
+        ASSERT_EQ(e.key, "box");
+      } break;
+      default:
+        ASSERT_TRUE(false) << "Tried to access index:" << (i - 1);
+        break;
+    }
+  }
 }
 
 }  // namespace leveldb
