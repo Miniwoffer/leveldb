@@ -18,8 +18,8 @@
 #include <cassert>
 #include <string_view>
 
+#include "leveldb/error.h"
 #include "leveldb/export.h"
-#include "leveldb/status.h"
 
 namespace leveldb {
 
@@ -72,7 +72,7 @@ class LEVELDB_EXPORT Iterator {
   virtual std::string_view value() const = 0;
 
   // If an error has occurred, return it.  Else return an ok status.
-  virtual Status status() const = 0;
+  virtual Error error() const = 0;
 
   // Clients are allowed to register function/arg1/arg2 triples that
   // will be invoked when this iterator is destroyed.
@@ -107,7 +107,7 @@ class LEVELDB_EXPORT Iterator {
 LEVELDB_EXPORT Iterator* NewEmptyIterator();
 
 // Return an empty iterator with the specified status.
-LEVELDB_EXPORT Iterator* NewErrorIterator(const Status& status);
+LEVELDB_EXPORT Iterator* NewErrorIterator(const Error& status);
 
 }  // namespace leveldb
 

@@ -118,15 +118,15 @@ class MergingIterator : public Iterator {
     return current_->value();
   }
 
-  Status status() const override {
-    Status status;
+  Error error() const override {
+    Error err;
     for (int i = 0; i < n_; i++) {
-      status = children_[i].status();
-      if (!status.ok()) {
+      err = children_[i].error();
+      if (!err.ok()) {
         break;
       }
     }
-    return status;
+    return err;
   }
 
  private:

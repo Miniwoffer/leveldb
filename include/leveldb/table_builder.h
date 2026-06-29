@@ -16,9 +16,9 @@
 #include <cstdint>
 #include <string_view>
 
+#include "leveldb/error.h"
 #include "leveldb/export.h"
 #include "leveldb/options.h"
-#include "leveldb/status.h"
 
 namespace leveldb {
 
@@ -45,7 +45,7 @@ class LEVELDB_EXPORT TableBuilder {
   // passed to the constructor is different from its value in the
   // structure passed to this method, this method will return an error
   // without changing any fields.
-  Status ChangeOptions(const Options& options);
+  Error ChangeOptions(const Options& options);
 
   // Add key,value to the table being constructed.
   // REQUIRES: key is after any previously added key according to comparator.
@@ -59,12 +59,12 @@ class LEVELDB_EXPORT TableBuilder {
   void Flush();
 
   // Return non-ok iff some error has been detected.
-  Status status() const;
+  Error error() const;
 
   // Finish building the table.  Stops using the file passed to the
   // constructor after this function returns.
   // REQUIRES: Finish(), Abandon() have not been called
-  Status Finish();
+  Error Finish();
 
   // Indicate that the contents of this builder should be abandoned.  Stops
   // using the file passed to the constructor after this function returns.
@@ -81,7 +81,7 @@ class LEVELDB_EXPORT TableBuilder {
   uint64_t FileSize() const;
 
  private:
-  bool ok() const { return status().ok(); }
+  bool ok() const { return error().ok(); }
   void WriteBlock(BlockBuilder* block, BlockHandle* handle);
   void WriteRawBlock(const std::string_view& data, CompressionType,
                      BlockHandle* handle);

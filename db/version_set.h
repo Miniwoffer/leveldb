@@ -75,7 +75,7 @@ class Version {
   // Lookup the value for key.  If found, store it in *val and
   // return OK.  Else return a non-OK status.  Fills *stats.
   // REQUIRES: lock is not held
-  std::tuple<std::expected<std::string, Status>, GetStats> Get(
+  std::tuple<std::expected<std::string, Error>, GetStats> Get(
       const ReadOptions& options, const LookupKey& k);
   // Adds "stats" into the current state.  Returns true if a new
   // compaction may need to be triggered, false otherwise.
@@ -180,11 +180,11 @@ class VersionSet {
   // current version.  Will release *mu while actually writing to the file.
   // REQUIRES: *mu is held on entry.
   // REQUIRES: no other thread concurrently calls LogAndApply()
-  Status LogAndApply(VersionEdit* edit, port::Mutex* mu)
+  Error LogAndApply(VersionEdit* edit, port::Mutex* mu)
       EXCLUSIVE_LOCKS_REQUIRED(mu);
 
   // Recover the last saved descriptor from persistent storage.
-  Status Recover(bool* save_manifest);
+  Error Recover(bool* save_manifest);
 
   // Return the current version.
   Version* current() const { return current_; }
@@ -291,7 +291,7 @@ class VersionSet {
   void SetupOtherInputs(Compaction* c);
 
   // Save current contents to *log
-  Status WriteSnapshot(log::Writer* log);
+  Error WriteSnapshot(log::Writer* log);
 
   void AppendVersion(Version* v);
 

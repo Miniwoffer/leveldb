@@ -28,7 +28,7 @@
 #include <utility>
 
 #include "leveldb/env.h"
-#include "leveldb/status.h"
+#include "leveldb/error.h"
 
 #include "port/port.h"
 #include "port/thread_annotations.h"
@@ -57,11 +57,11 @@ constexpr const int kOpenBaseFlags = 0;
 
 constexpr const size_t kWritableFileBufferSize = 65536;
 
-Status PosixError(const std::string& context, int error_number) {
+Error PosixError(const std::string& context, int error_number) {
   if (error_number == ENOENT) {
-    return Status::NotFound(context, std::strerror(error_number));
+    return Error::NotFound(context, std::strerror(error_number));
   } else {
-    return Status::IOError(context, std::strerror(error_number));
+    return Error::IOError(context, std::strerror(error_number));
   }
 }
 
@@ -138,28 +138,28 @@ class PosixSequentialFile final : public SequentialFile {
       : fd_(fd), filename_(std::move(filename)) {}
   ~PosixSequentialFile() override { close(fd_); }
 
-  Status Read(size_t n, std::string_view* result, char* scratch) override {
-    Status status;
+  Error Read(size_t n, std::string_view* result, char* scratch) override {
+    Error err;
     while (true) {
       ::ssize_t read_size = ::read(fd_, scratch, n);
       if (read_size < 0) {  // Read error.
         if (errno == EINTR) {
           continue;  // Retry
         }
-        status = PosixError(filename_, errno);
+        err = PosixError(filename_, errno);
         break;
       }
       *result = std::string_view(scratch, read_size);
       break;
     }
-    return status;
+    return err;
   }
 
-  Status Skip(uint64_t n) override {
+  Error Skip(uint64_t n) override {
     if (::lseek(fd_, n, SEEK_CUR) == static_cast<off_t>(-1)) {
       return PosixError(filename_, errno);
     }
-    return Status::OK();
+    return Error::OK();
   }
 
  private:
@@ -195,8 +195,8 @@ class PosixRandomAccessFile final : public RandomAccessFile {
     }
   }
 
-  Status Read(uint64_t offset, size_t n, std::string_view* result,
-              char* scratch) const override {
+  Error Read(uint64_t offset, size_t n, std::string_view* result,
+             char* scratch) const override {
     int fd = fd_;
     if (!has_permanent_fd_) {
       fd = ::open(filename_.c_str(), O_RDONLY | kOpenBaseFlags);
@@ -207,19 +207,19 @@ class PosixRandomAccessFile final : public RandomAccessFile {
 
     assert(fd != -1);
 
-    Status status;
+    Error err;
     ssize_t read_size = ::pread(fd, scratch, n, static_cast<off_t>(offset));
     *result = std::string_view(scratch, (read_size < 0) ? 0 : read_size);
     if (read_size < 0) {
-      // An error: return a non-ok status.
-      status = PosixError(filename_, errno);
+      // An error: return a non-ok err.
+      err = PosixError(filename_, errno);
     }
     if (!has_permanent_fd_) {
       // Close the temporary file descriptor opened earlier.
       assert(fd != fd_);
       ::close(fd);
     }
-    return status;
+    return err;
   }
 
  private:
@@ -255,15 +255,15 @@ class PosixMmapReadableFile final : public RandomAccessFile {
     mmap_limiter_->Release();
   }
 
-  Status Read(uint64_t offset, size_t n, std::string_view* result,
-              char* scratch) const override {
+  Error Read(uint64_t offset, size_t n, std::string_view* result,
+             char* scratch) const override {
     if (offset + n > length_) {
       *result = std::string_view();
       return PosixError(filename_, EINVAL);
     }
 
     *result = std::string_view(mmap_base_ + offset, n);
-    return Status::OK();
+    return Error::OK();
   }
 
  private:
@@ -289,7 +289,7 @@ class PosixWritableFile final : public WritableFile {
     }
   }
 
-  Status Append(const std::string_view& data) override {
+  Error Append(const std::string_view& data) override {
     size_t write_size = data.size();
     const char* write_data = data.data();
 
@@ -300,63 +300,63 @@ class PosixWritableFile final : public WritableFile {
     write_size -= copy_size;
     pos_ += copy_size;
     if (write_size == 0) {
-      return Status::OK();
+      return Error::OK();
     }
 
     // Can't fit in buffer, so need to do at least one write.
-    Status status = FlushBuffer();
-    if (!status.ok()) {
-      return status;
+    Error err = FlushBuffer();
+    if (!err.ok()) {
+      return err;
     }
 
     // Small writes go to buffer, large writes are written directly.
     if (write_size < kWritableFileBufferSize) {
       std::memcpy(buf_, write_data, write_size);
       pos_ = write_size;
-      return Status::OK();
+      return Error::OK();
     }
     return WriteUnbuffered(write_data, write_size);
   }
 
-  Status Close() override {
-    Status status = FlushBuffer();
+  Error Close() override {
+    Error err = FlushBuffer();
     const int close_result = ::close(fd_);
-    if (close_result < 0 && status.ok()) {
-      status = PosixError(filename_, errno);
+    if (close_result < 0 && err.ok()) {
+      err = PosixError(filename_, errno);
     }
     fd_ = -1;
-    return status;
+    return err;
   }
 
-  Status Flush() override { return FlushBuffer(); }
+  Error Flush() override { return FlushBuffer(); }
 
-  Status Sync() override {
+  Error Sync() override {
     // Ensure new files referred to by the manifest are in the filesystem.
     //
     // This needs to happen before the manifest file is flushed to disk, to
     // avoid crashing in a state where the manifest refers to files that are not
     // yet on disk.
-    Status status = SyncDirIfManifest();
-    if (!status.ok()) {
-      return status;
+    Error err = SyncDirIfManifest();
+    if (!err.ok()) {
+      return err;
     }
 
-    status = FlushBuffer();
-    if (!status.ok()) {
-      return status;
+    err = FlushBuffer();
+    if (!err.ok()) {
+      return err;
     }
 
     return SyncFd(fd_, filename_);
   }
 
  private:
-  Status FlushBuffer() {
-    Status status = WriteUnbuffered(buf_, pos_);
+  Error FlushBuffer() {
+    Error err = WriteUnbuffered(buf_, pos_);
     pos_ = 0;
-    return status;
+    return err;
   }
 
-  Status WriteUnbuffered(const char* data, size_t size) {
+  Error WriteUnbuffered(const char* data, size_t size) {
     while (size > 0) {
       ssize_t write_result = ::write(fd_, data, size);
       if (write_result < 0) {
@@ -368,23 +368,23 @@ class PosixWritableFile final : public WritableFile {
       data += write_result;
       size -= write_result;
     }
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status SyncDirIfManifest() {
-    Status status;
+  Error SyncDirIfManifest() {
+    Error err;
     if (!is_manifest_) {
-      return status;
+      return err;
     }
 
     int fd = ::open(dirname_.c_str(), O_RDONLY | kOpenBaseFlags);
     if (fd < 0) {
-      status = PosixError(dirname_, errno);
+      err = PosixError(dirname_, errno);
     } else {
-      status = SyncFd(fd, dirname_);
+      err = SyncFd(fd, dirname_);
       ::close(fd);
     }
-    return status;
+    return err;
   }
 
   // Ensures that all the caches associated with the given file descriptor's
@@ -392,15 +392,15 @@ class PosixWritableFile final : public WritableFile {
   // failures.
   //
   // The path argument is only used to populate the description string in the
-  // returned Status if an error occurs.
-  static Status SyncFd(int fd, const std::string& fd_path) {
+  // returned Error if an error occurs.
+  static Error SyncFd(int fd, const std::string& fd_path) {
 #if HAVE_FULLFSYNC
     // On macOS and iOS, fsync() doesn't guarantee durability past power
     // failures. fcntl(F_FULLFSYNC) is required for that purpose. Some
     // filesystems don't support fcntl(F_FULLFSYNC), and require a fallback to
     // fsync().
     if (::fcntl(fd, F_FULLFSYNC) == 0) {
-      return Status::OK();
+      return Error::OK();
     }
 #endif  // HAVE_FULLFSYNC
 
@@ -411,7 +411,7 @@ class PosixWritableFile final : public WritableFile {
 #endif  // HAVE_FDATASYNC
 
     if (sync_success) {
-      return Status::OK();
+      return Error::OK();
     }
     return PosixError(fd_path, errno);
   }
@@ -523,8 +523,8 @@ class PosixEnv : public Env {
     std::abort();
   }
 
-  Status NewSequentialFile(const std::string& filename,
-                           SequentialFile** result) override {
+  Error NewSequentialFile(const std::string& filename,
+                          SequentialFile** result) override {
     int fd = ::open(filename.c_str(), O_RDONLY | kOpenBaseFlags);
     if (fd < 0) {
       *result = nullptr;
@@ -532,11 +532,11 @@ class PosixEnv : public Env {
     }
 
     *result = new PosixSequentialFile(filename, fd);
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status NewRandomAccessFile(const std::string& filename,
-                             RandomAccessFile** result) override {
+  Error NewRandomAccessFile(const std::string& filename,
+                            RandomAccessFile** result) override {
     *result = nullptr;
     int fd = ::open(filename.c_str(), O_RDONLY | kOpenBaseFlags);
     if (fd < 0) {
@@ -545,12 +545,12 @@ class PosixEnv : public Env {
 
     if (!mmap_limiter_.Acquire()) {
       *result = new PosixRandomAccessFile(filename, fd, &fd_limiter_);
-      return Status::OK();
+      return Error::OK();
     }
 
     uint64_t file_size;
-    Status status = GetFileSize(filename, &file_size);
-    if (status.ok()) {
+    Error err = GetFileSize(filename, &file_size);
+    if (err.ok()) {
       void* mmap_base =
           ::mmap(/*addr=*/nullptr, file_size, PROT_READ, MAP_SHARED, fd, 0);
       if (mmap_base != MAP_FAILED) {
@@ -558,18 +558,18 @@ class PosixEnv : public Env {
                                             reinterpret_cast<char*>(mmap_base),
                                             file_size, &mmap_limiter_);
       } else {
-        status = PosixError(filename, errno);
+        err = PosixError(filename, errno);
       }
     }
     ::close(fd);
-    if (!status.ok()) {
+    if (!err.ok()) {
       mmap_limiter_.Release();
     }
-    return status;
+    return err;
   }
 
-  Status NewWritableFile(const std::string& filename,
-                         WritableFile** result) override {
+  Error NewWritableFile(const std::string& filename,
+                        WritableFile** result) override {
     int fd = ::open(filename.c_str(),
                     O_TRUNC | O_WRONLY | O_CREAT | kOpenBaseFlags, 0644);
     if (fd < 0) {
@@ -578,11 +578,11 @@ class PosixEnv : public Env {
     }
 
     *result = new PosixWritableFile(filename, fd);
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status NewAppendableFile(const std::string& filename,
-                           WritableFile** result) override {
+  Error NewAppendableFile(const std::string& filename,
+                          WritableFile** result) override {
     int fd = ::open(filename.c_str(),
                     O_APPEND | O_WRONLY | O_CREAT | kOpenBaseFlags, 0644);
     if (fd < 0) {
@@ -591,15 +591,15 @@ class PosixEnv : public Env {
     }
 
     *result = new PosixWritableFile(filename, fd);
-    return Status::OK();
+    return Error::OK();
   }
 
   bool FileExists(const std::string& filename) override {
     return ::access(filename.c_str(), F_OK) == 0;
   }
 
-  Status GetChildren(const std::string& directory_path,
-                     std::vector<std::string>* result) override {
+  Error GetChildren(const std::string& directory_path,
+                    std::vector<std::string>* result) override {
     result->clear();
     ::DIR* dir = ::opendir(directory_path.c_str());
     if (dir == nullptr) {
@@ -610,48 +610,48 @@ class PosixEnv : public Env {
       result->emplace_back(entry->d_name);
     }
     ::closedir(dir);
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status RemoveFile(const std::string& filename) override {
+  Error RemoveFile(const std::string& filename) override {
     if (::unlink(filename.c_str()) != 0) {
       return PosixError(filename, errno);
     }
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status CreateDir(const std::string& dirname) override {
+  Error CreateDir(const std::string& dirname) override {
     if (::mkdir(dirname.c_str(), 0755) != 0) {
       return PosixError(dirname, errno);
     }
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status RemoveDir(const std::string& dirname) override {
+  Error RemoveDir(const std::string& dirname) override {
     if (::rmdir(dirname.c_str()) != 0) {
       return PosixError(dirname, errno);
     }
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status GetFileSize(const std::string& filename, uint64_t* size) override {
+  Error GetFileSize(const std::string& filename, uint64_t* size) override {
     struct ::stat file_stat;
     if (::stat(filename.c_str(), &file_stat) != 0) {
       *size = 0;
       return PosixError(filename, errno);
     }
     *size = file_stat.st_size;
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status RenameFile(const std::string& from, const std::string& to) override {
+  Error RenameFile(const std::string& from, const std::string& to) override {
     if (std::rename(from.c_str(), to.c_str()) != 0) {
       return PosixError(from, errno);
     }
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status LockFile(const std::string& filename, FileLock** lock) override {
+  Error LockFile(const std::string& filename, FileLock** lock) override {
     *lock = nullptr;
 
     int fd = ::open(filename.c_str(), O_RDWR | O_CREAT | kOpenBaseFlags, 0644);
@@ -661,7 +661,7 @@ class PosixEnv : public Env {
 
     if (!locks_.Insert(filename)) {
       ::close(fd);
-      return Status::IOError("lock " + filename, "already held by process");
+      return Error::IOError("lock " + filename, "already held by process");
     }
 
     if (LockOrUnlock(fd, true) == -1) {
@@ -672,10 +672,10 @@ class PosixEnv : public Env {
     }
 
     *lock = new PosixFileLock(fd, filename);
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status UnlockFile(FileLock* lock) override {
+  Error UnlockFile(FileLock* lock) override {
     PosixFileLock* posix_file_lock = static_cast<PosixFileLock*>(lock);
     if (LockOrUnlock(posix_file_lock->fd(), false) == -1) {
       return PosixError("unlock " + posix_file_lock->filename(), errno);
@@ -683,7 +683,7 @@ class PosixEnv : public Env {
     locks_.Remove(posix_file_lock->filename());
     ::close(posix_file_lock->fd());
     delete posix_file_lock;
-    return Status::OK();
+    return Error::OK();
   }
 
   void Schedule(void (*background_work_function)(void* background_work_arg),
@@ -695,7 +695,7 @@ class PosixEnv : public Env {
     new_thread.detach();
   }
 
-  Status GetTestDirectory(std::string* result) override {
+  Error GetTestDirectory(std::string* result) override {
     const char* env = std::getenv("TEST_TMPDIR");
     if (env && env[0] != '\0') {
       *result = env;
@@ -706,13 +706,13 @@ class PosixEnv : public Env {
       *result = buf;
     }
 
-    // The CreateDir status is ignored because the directory may already exist.
+    // The CreateDir err is ignored because the directory may already exist.
     CreateDir(*result);
 
-    return Status::OK();
+    return Error::OK();
   }
 
-  Status NewLogger(const std::string& filename, Logger** result) override {
+  Error NewLogger(const std::string& filename, Logger** result) override {
     int fd = ::open(filename.c_str(),
                     O_APPEND | O_WRONLY | O_CREAT | kOpenBaseFlags, 0644);
     if (fd < 0) {
@@ -727,7 +727,7 @@ class PosixEnv : public Env {
       return PosixError(filename, errno);
     } else {
       *result = new PosixLogger(fp);
-      return Status::OK();
+      return Error::OK();
     }
   }
 

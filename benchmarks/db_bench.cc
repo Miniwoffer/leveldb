@@ -849,7 +849,6 @@ class Benchmark {
 
     RandomGenerator gen;
     WriteBatch batch;
-    Status s;
     int64_t bytes = 0;
     KeyBuffer key;
     for (int i = 0; i < num_; i += entries_per_batch_) {
@@ -973,7 +972,6 @@ class Benchmark {
   void DoDelete(ThreadState* thread, bool seq) {
     RandomGenerator gen;
     WriteBatch batch;
-    Status s;
     KeyBuffer key;
     for (int i = 0; i < num_; i += entries_per_batch_) {
       batch.Clear();
@@ -1041,9 +1039,9 @@ class Benchmark {
     std::snprintf(fname, sizeof(fname), "%s/heap-%04d", FLAGS_db,
                   ++heap_counter_);
     WritableFile* file;
-    Status s = g_env->NewWritableFile(fname, &file);
-    if (!s.ok()) {
-      std::fprintf(stderr, "%s\n", s.ToString().c_str());
+    Error e = g_env->NewWritableFile(fname, &file);
+    if (!e.ok()) {
+      std::fprintf(stderr, "%s\n", e.ToString().c_str());
       return;
     }
     bool ok = port::GetHeapProfile(WriteToFile, file);

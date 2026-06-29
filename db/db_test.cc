@@ -92,11 +92,11 @@ class TestEnv : public EnvWrapper {
 
   void SetIgnoreDotFiles(bool ignored) { ignore_dot_files_ = ignored; }
 
-  Status GetChildren(const std::string& dir,
-                     std::vector<std::string>* result) override {
-    Status s = target()->GetChildren(dir, result);
-    if (!s.ok() || !ignore_dot_files_) {
-      return s;
+  Error GetChildren(const std::string& dir,
+                    std::vector<std::string>* result) override {
+    Error e = target()->GetChildren(dir, result);
+    if (!e.ok() || !ignore_dot_files_) {
+      return e;
     }
 
     std::vector<std::string>::iterator it = result->begin();
@@ -108,7 +108,7 @@ class TestEnv : public EnvWrapper {
       }
     }
 
-    return s;
+    return e;
   }
 
  private:
@@ -157,7 +157,7 @@ class SpecialEnv : public EnvWrapper {
         log_file_close_(false),
         count_random_reads_(false) {}
 
-  Status NewWritableFile(const std::string& f, WritableFile** r) {
+  Error NewWritableFile(const std::string& f, WritableFile** r) {
     class DataFile : public WritableFile {
      private:
       SpecialEnv* const env_;
@@ -169,26 +169,26 @@ class SpecialEnv : public EnvWrapper {
           : env_(env), base_(base), fname_(fname) {}
 
       ~DataFile() { delete base_; }
-      Status Append(const std::string_view& data) {
+      Error Append(const std::string_view& data) {
         if (env_->no_space_.load(std::memory_order_acquire)) {
           // Drop writes on the floor
-          return Status::OK();
+          return Error::OK();
         } else {
           return base_->Append(data);
         }
       }
-      Status Close() {
-        Status s = base_->Close();
-        if (s.ok() && IsLogFile(fname_) &&
+      Error Close() {
+        Error e = base_->Close();
+        if (e.ok() && IsLogFile(fname_) &&
             env_->log_file_close_.load(std::memory_order_acquire)) {
-          s = Status::IOError("simulated log file Close error");
+          e = Error::IOError("simulated log file Close error");
         }
-        return s;
+        return e;
       }
-      Status Flush() { return base_->Flush(); }
-      Status Sync() {
+      Error Flush() { return base_->Flush(); }
+      Error Sync() {
         if (env_->data_sync_error_.load(std::memory_order_acquire)) {
-          return Status::IOError("simulated data sync error");
+          return Error::IOError("simulated data sync error");
         }
         while (env_->delay_data_sync_.load(std::memory_order_acquire)) {
           DelayMilliseconds(100);
@@ -204,18 +204,18 @@ class SpecialEnv : public EnvWrapper {
      public:
       ManifestFile(SpecialEnv* env, WritableFile* b) : env_(env), base_(b) {}
       ~ManifestFile() { delete base_; }
-      Status Append(const std::string_view& data) {
+      Error Append(const std::string_view& data) {
         if (env_->manifest_write_error_.load(std::memory_order_acquire)) {
-          return Status::IOError("simulated writer error");
+          return Error::IOError("simulated writer error");
         } else {
           return base_->Append(data);
         }
       }
-      Status Close() { return base_->Close(); }
-      Status Flush() { return base_->Flush(); }
-      Status Sync() {
+      Error Close() { return base_->Close(); }
+      Error Flush() { return base_->Flush(); }
+      Error Sync() {
         if (env_->manifest_sync_error_.load(std::memory_order_acquire)) {
-          return Status::IOError("simulated sync error");
+          return Error::IOError("simulated sync error");
         } else {
           return base_->Sync();
         }
@@ -223,21 +223,21 @@ class SpecialEnv : public EnvWrapper {
     };
 
     if (non_writable_.load(std::memory_order_acquire)) {
-      return Status::IOError("simulated write error");
+      return Error::IOError("simulated write error");
     }
 
-    Status s = target()->NewWritableFile(f, r);
-    if (s.ok()) {
+    Error e = target()->NewWritableFile(f, r);
+    if (e.ok()) {
       if (IsLdbFile(f) || IsLogFile(f)) {
         *r = new DataFile(this, *r, f);
       } else if (IsManifestFile(f)) {
         *r = new ManifestFile(this, *r);
       }
     }
-    return s;
+    return e;
   }
 
-  Status NewRandomAccessFile(const std::string& f, RandomAccessFile** r) {
+  Error NewRandomAccessFile(const std::string& f, RandomAccessFile** r) {
     class CountingFile : public RandomAccessFile {
      private:
       RandomAccessFile* target_;
@@ -247,18 +247,18 @@ class SpecialEnv : public EnvWrapper {
       CountingFile(RandomAccessFile* target, AtomicCounter* counter)
           : target_(target), counter_(counter) {}
       ~CountingFile() override { delete target_; }
-      Status Read(uint64_t offset, size_t n, std::string_view* result,
-                  char* scratch) const override {
+      Error Read(uint64_t offset, size_t n, std::string_view* result,
+                 char* scratch) const override {
         counter_->Increment();
         return target_->Read(offset, n, result, scratch);
       }
     };
 
-    Status s = target()->NewRandomAccessFile(f, r);
-    if (s.ok() && count_random_reads_) {
+    Error e = target()->NewRandomAccessFile(f, r);
+    if (e.ok() && count_random_reads_) {
       *r = new CountingFile(*r, &random_read_counter_);
     }
-    return s;
+    return e;
   }
 };
 
@@ -337,7 +337,7 @@ class DBTest : public testing::Test {
     db_ = res.value();
   }
 
-  std::expected<std::shared_ptr<DB>, Status> TryReopen(Options* options) {
+  std::expected<std::shared_ptr<DB>, Error> TryReopen(Options* options) {
     db_ = nullptr;
     Options opts;
     if (options != nullptr) {
@@ -351,12 +351,12 @@ class DBTest : public testing::Test {
     return DB::Open(opts, dbname_);
   }
 
-  std::expected<void, Status> Put(const std::string_view k,
-                                  const std::string_view v) {
+  std::expected<void, Error> Put(const std::string_view k,
+                                 const std::string_view v) {
     return db_->Put(WriteOptions(), k, v);
   }
 
-  std::expected<void, Status> Delete(const std::string_view& k) {
+  std::expected<void, Error> Delete(const std::string_view& k) {
     return db_->Delete(WriteOptions(), k);
   }
 
@@ -382,7 +382,7 @@ class DBTest : public testing::Test {
     std::string result;
     auto iter = db_->NewIterator(ReadOptions());
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
-      std::string s = IterStatus(iter);
+      std::string s = IterError(iter);
       result.push_back('(');
       result.append(s);
       result.push_back(')');
@@ -393,7 +393,7 @@ class DBTest : public testing::Test {
     size_t matched = 0;
     for (iter->SeekToLast(); iter->Valid(); iter->Prev()) {
       EXPECT_LT(matched, forward.size());
-      EXPECT_EQ(IterStatus(iter), forward[forward.size() - matched - 1]);
+      EXPECT_EQ(IterError(iter), forward[forward.size() - matched - 1]);
       matched++;
     }
     EXPECT_EQ(matched, forward.size());
@@ -406,8 +406,8 @@ class DBTest : public testing::Test {
     InternalKey target(user_key, kMaxSequenceNumber, kTypeValue);
     iter->Seek(target.Encode());
     std::string result;
-    if (!iter->status().ok()) {
-      result = iter->status().ToString();
+    if (!iter->error().ok()) {
+      result = iter->error().ToString();
     } else {
       result = "[ ";
       bool first = true;
@@ -526,7 +526,7 @@ class DBTest : public testing::Test {
     return prop.value();
   }
 
-  std::string IterStatus(std::unique_ptr<Iterator>& iter) {
+  std::string IterError(std::unique_ptr<Iterator>& iter) {
     std::string result;
     if (iter->Valid()) {
       result = std::string(iter->key()) + "->" + std::string(iter->value());
@@ -814,13 +814,13 @@ TEST_F(DBTest, IterEmpty) {
   auto iter = db_->NewIterator(ReadOptions());
 
   iter->SeekToFirst();
-  ASSERT_EQ(IterStatus(iter), "(invalid)");
+  ASSERT_EQ(IterError(iter), "(invalid)");
 
   iter->SeekToLast();
-  ASSERT_EQ(IterStatus(iter), "(invalid)");
+  ASSERT_EQ(IterError(iter), "(invalid)");
 
   iter->Seek("foo");
-  ASSERT_EQ(IterStatus(iter), "(invalid)");
+  ASSERT_EQ(IterError(iter), "(invalid)");
 }
 
 TEST_F(DBTest, IterSingle) {
@@ -828,35 +828,35 @@ TEST_F(DBTest, IterSingle) {
   auto iter = db_->NewIterator(ReadOptions());
 
   iter->SeekToFirst();
-  ASSERT_EQ(IterStatus(iter), "a->va");
+  ASSERT_EQ(IterError(iter), "a->va");
   iter->Next();
-  ASSERT_EQ(IterStatus(iter), "(invalid)");
+  ASSERT_EQ(IterError(iter), "(invalid)");
   iter->SeekToFirst();
-  ASSERT_EQ(IterStatus(iter), "a->va");
+  ASSERT_EQ(IterError(iter), "a->va");
   iter->Prev();
-  ASSERT_EQ(IterStatus(iter), "(invalid)");
+  ASSERT_EQ(IterError(iter), "(invalid)");
 
   iter->SeekToLast();
-  ASSERT_EQ(IterStatus(iter), "a->va");
+  ASSERT_EQ(IterError(iter), "a->va");
   iter->Next();
-  ASSERT_EQ(IterStatus(iter), "(invalid)");
+  ASSERT_EQ(IterError(iter), "(invalid)");
   iter->SeekToLast();
-  ASSERT_EQ(IterStatus(iter), "a->va");
+  ASSERT_EQ(IterError(iter), "a->va");
   iter->Prev();
-  ASSERT_EQ(IterStatus(iter), "(invalid)");
+  ASSERT_EQ(IterError(iter), "(invalid)");
 
   iter->Seek("");
-  ASSERT_EQ(IterStatus(iter), "a->va");
+  ASSERT_EQ(IterError(iter), "a->va");
   iter->Next();
-  ASSERT_EQ(IterStatus(iter), "(invalid)");
+  ASSERT_EQ(IterError(iter), "(invalid)");
 
   iter->Seek("a");
-  ASSERT_EQ(IterStatus(iter), "a->va");
+  ASSERT_EQ(IterError(iter), "a->va");
   iter->Next();
-  ASSERT_EQ(IterStatus(iter), "(invalid)");
+  ASSERT_EQ(IterError(iter), "(invalid)");
 
   iter->Seek("b");
-  ASSERT_EQ(IterStatus(iter), "(invalid)");
+  ASSERT_EQ(IterError(iter), "(invalid)");
 }
 
 TEST_F(DBTest, IterMulti) {
@@ -866,55 +866,55 @@ TEST_F(DBTest, IterMulti) {
   auto iter = db_->NewIterator(ReadOptions());
 
   iter->SeekToFirst();
-  ASSERT_EQ(IterStatus(iter), "a->va");
+  ASSERT_EQ(IterError(iter), "a->va");
   iter->Next();
-  ASSERT_EQ(IterStatus(iter), "b->vb");
+  ASSERT_EQ(IterError(iter), "b->vb");
   iter->Next();
-  ASSERT_EQ(IterStatus(iter), "c->vc");
+  ASSERT_EQ(IterError(iter), "c->vc");
   iter->Next();
-  ASSERT_EQ(IterStatus(iter), "(invalid)");
+  ASSERT_EQ(IterError(iter), "(invalid)");
   iter->SeekToFirst();
-  ASSERT_EQ(IterStatus(iter), "a->va");
+  ASSERT_EQ(IterError(iter), "a->va");
   iter->Prev();
-  ASSERT_EQ(IterStatus(iter), "(invalid)");
+  ASSERT_EQ(IterError(iter), "(invalid)");
 
   iter->SeekToLast();
-  ASSERT_EQ(IterStatus(iter), "c->vc");
+  ASSERT_EQ(IterError(iter), "c->vc");
   iter->Prev();
-  ASSERT_EQ(IterStatus(iter), "b->vb");
+  ASSERT_EQ(IterError(iter), "b->vb");
   iter->Prev();
-  ASSERT_EQ(IterStatus(iter), "a->va");
+  ASSERT_EQ(IterError(iter), "a->va");
   iter->Prev();
-  ASSERT_EQ(IterStatus(iter), "(invalid)");
+  ASSERT_EQ(IterError(iter), "(invalid)");
   iter->SeekToLast();
-  ASSERT_EQ(IterStatus(iter), "c->vc");
+  ASSERT_EQ(IterError(iter), "c->vc");
   iter->Next();
-  ASSERT_EQ(IterStatus(iter), "(invalid)");
+  ASSERT_EQ(IterError(iter), "(invalid)");
 
   iter->Seek("");
-  ASSERT_EQ(IterStatus(iter), "a->va");
+  ASSERT_EQ(IterError(iter), "a->va");
   iter->Seek("a");
-  ASSERT_EQ(IterStatus(iter), "a->va");
+  ASSERT_EQ(IterError(iter), "a->va");
   iter->Seek("ax");
-  ASSERT_EQ(IterStatus(iter), "b->vb");
+  ASSERT_EQ(IterError(iter), "b->vb");
   iter->Seek("b");
-  ASSERT_EQ(IterStatus(iter), "b->vb");
+  ASSERT_EQ(IterError(iter), "b->vb");
   iter->Seek("z");
-  ASSERT_EQ(IterStatus(iter), "(invalid)");
+  ASSERT_EQ(IterError(iter), "(invalid)");
 
   // Switch from reverse to forward
   iter->SeekToLast();
   iter->Prev();
   iter->Prev();
   iter->Next();
-  ASSERT_EQ(IterStatus(iter), "b->vb");
+  ASSERT_EQ(IterError(iter), "b->vb");
 
   // Switch from forward to reverse
   iter->SeekToFirst();
   iter->Next();
   iter->Next();
   iter->Prev();
-  ASSERT_EQ(IterStatus(iter), "b->vb");
+  ASSERT_EQ(IterError(iter), "b->vb");
 
   // Make sure iter stays at snapshot
   ASSERT_TRUE(Put("a", "va2"));
@@ -923,21 +923,21 @@ TEST_F(DBTest, IterMulti) {
   ASSERT_TRUE(Put("c", "vc2"));
   ASSERT_TRUE(Delete("b"));
   iter->SeekToFirst();
-  ASSERT_EQ(IterStatus(iter), "a->va");
+  ASSERT_EQ(IterError(iter), "a->va");
   iter->Next();
-  ASSERT_EQ(IterStatus(iter), "b->vb");
+  ASSERT_EQ(IterError(iter), "b->vb");
   iter->Next();
-  ASSERT_EQ(IterStatus(iter), "c->vc");
+  ASSERT_EQ(IterError(iter), "c->vc");
   iter->Next();
-  ASSERT_EQ(IterStatus(iter), "(invalid)");
+  ASSERT_EQ(IterError(iter), "(invalid)");
   iter->SeekToLast();
-  ASSERT_EQ(IterStatus(iter), "c->vc");
+  ASSERT_EQ(IterError(iter), "c->vc");
   iter->Prev();
-  ASSERT_EQ(IterStatus(iter), "b->vb");
+  ASSERT_EQ(IterError(iter), "b->vb");
   iter->Prev();
-  ASSERT_EQ(IterStatus(iter), "a->va");
+  ASSERT_EQ(IterError(iter), "a->va");
   iter->Prev();
-  ASSERT_EQ(IterStatus(iter), "(invalid)");
+  ASSERT_EQ(IterError(iter), "(invalid)");
 }
 
 TEST_F(DBTest, IterSmallAndLargeMix) {
@@ -950,30 +950,30 @@ TEST_F(DBTest, IterSmallAndLargeMix) {
   auto iter = db_->NewIterator(ReadOptions());
 
   iter->SeekToFirst();
-  ASSERT_EQ(IterStatus(iter), "a->va");
+  ASSERT_EQ(IterError(iter), "a->va");
   iter->Next();
-  ASSERT_EQ(IterStatus(iter), "b->" + std::string(100000, 'b'));
+  ASSERT_EQ(IterError(iter), "b->" + std::string(100000, 'b'));
   iter->Next();
-  ASSERT_EQ(IterStatus(iter), "c->vc");
+  ASSERT_EQ(IterError(iter), "c->vc");
   iter->Next();
-  ASSERT_EQ(IterStatus(iter), "d->" + std::string(100000, 'd'));
+  ASSERT_EQ(IterError(iter), "d->" + std::string(100000, 'd'));
   iter->Next();
-  ASSERT_EQ(IterStatus(iter), "e->" + std::string(100000, 'e'));
+  ASSERT_EQ(IterError(iter), "e->" + std::string(100000, 'e'));
   iter->Next();
-  ASSERT_EQ(IterStatus(iter), "(invalid)");
+  ASSERT_EQ(IterError(iter), "(invalid)");
 
   iter->SeekToLast();
-  ASSERT_EQ(IterStatus(iter), "e->" + std::string(100000, 'e'));
+  ASSERT_EQ(IterError(iter), "e->" + std::string(100000, 'e'));
   iter->Prev();
-  ASSERT_EQ(IterStatus(iter), "d->" + std::string(100000, 'd'));
+  ASSERT_EQ(IterError(iter), "d->" + std::string(100000, 'd'));
   iter->Prev();
-  ASSERT_EQ(IterStatus(iter), "c->vc");
+  ASSERT_EQ(IterError(iter), "c->vc");
   iter->Prev();
-  ASSERT_EQ(IterStatus(iter), "b->" + std::string(100000, 'b'));
+  ASSERT_EQ(IterError(iter), "b->" + std::string(100000, 'b'));
   iter->Prev();
-  ASSERT_EQ(IterStatus(iter), "a->va");
+  ASSERT_EQ(IterError(iter), "a->va");
   iter->Prev();
-  ASSERT_EQ(IterStatus(iter), "(invalid)");
+  ASSERT_EQ(IterError(iter), "(invalid)");
 }
 
 TEST_F(DBTest, IterMultiWithDelete) {
@@ -986,9 +986,9 @@ TEST_F(DBTest, IterMultiWithDelete) {
 
     auto iter = db_->NewIterator(ReadOptions());
     iter->Seek("c");
-    ASSERT_EQ(IterStatus(iter), "c->vc");
+    ASSERT_EQ(IterError(iter), "c->vc");
     iter->Prev();
-    ASSERT_EQ(IterStatus(iter), "a->va");
+    ASSERT_EQ(IterError(iter), "a->va");
   } while (ChangeOptions());
 }
 
@@ -1003,11 +1003,11 @@ TEST_F(DBTest, IterMultiWithDeleteAndCompaction) {
 
     auto iter = db_->NewIterator(ReadOptions());
     iter->Seek("c");
-    ASSERT_EQ(IterStatus(iter), "c->vc");
+    ASSERT_EQ(IterError(iter), "c->vc");
     iter->Prev();
-    ASSERT_EQ(IterStatus(iter), "a->va");
+    ASSERT_EQ(IterError(iter), "a->va");
     iter->Seek("b");
-    ASSERT_EQ(IterStatus(iter), "c->vc");
+    ASSERT_EQ(IterError(iter), "c->vc");
   } while (ChangeOptions());
 }
 
@@ -1571,9 +1571,9 @@ TEST_F(DBTest, ComparatorCheck) {
   new_options.comparator = &cmp;
   auto res = TryReopen(&new_options);
   ASSERT_FALSE(res);
-  Status s = res.error();
-  ASSERT_TRUE(s.ToString().find("comparator") != std::string::npos)
-      << s.ToString();
+  Error e = std::move(res.error());
+  ASSERT_TRUE(e.ToString().find("comparator") != std::string::npos)
+      << e.ToString();
 }
 
 TEST_F(DBTest, CustomComparator) {
@@ -1678,8 +1678,8 @@ TEST_F(DBTest, DBOpen_Options) {
   opts.create_if_missing = false;
   auto res = DB::Open(opts, dbname);
   ASSERT_FALSE(res);
-  Status s = res.error();
-  ASSERT_TRUE(strstr(s.ToString().c_str(), "does not exist") != nullptr);
+  Error e = std::move(res.error());
+  ASSERT_TRUE(strstr(e.ToString().c_str(), "does not exist") != nullptr);
 
   // Does not exist, and create_if_missing == true: OK
   opts.create_if_missing = true;
@@ -1695,8 +1695,8 @@ TEST_F(DBTest, DBOpen_Options) {
   opts.error_if_exists = true;
   res = DB::Open(opts, dbname);
   ASSERT_FALSE(res);
-  s = res.error();
-  ASSERT_TRUE(strstr(s.ToString().c_str(), "exists") != nullptr);
+  e = std::move(res.error());
+  ASSERT_TRUE(strstr(e.ToString().c_str(), "exists") != nullptr);
 
   // Does exist, and error_if_exists == false: OK
   opts.create_if_missing = true;
@@ -1902,8 +1902,8 @@ TEST_F(DBTest, MissingSSTFile) {
   options.paranoid_checks = true;
   auto res = TryReopen(&options);
   ASSERT_FALSE(res);
-  Status s = res.error();
-  ASSERT_TRUE(s.ToString().find("issing") != std::string::npos) << s.ToString();
+  Error e = std::move(res.error());
+  ASSERT_TRUE(e.ToString().find("issing") != std::string::npos) << e.ToString();
 }
 
 TEST_F(DBTest, StillReadSST) {
@@ -1997,7 +1997,7 @@ TEST_F(DBTest, LogCloseError) {
   env_->log_file_close_.store(true, std::memory_order_release);
 
   std::string value(kValueSize, 'x');
-  std::expected<void, Status> s;
+  std::expected<void, Error> s;
   for (int i = 0; i < kWriteCount && s; i++) {
     s = Put(Key(i), value);
   }
@@ -2121,20 +2121,20 @@ class ModelDB : public DB {
   explicit ModelDB(const Options& options) : options_(options) {}
   ~ModelDB() override = default;
 
-  std::expected<void, Status> Put(const WriteOptions& o,
-                                  const std::string_view k,
-                                  const std::string_view v) override {
+  std::expected<void, Error> Put(const WriteOptions& o,
+                                 const std::string_view k,
+                                 const std::string_view v) override {
     return DB::Put(o, k, v);
   }
 
-  std::expected<void, Status> Delete(const WriteOptions& o,
-                                     const std::string_view key) override {
+  std::expected<void, Error> Delete(const WriteOptions& o,
+                                    const std::string_view key) override {
     return DB::Delete(o, key);
   }
-  std::expected<std::string, Status> Get(const ReadOptions& options,
-                                         const std::string_view key) override {
+  std::expected<std::string, Error> Get(const ReadOptions& options,
+                                        const std::string_view key) override {
     assert(false);  // Not implemented
-    return std::unexpected(Status::NotFound(std::string(key)));
+    return std::unexpected(Error::NotFound(std::string(key)));
   }
   std::unique_ptr<Iterator> NewIterator(const ReadOptions& options) override {
     if (options.snapshot == nullptr) {
@@ -2153,8 +2153,8 @@ class ModelDB : public DB {
     return std::shared_ptr<const Snapshot>(snapshot);
   }
 
-  std::expected<void, Status> Write(const WriteOptions& options,
-                                    WriteBatch* batch) override {
+  std::expected<void, Error> Write(const WriteOptions& options,
+                                   WriteBatch* batch) override {
     class Handler : public WriteBatch::Handler {
      public:
       KVMap* map_;
@@ -2168,9 +2168,9 @@ class ModelDB : public DB {
     };
     Handler handler;
     handler.map_ = &map_;
-    Status s = batch->Iterate(&handler);
-    if (!s.ok()) {
-      return std::unexpected(s);
+    Error e = batch->Iterate(&handler);
+    if (!e.ok()) {
+      return std::unexpected(std::move(e));
     }
     return {};
   }
@@ -2208,7 +2208,7 @@ class ModelDB : public DB {
     void Prev() override { --iter_; }
     std::string_view key() const override { return iter_->first; }
     std::string_view value() const override { return iter_->second; }
-    Status status() const override { return Status::OK(); }
+    Error error() const override { return Error::OK(); }
 
    private:
     const KVMap* const map_;

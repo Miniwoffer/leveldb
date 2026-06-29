@@ -96,13 +96,13 @@ class StringSink : public WritableFile {
 
   const std::string& contents() const { return contents_; }
 
-  Status Close() override { return Status::OK(); }
-  Status Flush() override { return Status::OK(); }
-  Status Sync() override { return Status::OK(); }
+  Error Close() override { return Error::OK(); }
+  Error Flush() override { return Error::OK(); }
+  Error Sync() override { return Error::OK(); }
 
-  Status Append(const std::string_view& data) override {
+  Error Append(const std::string_view& data) override {
     contents_.append(data.data(), data.size());
-    return Status::OK();
+    return Error::OK();
   }
 
  private:
@@ -118,17 +118,17 @@ class StringSource : public RandomAccessFile {
 
   uint64_t Size() const { return contents_.size(); }
 
-  Status Read(uint64_t offset, size_t n, std::string_view* result,
-              char* scratch) const override {
+  Error Read(uint64_t offset, size_t n, std::string_view* result,
+             char* scratch) const override {
     if (offset >= contents_.size()) {
-      return Status::InvalidArgument("invalid Read offset");
+      return Error::InvalidArgument("invalid Read offset");
     }
     if (offset + n > contents_.size()) {
       n = contents_.size() - offset;
     }
     std::memcpy(scratch, &contents_[offset], n);
     *result = std::string_view(scratch, n);
-    return Status::OK();
+    return Error::OK();
   }
 
  private:
@@ -159,12 +159,12 @@ class Constructor {
       keys->push_back(kvp.first);
     }
     data_.clear();
-    Status s = FinishImpl(options, *kvmap);
-    ASSERT_TRUE(s.ok()) << s.ToString();
+    Error e = FinishImpl(options, *kvmap);
+    ASSERT_TRUE(e.ok()) << e.ToString();
   }
 
   // Construct the data structure from the data in "data"
-  virtual Status FinishImpl(const Options& options, const KVMap& data) = 0;
+  virtual Error FinishImpl(const Options& options, const KVMap& data) = 0;
 
   virtual std::unique_ptr<Iterator> NewIterator() const = 0;
 
@@ -183,7 +183,7 @@ class BlockConstructor : public Constructor {
   explicit BlockConstructor(const Comparator* cmp)
       : Constructor(cmp), comparator_(cmp), block_(nullptr) {}
   ~BlockConstructor() override { delete block_; }
-  Status FinishImpl(const Options& options, const KVMap& data) override {
+  Error FinishImpl(const Options& options, const KVMap& data) override {
     delete block_;
     block_ = nullptr;
     BlockBuilder builder(&options);
@@ -198,7 +198,7 @@ class BlockConstructor : public Constructor {
     contents.cachable = false;
     contents.heap_allocated = false;
     block_ = new Block(contents);
-    return Status::OK();
+    return Error::OK();
   }
   std::unique_ptr<Iterator> NewIterator() const override {
     return std::unique_ptr<Iterator>(block_->NewIterator(comparator_));
@@ -217,17 +217,17 @@ class TableConstructor : public Constructor {
   TableConstructor(const Comparator* cmp)
       : Constructor(cmp), source_(nullptr), table_(nullptr) {}
   ~TableConstructor() override { Reset(); }
-  Status FinishImpl(const Options& options, const KVMap& data) override {
+  Error FinishImpl(const Options& options, const KVMap& data) override {
     Reset();
     StringSink sink;
     TableBuilder builder(options, &sink);
 
     for (const auto& kvp : data) {
       builder.Add(kvp.first, kvp.second);
-      EXPECT_LEVELDB_OK(builder.status());
+      EXPECT_LEVELDB_OK(builder.error());
     }
-    Status s = builder.Finish();
-    EXPECT_LEVELDB_OK(s);
+    Error e = builder.Finish();
+    EXPECT_LEVELDB_OK(e);
 
     EXPECT_EQ(sink.contents().size(), builder.FileSize());
 
@@ -286,19 +286,17 @@ class KeyConvertingIterator : public Iterator {
     assert(Valid());
     ParsedInternalKey key;
     if (!ParseInternalKey(iter_->key(), &key)) {
-      status_ = Status::Corruption("malformed internal key");
+      err_ = Error::Corruption("malformed internal key");
       return std::string_view("corrupted key");
     }
     return key.user_key;
   }
 
   std::string_view value() const override { return iter_->value(); }
-  Status status() const override {
-    return status_.ok() ? iter_->status() : status_;
-  }
+  Error error() const override { return err_.ok() ? iter_->error() : err_; }
 
  private:
-  mutable Status status_;
+  mutable Error err_;
   Iterator* iter_;
 };
 
@@ -310,7 +308,7 @@ class MemTableConstructor : public Constructor {
     memtable_->Ref();
   }
   ~MemTableConstructor() override { memtable_->Unref(); }
-  Status FinishImpl(const Options& options, const KVMap& data) override {
+  Error FinishImpl(const Options& options, const KVMap& data) override {
     memtable_->Unref();
     memtable_ = new MemTable(internal_comparator_);
     memtable_->Ref();
@@ -319,7 +317,7 @@ class MemTableConstructor : public Constructor {
       memtable_->Add(seq, kTypeValue, kvp.first, kvp.second);
       seq++;
     }
-    return Status::OK();
+    return Error::OK();
   }
   std::unique_ptr<Iterator> NewIterator() const override {
     return std::unique_ptr<KeyConvertingIterator>(
@@ -339,7 +337,7 @@ class DBConstructor : public Constructor {
     NewDB();
   }
   ~DBConstructor() override {}
-  Status FinishImpl(const Options& options, const KVMap& data) override {
+  Error FinishImpl(const Options& options, const KVMap& data) override {
     db_ = nullptr;
     NewDB();
     for (const auto& kvp : data) {
@@ -347,7 +345,7 @@ class DBConstructor : public Constructor {
       batch.Put(std::string_view(kvp.first), kvp.second);
       EXPECT_TRUE(db_->Write(WriteOptions(), &batch));
     }
-    return Status::OK();
+    return Error::OK();
   }
   std::unique_ptr<Iterator> NewIterator() const override {
     return db_->NewIterator(ReadOptions());
@@ -361,8 +359,8 @@ class DBConstructor : public Constructor {
 
     Options options;
     options.comparator = comparator_;
-    Status status = DestroyDB(name, options);
-    ASSERT_TRUE(status.ok()) << status.ToString();
+    Error err = DestroyDB(name, options);
+    ASSERT_TRUE(err.ok()) << err.ToString();
 
     options.create_if_missing = true;
     options.error_if_exists = true;

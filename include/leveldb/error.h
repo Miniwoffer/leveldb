@@ -62,8 +62,29 @@ class LEVELDB_EXPORT Error {
     }
   }
 
-  Error(const Error& other) = delete;
-  Error& operator=(const Error& other) = delete;
+  Error(const Error& other) { *this = other; }
+  Error& operator=(const Error& other) {
+    if (this != &other) {
+      bool has_msg = HasMessage();
+      bool other_has_msg = other.HasMessage();
+      if (!has_msg && !other_has_msg) {
+        // Fast path
+      } else if (has_msg && other_has_msg) {
+        DeleteMessage();
+        std::string msg{other.GetMessage()};
+        SetMessage(std::move(msg));
+      } else if (has_msg && !other_has_msg) {
+        DeleteMessage();
+        msg_key_ = 0;
+      } else if (!has_msg && other_has_msg) {
+        msg_key_ = GetNextKey();
+        std::string msg{other.GetMessage()};
+        SetMessage(std::move(msg));
+      }
+      code_ = other.code_;
+    }
+    return *this;
+  }
 
   Error(Error&& other) noexcept { *this = std::move(other); }
   Error& operator=(Error&& other) noexcept {

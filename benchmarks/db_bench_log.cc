@@ -38,8 +38,8 @@ void BM_LogAndApply(benchmark::State& state) {
   DB* db = nullptr;
   Options opts;
   opts.create_if_missing = true;
-  Status s = DB::Open(opts, dbname, &db);
-  ASSERT_LEVELDB_OK(s);
+  Error e = DB::Open(opts, dbname, &db);
+  ASSERT_LEVELDB_OK(e);
   ASSERT_TRUE(db != nullptr);
 
   delete db;

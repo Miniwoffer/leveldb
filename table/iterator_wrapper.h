@@ -43,9 +43,9 @@ class IteratorWrapper {
     return iter_->value();
   }
   // Methods below require iter() != nullptr
-  Status status() const {
+  Error error() const {
     assert(iter_);
-    return iter_->status();
+    return iter_->error();
   }
   void Next() {
     assert(iter_);
