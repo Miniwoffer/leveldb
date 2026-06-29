@@ -29,6 +29,7 @@ using code_t = decltype(CodeBaseType());
 class LEVELDB_EXPORT Error {
  public:
   enum class Code : code_t {
+    Ok = 0,  // TODO: until everything is expected returns semantics
     NotFound = 1,
     Corruption = 2,
     NotSupported = 3,
@@ -82,7 +83,36 @@ class LEVELDB_EXPORT Error {
     return *this;
   }
 
+  static Error OK() { return Error(Error::Code::Ok); }
+
+  static Error NotFound(std::string_view msg,
+                        std::string_view msg2 = std::string_view()) {
+    return Error(Error::Code::NotFound, msg, msg2);
+  }
+
+  static Error Corruption(std::string_view msg,
+                          std::string_view msg2 = std::string_view()) {
+    return Error(Error::Code::Corruption, msg, msg2);
+  }
+
+  static Error NotSupported(std::string_view msg,
+                            std::string_view msg2 = std::string_view()) {
+    return Error(Error::Code::NotSupported, msg, msg2);
+  }
+
+  static Error InvalidArgument(std::string_view msg,
+                               std::string_view msg2 = std::string_view()) {
+    return Error(Error::Code::InvalidArgument, msg, msg2);
+  }
+
+  static Error IOError(std::string_view msg,
+                       std::string_view msg2 = std::string_view()) {
+    return Error(Error::Code::IOError, msg, msg2);
+  }
+
   bool operator==(const Code rhs) const { return code_ == rhs; }
+
+  bool ok() const { return code_ == Code::Ok; }
   bool IsNotFound() const { return code_ == Code::NotFound; }
   bool IsCorruption() const { return code_ == Code::Corruption; }
   bool IsIOError() const { return code_ == Code::IOError; }
