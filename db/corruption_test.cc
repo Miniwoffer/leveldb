@@ -40,7 +40,7 @@ class CorruptionTest : public testing::Test {
 
   ~CorruptionTest() { delete tiny_cache_; }
 
-  std::expected<std::shared_ptr<DB>, Status> TryReopen() {
+  std::expected<std::shared_ptr<DB>, Error> TryReopen() {
     db_ = nullptr;
     return DB::Open(options_, dbname_);
   }
@@ -152,13 +152,13 @@ class CorruptionTest : public testing::Test {
 
     // Do it
     std::string contents;
-    Status s = ReadFileToString(env_.target(), fname, &contents);
-    ASSERT_TRUE(s.ok()) << s.ToString();
+    Error e = ReadFileToString(env_.target(), fname, &contents);
+    ASSERT_TRUE(e.ok()) << e.ToString();
     for (int i = 0; i < bytes_to_corrupt; i++) {
       contents[i + offset] ^= 0x80;
     }
-    s = WriteStringToFile(env_.target(), contents, fname);
-    ASSERT_TRUE(s.ok()) << s.ToString();
+    e = WriteStringToFile(env_.target(), contents, fname);
+    ASSERT_TRUE(e.ok()) << e.ToString();
   }
 
   int Property(const std::string& name) {
@@ -216,7 +216,7 @@ TEST_F(CorruptionTest, NewFileErrorDuringWrite) {
   env_.writable_file_error_ = true;
   const int num = 3 + (Options().write_buffer_size / kValueSize);
   std::string value_storage;
-  std::expected<void, Status> res;
+  std::expected<void, Error> res;
   for (int i = 0; res && i < num; i++) {
     WriteBatch batch;
     batch.Put("a", Value(100, &value_storage));

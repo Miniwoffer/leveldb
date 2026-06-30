@@ -9,6 +9,7 @@
 #include <string_view>
 
 #include "leveldb/env.h"
+#include "leveldb/error.h"
 
 #include "util/random.h"
 
@@ -20,8 +21,8 @@ namespace test {
 
 MATCHER(IsOK, "") { return arg.ok(); }
 
-// Macros for testing the results of functions that return leveldb::Status or
-// absl::StatusOr<T> (for any type T).
+// Macros for testing the results of functions that return leveldb::Error or
+// absl::ErrorOr<T> (for any type T).
 #define EXPECT_LEVELDB_OK(expression) \
   EXPECT_THAT(expression, leveldb::test::IsOK())
 #define ASSERT_LEVELDB_OK(expression) \
@@ -58,22 +59,22 @@ class ErrorEnv : public EnvWrapper {
         num_writable_file_errors_(0) {}
   ~ErrorEnv() override { delete target(); }
 
-  Status NewWritableFile(const std::string& fname,
-                         WritableFile** result) override {
+  Error NewWritableFile(const std::string& fname,
+                        WritableFile** result) override {
     if (writable_file_error_) {
       ++num_writable_file_errors_;
       *result = nullptr;
-      return Status::IOError(fname, "fake error");
+      return Error(Error::Code::IOFault, fname, "fake error");
     }
     return target()->NewWritableFile(fname, result);
   }
 
-  Status NewAppendableFile(const std::string& fname,
-                           WritableFile** result) override {
+  Error NewAppendableFile(const std::string& fname,
+                          WritableFile** result) override {
     if (writable_file_error_) {
       ++num_writable_file_errors_;
       *result = nullptr;
-      return Status::IOError(fname, "fake error");
+      return Error(Error::Code::IOFault, fname, "fake error");
     }
     return target()->NewAppendableFile(fname, result);
   }

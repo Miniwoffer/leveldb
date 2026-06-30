@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include "leveldb/error.h"
 #include "leveldb/export.h"
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
@@ -60,7 +61,7 @@ class LEVELDB_EXPORT DB {
   // OK on success.
   // Stores nullptr in *dbptr and returns a non-OK status on error.
   // Caller should delete *dbptr when it is no longer needed.
-  static std::expected<std::shared_ptr<DB>, Status> Open(
+  static std::expected<std::shared_ptr<DB>, Error> Open(
       const Options& options, const std::string_view name);
 
   DB() = default;
@@ -73,31 +74,31 @@ class LEVELDB_EXPORT DB {
   // Set the database entry for "key" to "value".  Returns OK on success,
   // and a non-OK status on error.
   // Note: consider setting options.sync = true.
-  virtual std::expected<void, Status> Put(const WriteOptions& options,
-                                          const std::string_view key,
-                                          const std::string_view value) = 0;
+  virtual std::expected<void, Error> Put(const WriteOptions& options,
+                                         const std::string_view key,
+                                         const std::string_view value) = 0;
 
   // Remove the database entry (if any) for "key".  Returns OK on
   // success, and a non-OK status on error.  It is not an error if "key"
   // did not exist in the database.
   // Note: consider setting options.sync = true.
-  virtual std::expected<void, Status> Delete(const WriteOptions& options,
-                                             const std::string_view key) = 0;
+  virtual std::expected<void, Error> Delete(const WriteOptions& options,
+                                            const std::string_view key) = 0;
 
   // Apply the specified updates to the database.
   // Returns OK on success, non-OK on failure.
   // Note: consider setting options.sync = true.
-  virtual std::expected<void, Status> Write(const WriteOptions& options,
-                                            WriteBatch* updates) = 0;
+  virtual std::expected<void, Error> Write(const WriteOptions& options,
+                                           WriteBatch* updates) = 0;
 
   // If the database contains an entry for "key" returns string.
   //
   // If there is no entry for "key" returns
-  // a status for which Status::IsNotFound() returns true.
+  // a status for which Error::IsNotFound() returns true.
   //
-  // May return some other Status on an error.
-  virtual std::expected<std::string, Status> Get(
-      const ReadOptions& options, const std::string_view key) = 0;
+  // May return some other Error on an error.
+  virtual std::expected<std::string, Error> Get(const ReadOptions& options,
+                                                const std::string_view key) = 0;
 
   // Return a heap-allocated iterator over the contents of the database.
   // The result of NewIterator() is initially invalid (caller must
@@ -159,16 +160,16 @@ class LEVELDB_EXPORT DB {
 // Be very careful using this method.
 //
 // Note: For backwards compatibility, if DestroyDB is unable to list the
-// database files, Status::OK() will still be returned masking this failure.
-LEVELDB_EXPORT Status DestroyDB(const std::string& name,
-                                const Options& options);
+// database files, Error(Error::Code::Ok) will still be returned masking this
+// failure.
+LEVELDB_EXPORT Error DestroyDB(const std::string& name, const Options& options);
 
 // If a DB cannot be opened, you may attempt to call this method to
 // resurrect as much of the contents of the database as possible.
 // Some data may be lost, so be careful when calling this function
 // on a database that contains important information.
-LEVELDB_EXPORT Status RepairDB(const std::string& dbname,
-                               const Options& options);
+LEVELDB_EXPORT Error RepairDB(const std::string& dbname,
+                              const Options& options);
 
 }  // namespace leveldb
 

@@ -106,7 +106,7 @@ class Block::Iter : public Iterator {
   uint32_t restart_index_;  // Index of restart block in which current_ falls
   std::string key_;
   std::string_view value_;
-  Status status_;
+  Error err_;
 
   inline int Compare(const std::string_view& a,
                      const std::string_view& b) const {
@@ -147,7 +147,8 @@ class Block::Iter : public Iterator {
   }
 
   bool Valid() const override { return current_ < restarts_; }
-  Status status() const override { return status_; }
+  Error error() const override { return err_; }
+
   std::string_view key() const override {
     assert(Valid());
     return key_;
@@ -264,7 +265,7 @@ class Block::Iter : public Iterator {
   void CorruptionError() {
     current_ = restarts_;
     restart_index_ = num_restarts_;
-    status_ = Status::Corruption("bad entry in block");
+    err_ = Error(Error::Code::Corruption, "bad entry in block");
     key_.clear();
     value_ = {};
   }
@@ -301,7 +302,8 @@ class Block::Iter : public Iterator {
 
 Iterator* Block::NewIterator(const Comparator* comparator) {
   if (size_ < sizeof(uint32_t)) {
-    return NewErrorIterator(Status::Corruption("bad block contents"));
+    return NewErrorIterator(
+        Error(Error::Code::Corruption, "bad block contents"));
   }
   const uint32_t num_restarts = NumRestarts();
   if (num_restarts == 0) {

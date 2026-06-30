@@ -45,9 +45,9 @@ bool Reader::SkipToInitialBlock() {
 
   // Skip to start of first block that can contain the initial record
   if (block_start_location > 0) {
-    Status skip_status = file_->Skip(block_start_location);
-    if (!skip_status.ok()) {
-      ReportDrop(block_start_location, skip_status);
+    Error skip_err = file_->Skip(block_start_location);
+    if (!skip_err.ok()) {
+      ReportDrop(block_start_location, skip_err);
       return false;
     }
   }
@@ -178,10 +178,10 @@ bool Reader::ReadRecord(std::string_view* record, std::string* scratch) {
 uint64_t Reader::LastRecordOffset() { return last_record_offset_; }
 
 void Reader::ReportCorruption(uint64_t bytes, const char* reason) {
-  ReportDrop(bytes, Status::Corruption(reason));
+  ReportDrop(bytes, Error(Error::Code::Corruption, reason));
 }
 
-void Reader::ReportDrop(uint64_t bytes, const Status& reason) {
+void Reader::ReportDrop(uint64_t bytes, const Error& reason) {
   if (reporter_ != nullptr &&
       end_of_buffer_offset_ - buffer_.size() - bytes >= initial_offset_) {
     reporter_->Corruption(static_cast<size_t>(bytes), reason);
@@ -194,11 +194,11 @@ unsigned int Reader::ReadPhysicalRecord(std::string_view* result) {
       if (!eof_) {
         // Last read was a full read, so this is a trailer to skip
         buffer_ = {};
-        Status status = file_->Read(kBlockSize, &buffer_, backing_store_);
+        Error err = file_->Read(kBlockSize, &buffer_, backing_store_);
         end_of_buffer_offset_ += buffer_.size();
-        if (!status.ok()) {
+        if (!err.ok()) {
           buffer_ = {};
-          ReportDrop(kBlockSize, status);
+          ReportDrop(kBlockSize, err);
           eof_ = true;
           return kEof;
         } else if (buffer_.size() < kBlockSize) {

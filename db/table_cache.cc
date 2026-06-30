@@ -41,8 +41,8 @@ TableCache::TableCache(const std::string& dbname, const Options& options,
 
 TableCache::~TableCache() { delete cache_; }
 
-std::expected<Cache::Handle*, Status> TableCache::FindTable(
-    uint64_t file_number, uint64_t file_size) {
+std::expected<Cache::Handle*, Error> TableCache::FindTable(uint64_t file_number,
+                                                           uint64_t file_size) {
   std::array<char, sizeof(file_number)> buf;
   EncodeFixed<uint64_t, char>(buf, file_number);
   std::string_view key(buf);
@@ -50,25 +50,24 @@ std::expected<Cache::Handle*, Status> TableCache::FindTable(
     return *lookup_res;
   }
 
-  Status s;
   std::string fname = TableFileName(dbname_, file_number);
   RandomAccessFile* file = nullptr;
   Table* table = nullptr;
-  s = env_->NewRandomAccessFile(fname, &file);
-  if (!s.ok()) {
+  Error e = env_->NewRandomAccessFile(fname, &file);
+  if (!e.ok()) {
     std::string old_fname = SSTTableFileName(dbname_, file_number);
     if (env_->NewRandomAccessFile(old_fname, &file).ok()) {
-      s = Status::OK();
+      e = Error(Error::Code::Ok);
     }
   }
-  if (s.ok()) {
-    s = Table::Open(options_, file, file_size, &table);
+  if (e.ok()) {
+    e = Table::Open(options_, file, file_size, &table);
   }
 
-  if (!s.ok()) {
+  if (!e.ok()) {
     assert(table == nullptr);
     delete file;
-    return std::unexpected(s);
+    return std::unexpected(std::move(e));
     // We do not cache error results so that if the error is transient,
     // or somebody repairs the file, we recover automatically.
   }
@@ -79,8 +78,7 @@ std::expected<Cache::Handle*, Status> TableCache::FindTable(
   if (auto handle = cache_->Insert(key, tf, 1, &DeleteEntry)) {
     return *handle;
   } else {
-    return std::unexpected(
-        Status::InsertionFailed("Table cache failed to insert key: ", key));
+    return std::unexpected(Error(Error::Code::NotFound));
   }
 }
 
@@ -105,11 +103,11 @@ Iterator* TableCache::NewIterator(const ReadOptions& options,
   }
 }
 
-std::expected<std::string, Status> TableCache::Get(
+std::expected<std::string, Error> TableCache::Get(
     const ReadOptions& options, uint64_t file_number, uint64_t file_size,
     const std::string_view& k,
-    std::function<std::expected<std::string, Status>(const std::string_view&,
-                                                     const std::string_view&)>
+    std::function<std::expected<std::string, Error>(const std::string_view&,
+                                                    const std::string_view&)>
         handle_result) {
   if (auto handle = FindTable(file_number, file_size)) {
     Table* t = reinterpret_cast<TableAndFile*>(cache_->Value(*handle))->table;
@@ -117,7 +115,7 @@ std::expected<std::string, Status> TableCache::Get(
     cache_->Release(*handle);
     return res;
   } else {
-    return std::unexpected(handle.error());
+    return std::unexpected(std::move(handle.error()));
   }
 }
 

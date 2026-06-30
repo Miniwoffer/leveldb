@@ -24,8 +24,8 @@
 #include <string>
 #include <string_view>
 
+#include "leveldb/error.h"
 #include "leveldb/export.h"
-#include "leveldb/status.h"
 
 namespace leveldb {
 
@@ -70,7 +70,7 @@ class LEVELDB_EXPORT WriteBatch {
   void Append(const WriteBatch& source);
 
   // Support for iterating over the contents of a batch.
-  Status Iterate(Handler* handler) const;
+  Error Iterate(Handler* handler) const;
 
  private:
   friend class WriteBatchInternal;

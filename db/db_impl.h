@@ -19,7 +19,7 @@
 
 #include "leveldb/db.h"
 #include "leveldb/env.h"
-#include "leveldb/status.h"
+#include "leveldb/error.h"
 
 #include "port/port.h"
 #include "port/thread_annotations.h"
@@ -52,17 +52,17 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
   ~DBImpl() override;
 
   // Implementations of the DB interface
-  std::expected<void, Status> Put(const WriteOptions& options,
-                                  const std::string_view key,
-                                  const std::string_view value) override;
+  std::expected<void, Error> Put(const WriteOptions& options,
+                                 const std::string_view key,
+                                 const std::string_view value) override;
 
-  std::expected<void, Status> Delete(const WriteOptions&,
-                                     const std::string_view key) override;
-  std::expected<void, Status> Write(const WriteOptions& options,
-                                    WriteBatch* updates) override;
+  std::expected<void, Error> Delete(const WriteOptions&,
+                                    const std::string_view key) override;
+  std::expected<void, Error> Write(const WriteOptions& options,
+                                   WriteBatch* updates) override;
 
-  std::expected<std::string, Status> Get(const ReadOptions& options,
-                                         const std::string_view key) override;
+  std::expected<std::string, Error> Get(const ReadOptions& options,
+                                        const std::string_view key) override;
   std::unique_ptr<Iterator> NewIterator(const ReadOptions&) override;
   std::optional<std::string> GetProperty(
       const std::string_view property) override;
@@ -79,7 +79,7 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
                          const std::string_view* end);
 
   // Force current memtable contents to be compacted.
-  Status TEST_CompactMemTable();
+  Error TEST_CompactMemTable();
 
   // Return an internal iterator over the current state of the database.
   // The keys of this iterator are internal keys (see format.h).
@@ -130,15 +130,15 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
                                 SequenceNumber* latest_snapshot,
                                 uint32_t* seed);
 
-  Status NewDB();
+  Error NewDB();
 
   // Recover the descriptor from persistent storage.  May do a significant
   // amount of work to recover recently logged updates.  Any changes to
   // be made to the descriptor are added to *edit.
-  Status Recover(VersionEdit* edit, bool* save_manifest)
+  Error Recover(VersionEdit* edit, bool* save_manifest)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  void MaybeIgnoreError(Status* s) const;
+  void MaybeIgnoreError(Error* s) const;
 
   // Delete any unneeded files and stale in-memory entries.
   void RemoveObsoleteFiles() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
@@ -148,19 +148,19 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
   // Errors are recorded in bg_error_.
   void CompactMemTable() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  Status RecoverLogFile(uint64_t log_number, bool last_log, bool* save_manifest,
-                        VersionEdit* edit, SequenceNumber* max_sequence)
+  Error RecoverLogFile(uint64_t log_number, bool last_log, bool* save_manifest,
+                       VersionEdit* edit, SequenceNumber* max_sequence)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  Status WriteLevel0Table(MemTable* mem, VersionEdit* edit, Version* base)
+  Error WriteLevel0Table(MemTable* mem, VersionEdit* edit, Version* base)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  Status MakeRoomForWrite(bool force /* compact even if there is room? */)
+  Error MakeRoomForWrite(bool force /* compact even if there is room? */)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   WriteBatch* BuildBatchGroup(Writer** last_writer)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  void RecordBackgroundError(const Status& s);
+  void RecordBackgroundError(const Error& s);
 
   void MaybeScheduleCompaction() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   static void BGWork(void* db);
@@ -168,12 +168,12 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
   void BackgroundCompaction() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   void CleanupCompaction(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
-  Status DoCompactionWork(CompactionState* compact)
+  Error DoCompactionWork(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  Status OpenCompactionOutputFile(CompactionState* compact);
-  Status FinishCompactionOutputFile(CompactionState* compact, Iterator* input);
-  Status InstallCompactionResults(CompactionState* compact)
+  Error OpenCompactionOutputFile(CompactionState* compact);
+  Error FinishCompactionOutputFile(CompactionState* compact, Iterator* input);
+  Error InstallCompactionResults(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   const Comparator* user_comparator() const {
@@ -225,7 +225,7 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
   VersionSet* const versions_ GUARDED_BY(mutex_);
 
   // Have we encountered a background error in paranoid mode?
-  Status bg_error_ GUARDED_BY(mutex_);
+  Error bg_error_ GUARDED_BY(mutex_);
 
   CompactionStats stats_[config::kNumLevels] GUARDED_BY(mutex_);
 };

@@ -202,7 +202,7 @@ class Version::LevelFileNumIterator : public Iterator {
     EncodeFixed<uint64_t>(span, (*flist_)[index_]->file_size);
     return std::string_view(value_buf_);
   }
-  Status status() const override { return Status::OK(); }
+  Error error() const override { return Error(Error::Code::Ok); }
 
  private:
   const InternalKeyComparator icmp_;
@@ -217,8 +217,8 @@ static Iterator* GetFileIterator(void* arg, const ReadOptions& options,
                                  const std::string_view& file_value) {
   TableCache* cache = reinterpret_cast<TableCache*>(arg);
   if (file_value.size() != 16) {
-    return NewErrorIterator(
-        Status::Corruption("FileReader invoked with unexpected value"));
+    return NewErrorIterator(Error(Error::Code::Corruption,
+                                  "FileReader invoked with unexpected value"));
   } else {
     return cache->NewIterator(options, DecodeFixed<uint64_t>(file_value),
                               DecodeFixed<uint64_t>(file_value.data() + 8));
@@ -298,7 +298,7 @@ void Version::ForEachOverlapping(std::string_view user_key,
   }
 }
 
-std::tuple<std::expected<std::string, Status>, Version::GetStats> Version::Get(
+std::tuple<std::expected<std::string, Error>, Version::GetStats> Version::Get(
     const ReadOptions& options, const LookupKey& k) {
   GetStats stats;
   stats.seek_file = nullptr;
@@ -306,8 +306,8 @@ std::tuple<std::expected<std::string, Status>, Version::GetStats> Version::Get(
 
   bool deleted = false;
   const Comparator* ucmp = vset_->icmp_.user_comparator();
-  std::expected<std::string, Status> res =
-      std::unexpected(Status::NotFound(std::string_view()));
+  std::expected<std::string, Error> res =
+      std::unexpected(Error(Error::Code::NotFound));
 
   std::string_view user_key = k.user_key();
   std::string_view ikey = k.internal_key();
@@ -319,11 +319,11 @@ std::tuple<std::expected<std::string, Status>, Version::GetStats> Version::Get(
   auto get_value =
       [ucmp, user_key, &deleted](
           const std::string_view& ikey,
-          const std::string_view& v) -> std::expected<std::string, Status> {
+          const std::string_view& v) -> std::expected<std::string, Error> {
     ParsedInternalKey parsed_key;
     if (!ParseInternalKey(ikey, &parsed_key)) {
       return std::unexpected(
-          Status::Corruption("corrcupted key for ", user_key));
+          Error(Error::Code::Corruption, "corrcupted key for ", user_key));
     }
 
     if (ucmp->Compare(parsed_key.user_key, user_key) == 0) {
@@ -332,7 +332,7 @@ std::tuple<std::expected<std::string, Status>, Version::GetStats> Version::Get(
       }
       deleted = true;
     }
-    return std::unexpected(Status::NotFound(std::string_view()));
+    return std::unexpected(Error(Error::Code::NotFound));
   };
 
   auto handle_result = [&](int level, FileMetaData* f) {
@@ -356,7 +356,7 @@ std::tuple<std::expected<std::string, Status>, Version::GetStats> Version::Get(
   };
 
   ForEachOverlapping(user_key, ikey, handle_result);
-  return {res, stats};
+  return {std::move(res), stats};
 }
 
 bool Version::UpdateStats(const GetStats& stats) {
@@ -729,7 +729,7 @@ void VersionSet::AppendVersion(Version* v) {
   v->next_->prev_ = v;
 }
 
-Status VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
+Error VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
   if (edit->has_log_number_) {
     assert(edit->log_number_ >= log_number_);
     assert(edit->log_number_ < next_file_number_);
@@ -755,16 +755,16 @@ Status VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
   // Initialize new descriptor log file if necessary by creating
   // a temporary file that contains a snapshot of the current version.
   std::string new_manifest_file;
-  Status s;
+  Error e;
   if (descriptor_log_ == nullptr) {
     // No reason to unlock *mu here since we only hit this path in the
     // first call to LogAndApply (when opening the database).
     assert(descriptor_file_ == nullptr);
     new_manifest_file = DescriptorFileName(dbname_, manifest_file_number_);
-    s = env_->NewWritableFile(new_manifest_file, &descriptor_file_);
-    if (s.ok()) {
+    e = env_->NewWritableFile(new_manifest_file, &descriptor_file_);
+    if (e.ok()) {
       descriptor_log_ = new log::Writer(descriptor_file_);
-      s = WriteSnapshot(descriptor_log_);
+      e = WriteSnapshot(descriptor_log_);
     }
   }
 
@@ -773,29 +773,29 @@ Status VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
     mu->Unlock();
 
     // Write new record to MANIFEST log
-    if (s.ok()) {
+    if (e.ok()) {
       std::string record;
       edit->EncodeTo(&record);
-      s = descriptor_log_->AddRecord(record);
-      if (s.ok()) {
-        s = descriptor_file_->Sync();
+      e = descriptor_log_->AddRecord(record);
+      if (e.ok()) {
+        e = descriptor_file_->Sync();
       }
-      if (!s.ok()) {
-        Log(options_->info_log, "MANIFEST write: %s\n", s.ToString().c_str());
+      if (!e.ok()) {
+        Log(options_->info_log, "MANIFEST write: %s\n", e.ToString().c_str());
       }
     }
 
     // If we just created a new descriptor file, install it by writing a
     // new CURRENT file that points to it.
-    if (s.ok() && !new_manifest_file.empty()) {
-      s = SetCurrentFile(env_, dbname_, manifest_file_number_);
+    if (e.ok() && !new_manifest_file.empty()) {
+      e = SetCurrentFile(env_, dbname_, manifest_file_number_);
     }
 
     mu->Lock();
   }
 
   // Install the new version
-  if (s.ok()) {
+  if (e.ok()) {
     AppendVersion(v);
     log_number_ = edit->log_number_;
     prev_log_number_ = edit->prev_log_number_;
@@ -810,37 +810,38 @@ Status VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
     }
   }
 
-  return s;
+  return e;
 }
 
-Status VersionSet::Recover(bool* save_manifest) {
+Error VersionSet::Recover(bool* save_manifest) {
   struct LogReporter : public log::Reader::Reporter {
-    Status* status;
-    void Corruption(size_t bytes, const Status& s) override {
+    Error* status;
+    void Corruption(size_t bytes, const Error& s) override {
       if (this->status->ok()) *this->status = s;
     }
   };
 
   // Read "CURRENT" file, which contains a pointer to the current manifest file
   std::string current;
-  Status s = ReadFileToString(env_, CurrentFileName(dbname_), &current);
-  if (!s.ok()) {
-    return s;
+  Error e = ReadFileToString(env_, CurrentFileName(dbname_), &current);
+  if (!e.ok()) {
+    return e;
   }
   if (current.empty() || current[current.size() - 1] != '\n') {
-    return Status::Corruption("CURRENT file does not end with newline");
+    return Error(Error::Code::Corruption,
+                 "CURRENT file does not end with newline");
   }
   current.resize(current.size() - 1);
 
   std::string dscname = dbname_ + "/" + current;
   SequentialFile* file;
-  s = env_->NewSequentialFile(dscname, &file);
-  if (!s.ok()) {
-    if (s.IsNotFound()) {
-      return Status::Corruption("CURRENT points to a non-existent file",
-                                s.ToString());
+  e = env_->NewSequentialFile(dscname, &file);
+  if (!e.ok()) {
+    if (e.IsNotFound()) {
+      return Error(Error::Code::Corruption,
+                   "CURRENT points to a non-existent file", e.ToString());
     }
-    return s;
+    return e;
   }
 
   bool have_log_number = false;
@@ -856,25 +857,25 @@ Status VersionSet::Recover(bool* save_manifest) {
 
   {
     LogReporter reporter;
-    reporter.status = &s;
+    reporter.status = &e;
     log::Reader reader(file, &reporter, true /*checksum*/,
                        0 /*initial_offset*/);
     std::string_view record;
     std::string scratch;
-    while (reader.ReadRecord(&record, &scratch) && s.ok()) {
+    while (reader.ReadRecord(&record, &scratch) && e.ok()) {
       ++read_records;
       VersionEdit edit;
-      s = edit.DecodeFrom(record);
-      if (s.ok()) {
+      e = edit.DecodeFrom(record);
+      if (e.ok()) {
         if (edit.has_comparator_ &&
             edit.comparator_ != icmp_.user_comparator()->Name()) {
-          s = Status::InvalidArgument(
-              edit.comparator_ + " does not match existing comparator ",
-              icmp_.user_comparator()->Name());
+          e = Error(Error::Code::InvalidArgument,
+                    edit.comparator_ + " does not match existing comparator ",
+                    icmp_.user_comparator()->Name());
         }
       }
 
-      if (s.ok()) {
+      if (e.ok()) {
         builder.Apply(&edit);
       }
 
@@ -902,13 +903,16 @@ Status VersionSet::Recover(bool* save_manifest) {
   delete file;
   file = nullptr;
 
-  if (s.ok()) {
+  if (e.ok()) {
     if (!have_next_file) {
-      s = Status::Corruption("no meta-nextfile entry in descriptor");
+      e = Error(Error::Code::Corruption,
+                "no meta-nextfile entry in descriptor");
     } else if (!have_log_number) {
-      s = Status::Corruption("no meta-lognumber entry in descriptor");
+      e = Error(Error::Code::Corruption,
+                "no meta-lognumber entry in descriptor");
     } else if (!have_last_sequence) {
-      s = Status::Corruption("no last-sequence-number entry in descriptor");
+      e = Error(Error::Code::Corruption,
+                "no last-sequence-number entry in descriptor");
     }
 
     if (!have_prev_log_number) {
@@ -919,7 +923,7 @@ Status VersionSet::Recover(bool* save_manifest) {
     MarkFileNumberUsed(log_number);
   }
 
-  if (s.ok()) {
+  if (e.ok()) {
     Version* v = new Version(this);
     builder.SaveTo(v);
     // Install recovered version
@@ -938,12 +942,12 @@ Status VersionSet::Recover(bool* save_manifest) {
       *save_manifest = true;
     }
   } else {
-    std::string error = s.ToString();
+    std::string error = e.ToString();
     Log(options_->info_log, "Error recovering version set with %d records: %s",
         read_records, error.c_str());
   }
 
-  return s;
+  return e;
 }
 
 bool VersionSet::ReuseManifest(const std::string& dscname,
@@ -964,7 +968,7 @@ bool VersionSet::ReuseManifest(const std::string& dscname,
 
   assert(descriptor_file_ == nullptr);
   assert(descriptor_log_ == nullptr);
-  Status r = env_->NewAppendableFile(dscname, &descriptor_file_);
+  Error r = env_->NewAppendableFile(dscname, &descriptor_file_);
   if (!r.ok()) {
     Log(options_->info_log, "Reuse MANIFEST: %s\n", r.ToString().c_str());
     assert(descriptor_file_ == nullptr);
@@ -1021,7 +1025,7 @@ void VersionSet::Finalize(Version* v) {
   v->compaction_score_ = best_score;
 }
 
-Status VersionSet::WriteSnapshot(log::Writer* log) {
+Error VersionSet::WriteSnapshot(log::Writer* log) {
   // TODO: Break up into multiple records to reduce memory usage on recovery?
 
   // Save metadata

@@ -11,6 +11,8 @@
 #include <utility>
 #include <vector>
 
+#include "leveldb/error.h"
+
 namespace leveldb {
 
 class VersionSet;
@@ -77,7 +79,7 @@ class VersionEdit {
 
   void EncodeTo(std::string& dst) const;
   void EncodeTo(std::string* dst) const;
-  Status DecodeFrom(const std::string_view& src);
+  Error DecodeFrom(const std::string_view& src);
 
   std::string DebugString() const;
 

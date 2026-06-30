@@ -12,6 +12,7 @@
 #include <string_view>
 
 #include "leveldb/db.h"
+#include "leveldb/error.h"
 
 #include "util/arena.h"
 
@@ -60,8 +61,8 @@ class MemTable {
            const std::string_view& value);
 
   // If memtable contains contains a key returns expected with either the value
-  // or Status.NotFound(). else returns a empty optional
-  std::optional<std::expected<std::string, Status>> Get(const LookupKey& key);
+  // or Error.NotFound(). else returns a empty optional
+  std::optional<std::expected<std::string, Error>> Get(const LookupKey& key);
 
  private:
   friend class MemTableIterator;

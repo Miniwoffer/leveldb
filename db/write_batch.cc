@@ -42,10 +42,10 @@ void WriteBatch::Clear() {
 
 size_t WriteBatch::ApproximateSize() const { return rep_.size(); }
 
-Status WriteBatch::Iterate(Handler* handler) const {
+Error WriteBatch::Iterate(Handler* handler) const {
   std::string_view input(rep_);
   if (input.size() < kHeader) {
-    return Status::Corruption("malformed WriteBatch (too small)");
+    return Error(Error::Code::Corruption, "malformed WriteBatch (too small)");
   }
 
   input.remove_prefix(kHeader);
@@ -58,12 +58,12 @@ Status WriteBatch::Iterate(Handler* handler) const {
       case kTypeValue: {
         auto key = GetLengthPrefixedBlob<uint32_t>(input);
         if (!key) {
-          return Status::Corruption("bad WriteBatch Put");
+          return Error(Error::Code::Corruption, "bad WriteBatch Put");
         }
         input = key->remaining_input;
         auto value = GetLengthPrefixedBlob<uint64_t>(input);
         if (!value) {
-          return Status::Corruption("bad WriteBatch Put");
+          return Error(Error::Code::Corruption, "bad WriteBatch Put");
         }
         input = value->remaining_input;
         handler->Put(key->value, value->value);
@@ -71,19 +71,19 @@ Status WriteBatch::Iterate(Handler* handler) const {
       case kTypeDeletion: {
         auto key = GetLengthPrefixedBlob<uint32_t>(input);
         if (!key) {
-          return Status::Corruption("bad WriteBatch Delete");
+          return Error(Error::Code::Corruption, "bad WriteBatch Delete");
         }
         input = key->remaining_input;
         handler->Delete(key->value);
       } break;
       default:
-        return Status::Corruption("unknown WriteBatch tag");
+        return Error(Error::Code::Corruption, "unknown WriteBatch tag");
     }
   }
   if (found != WriteBatchInternal::Count(this)) {
-    return Status::Corruption("WriteBatch has wrong count");
+    return Error(Error::Code::Corruption, "WriteBatch has wrong count");
   } else {
-    return Status::OK();
+    return Error(Error::Code::Ok);
   }
 }
 
@@ -137,7 +137,7 @@ class MemTableInserter : public WriteBatch::Handler {
 };
 }  // namespace
 
-Status WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable) {
+Error WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable) {
   MemTableInserter inserter;
   inserter.sequence_ = WriteBatchInternal::Sequence(b);
   inserter.mem_ = memtable;

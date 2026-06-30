@@ -17,7 +17,6 @@
 #include "leveldb/filter_policy.h"
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
-#include "leveldb/status.h"
 #include "leveldb/write_batch.h"
 
 using leveldb::Cache;
@@ -25,6 +24,7 @@ using leveldb::Comparator;
 using leveldb::CompressionType;
 using leveldb::DB;
 using leveldb::Env;
+using leveldb::Error;
 using leveldb::FileLock;
 using leveldb::FilterPolicy;
 using leveldb::Iterator;
@@ -39,7 +39,6 @@ using leveldb::Range;
 using leveldb::ReadOptions;
 using leveldb::SequentialFile;
 using leveldb::Snapshot;
-using leveldb::Status;
 using leveldb::WritableFile;
 using leveldb::WriteBatch;
 using leveldb::WriteOptions;
@@ -152,7 +151,7 @@ struct leveldb_env_t {
   bool is_default;
 };
 
-static bool SaveError(char** errptr, const Status& s) {
+static bool SaveError(char** errptr, const Error& s) {
   assert(errptr != nullptr);
   if (s.ok()) {
     return false;
@@ -334,7 +333,7 @@ const char* leveldb_iter_value(const leveldb_iterator_t* iter, size_t* vlen) {
 }
 
 void leveldb_iter_get_error(const leveldb_iterator_t* iter, char** errptr) {
-  SaveError(errptr, iter->rep->status());
+  SaveError(errptr, iter->rep->error());
 }
 
 leveldb_writebatch_t* leveldb_writebatch_create() {

@@ -6,29 +6,28 @@
 
 #include "leveldb/dumpfile.h"
 #include "leveldb/env.h"
-#include "leveldb/status.h"
 
 namespace leveldb {
 namespace {
 
 class StdoutPrinter : public WritableFile {
  public:
-  Status Append(const std::string_view& data) override {
+  Error Append(const std::string_view& data) override {
     fwrite(data.data(), 1, data.size(), stdout);
-    return Status::OK();
+    return Error(Error::Code::Ok);
   }
-  Status Close() override { return Status::OK(); }
-  Status Flush() override { return Status::OK(); }
-  Status Sync() override { return Status::OK(); }
+  Error Close() override { return Error(Error::Code::Ok); }
+  Error Flush() override { return Error(Error::Code::Ok); }
+  Error Sync() override { return Error(Error::Code::Ok); }
 };
 
 bool HandleDumpCommand(Env* env, char** files, int num) {
   StdoutPrinter printer;
   bool ok = true;
   for (int i = 0; i < num; i++) {
-    Status s = DumpFile(env, files[i], &printer);
-    if (!s.ok()) {
-      std::fprintf(stderr, "%s\n", s.ToString().c_str());
+    Error e = DumpFile(env, files[i], &printer);
+    if (!e.ok()) {
+      std::fprintf(stderr, "%s\n", e.ToString().c_str());
       ok = false;
     }
   }

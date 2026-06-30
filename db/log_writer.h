@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <string_view>
 
-#include "leveldb/status.h"
+#include "leveldb/error.h"
 
 namespace leveldb {
 
@@ -34,10 +34,10 @@ class Writer {
 
   ~Writer();
 
-  Status AddRecord(const std::string_view& slice);
+  Error AddRecord(const std::string_view& slice);
 
  private:
-  Status EmitPhysicalRecord(RecordType type, const char* ptr, size_t length);
+  Error EmitPhysicalRecord(RecordType type, const char* ptr, size_t length);
 
   WritableFile* dest_;
   int block_offset_;  // Current offset in block

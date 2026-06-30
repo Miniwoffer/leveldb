@@ -38,9 +38,9 @@ class RecoveryTest : public testing::Test {
 
   bool CanAppend() {
     WritableFile* tmp;
-    Status s = env_->NewAppendableFile(CurrentFileName(dbname_), &tmp);
+    Error e = env_->NewAppendableFile(CurrentFileName(dbname_), &tmp);
     delete tmp;
-    if (s.IsNotSupportedError()) {
+    if (e.IsNotSupported()) {
       return false;
     } else {
       return true;
@@ -49,7 +49,7 @@ class RecoveryTest : public testing::Test {
 
   void Close() { db_ = nullptr; }
 
-  std::expected<std::shared_ptr<DB>, Status> OpenWithStatus(
+  std::expected<std::shared_ptr<DB>, Error> OpenWithError(
       Options* options = nullptr) {
     Close();
     Options opts;
@@ -66,14 +66,14 @@ class RecoveryTest : public testing::Test {
   }
 
   void Open(Options* options = nullptr) {
-    auto res = OpenWithStatus(options);
+    auto res = OpenWithError(options);
     ASSERT_TRUE(res);
     db_ = res.value();
     ASSERT_EQ(1, NumLogs());
   }
 
-  std::expected<void, Status> Put(const std::string_view k,
-                                  const std::string_view v) {
+  std::expected<void, Error> Put(const std::string_view k,
+                                 const std::string_view v) {
     return db_->Put(WriteOptions(), k, v);
   }
 
@@ -334,15 +334,15 @@ TEST_F(RecoveryTest, ManifestMissing) {
   Close();
   RemoveManifestFile();
 
-  auto res = OpenWithStatus();
+  auto res = OpenWithError();
   ASSERT_FALSE(res);
-  Status status = res.error();
+  Error err = std::move(res.error());
 
 #if defined(LEVELDB_PLATFORM_CHROMIUM)
-  // TODO(crbug.com/760362): See comment in MakeIOError() from env_chromium.cc.
-  ASSERT_TRUE(status.IsIOError());
+  // TODO(crbug.com/760362): See comment in MakeIOFault() from env_chromium.cc.
+  ASSERT_TRUE(err.IsIOFault());
 #else
-  ASSERT_TRUE(status.IsCorruption());
+  ASSERT_TRUE(err.IsCorruption());
 #endif  // defined(LEVELDB_PLATFORM_CHROMIUM)
 }
 

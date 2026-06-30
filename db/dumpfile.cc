@@ -14,7 +14,6 @@
 #include "leveldb/env.h"
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
-#include "leveldb/status.h"
 #include "leveldb/table.h"
 #include "leveldb/write_batch.h"
 
@@ -39,7 +38,7 @@ bool GuessType(const std::string& fname, FileType* type) {
 // Notified when log reader encounters corruption.
 class CorruptionReporter : public log::Reader::Reporter {
  public:
-  void Corruption(size_t bytes, const Status& status) override {
+  void Corruption(size_t bytes, const Error& status) override {
     std::string r = "corruption: ";
     AppendNumberTo(&r, bytes);
     r += " bytes; ";
@@ -52,13 +51,13 @@ class CorruptionReporter : public log::Reader::Reporter {
 };
 
 // Print contents of a log file. (*func)() is called on every record.
-Status PrintLogContents(Env* env, const std::string& fname,
-                        void (*func)(uint64_t, std::string_view, WritableFile*),
-                        WritableFile* dst) {
+Error PrintLogContents(Env* env, const std::string& fname,
+                       void (*func)(uint64_t, std::string_view, WritableFile*),
+                       WritableFile* dst) {
   SequentialFile* file;
-  Status s = env->NewSequentialFile(fname, &file);
-  if (!s.ok()) {
-    return s;
+  Error e = env->NewSequentialFile(fname, &file);
+  if (!e.ok()) {
+    return e;
   }
   CorruptionReporter reporter;
   reporter.dst_ = dst;
@@ -69,7 +68,7 @@ Status PrintLogContents(Env* env, const std::string& fname,
     (*func)(reader.LastRecordOffset(), record, dst);
   }
   delete file;
-  return Status::OK();
+  return Error(Error::Code::Ok);
 }
 
 // Called on every item found in a WriteBatch.
@@ -115,13 +114,13 @@ static void WriteBatchPrinter(uint64_t pos, std::string_view record,
   dst->Append(r);
   WriteBatchItemPrinter batch_item_printer;
   batch_item_printer.dst_ = dst;
-  Status s = batch.Iterate(&batch_item_printer);
-  if (!s.ok()) {
-    dst->Append("  error: " + s.ToString() + "\n");
+  Error e = batch.Iterate(&batch_item_printer);
+  if (!e.ok()) {
+    dst->Append("  error: " + e.ToString() + "\n");
   }
 }
 
-Status DumpLog(Env* env, const std::string& fname, WritableFile* dst) {
+Error DumpLog(Env* env, const std::string& fname, WritableFile* dst) {
   return PrintLogContents(env, fname, WriteBatchPrinter, dst);
 }
 
@@ -133,9 +132,9 @@ static void VersionEditPrinter(uint64_t pos, std::string_view record,
   AppendNumberTo(&r, pos);
   r += "; ";
   VersionEdit edit;
-  Status s = edit.DecodeFrom(record);
-  if (!s.ok()) {
-    r += s.ToString();
+  Error e = edit.DecodeFrom(record);
+  if (!e.ok()) {
+    r += e.ToString();
     r.push_back('\n');
   } else {
     r += edit.DebugString();
@@ -143,29 +142,29 @@ static void VersionEditPrinter(uint64_t pos, std::string_view record,
   dst->Append(r);
 }
 
-Status DumpDescriptor(Env* env, const std::string& fname, WritableFile* dst) {
+Error DumpDescriptor(Env* env, const std::string& fname, WritableFile* dst) {
   return PrintLogContents(env, fname, VersionEditPrinter, dst);
 }
 
-Status DumpTable(Env* env, const std::string& fname, WritableFile* dst) {
+Error DumpTable(Env* env, const std::string& fname, WritableFile* dst) {
   uint64_t file_size;
   RandomAccessFile* file = nullptr;
   Table* table = nullptr;
-  Status s = env->GetFileSize(fname, &file_size);
-  if (s.ok()) {
-    s = env->NewRandomAccessFile(fname, &file);
+  Error e = env->GetFileSize(fname, &file_size);
+  if (e.ok()) {
+    e = env->NewRandomAccessFile(fname, &file);
   }
-  if (s.ok()) {
+  if (e.ok()) {
     // We use the default comparator, which may or may not match the
     // comparator used in this database. However this should not cause
     // problems since we only use Table operations that do not require
     // any comparisons.  In particular, we do not call Seek or Prev.
-    s = Table::Open(Options(), file, file_size, &table);
+    e = Table::Open(Options(), file, file_size, &table);
   }
-  if (!s.ok()) {
+  if (!e.ok()) {
     delete table;
     delete file;
-    return s;
+    return e;
   }
 
   ReadOptions ro;
@@ -201,23 +200,23 @@ Status DumpTable(Env* env, const std::string& fname, WritableFile* dst) {
       dst->Append(r);
     }
   }
-  s = iter->status();
-  if (!s.ok()) {
-    dst->Append("iterator error: " + s.ToString() + "\n");
+  e = iter->error();
+  if (!e.ok()) {
+    dst->Append("iterator error: " + e.ToString() + "\n");
   }
 
   delete iter;
   delete table;
   delete file;
-  return Status::OK();
+  return Error(Error::Code::Ok);
 }
 
 }  // namespace
 
-Status DumpFile(Env* env, const std::string& fname, WritableFile* dst) {
+Error DumpFile(Env* env, const std::string& fname, WritableFile* dst) {
   FileType ftype;
   if (!GuessType(fname, &ftype)) {
-    return Status::InvalidArgument(fname + ": unknown file type");
+    return Error(Error::Code::InvalidArgument, fname + ": unknown file type");
   }
   switch (ftype) {
     case kLogFile:
@@ -229,7 +228,8 @@ Status DumpFile(Env* env, const std::string& fname, WritableFile* dst) {
     default:
       break;
   }
-  return Status::InvalidArgument(fname + ": not a dump-able file type");
+  return Error(Error::Code::InvalidArgument,
+               fname + ": not a dump-able file type");
 }
 
 }  // namespace leveldb

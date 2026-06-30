@@ -39,20 +39,20 @@ class TwoLevelIterator : public Iterator {
     assert(Valid());
     return data_iter_.value();
   }
-  Status status() const override {
-    // It'd be nice if status() returned a const Status& instead of a Status
-    if (!index_iter_.status().ok()) {
-      return index_iter_.status();
-    } else if (data_iter_.iter() != nullptr && !data_iter_.status().ok()) {
-      return data_iter_.status();
+  Error error() const override {
+    // It'd be nice if error() returned a const Error& instead of a Error
+    if (!index_iter_.error().ok()) {
+      return index_iter_.error();
+    } else if (data_iter_.iter() != nullptr && !data_iter_.error().ok()) {
+      return data_iter_.error();
     } else {
-      return status_;
+      return err_;
     }
   }
 
  private:
-  void SaveError(const Status& s) {
-    if (status_.ok() && !s.ok()) status_ = s;
+  void SaveError(const Error& s) {
+    if (err_.ok() && !s.ok()) err_ = s;
   }
   void SkipEmptyDataBlocksForward();
   void SkipEmptyDataBlocksBackward();
@@ -62,7 +62,7 @@ class TwoLevelIterator : public Iterator {
   BlockFunction block_function_;
   void* arg_;
   const ReadOptions options_;
-  Status status_;
+  Error err_;
   IteratorWrapper index_iter_;
   IteratorWrapper data_iter_;  // May be nullptr
   // If data_iter_ is non-null, then "data_block_handle_" holds the
@@ -141,7 +141,7 @@ void TwoLevelIterator::SkipEmptyDataBlocksBackward() {
 }
 
 void TwoLevelIterator::SetDataIterator(Iterator* data_iter) {
-  if (data_iter_.iter() != nullptr) SaveError(data_iter_.status());
+  if (data_iter_.iter() != nullptr) SaveError(data_iter_.error());
   data_iter_.Set(data_iter);
 }
 

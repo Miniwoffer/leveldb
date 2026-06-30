@@ -181,6 +181,7 @@ target_sources(leveldb
     "util/crc32c.h"
     "util/env.cc"
     "util/hash.cc"
+    "util/error.cc"
     "util/hash.h"
     "util/logging.cc"
     "util/logging.h"
@@ -188,7 +189,6 @@ target_sources(leveldb
     "util/no_destructor.h"
     "util/options.cc"
     "util/random.h"
-    "util/status.cc"
 
   # Only CMake 3.3+ supports PUBLIC sources in targets exported by "install".
   $<$<VERSION_GREATER:CMAKE_VERSION,3.2>:PUBLIC>
@@ -202,7 +202,6 @@ target_sources(leveldb
     "${LEVELDB_PUBLIC_INCLUDE_DIR}/filter_policy.h"
     "${LEVELDB_PUBLIC_INCLUDE_DIR}/iterator.h"
     "${LEVELDB_PUBLIC_INCLUDE_DIR}/options.h"
-    "${LEVELDB_PUBLIC_INCLUDE_DIR}/status.h"
     "${LEVELDB_PUBLIC_INCLUDE_DIR}/error.h"
     "${LEVELDB_PUBLIC_INCLUDE_DIR}/table_builder.h"
     "${LEVELDB_PUBLIC_INCLUDE_DIR}/table.h"
@@ -322,7 +321,7 @@ if(LEVELDB_BUILD_TESTS)
       # "issues/issue320_test.cc"
       "${PROJECT_BINARY_DIR}/${LEVELDB_PORT_CONFIG_DIR}/port_config.h"
       # "util/env_test.cc"
-      "util/status_test.cc"
+      "util/error_test.cc"
       "util/no_destructor_test.cc"
       "util/testutil.cc"
       "util/testutil.h"
@@ -490,7 +489,6 @@ if(LEVELDB_INSTALL)
       "${LEVELDB_PUBLIC_INCLUDE_DIR}/filter_policy.h"
       "${LEVELDB_PUBLIC_INCLUDE_DIR}/iterator.h"
       "${LEVELDB_PUBLIC_INCLUDE_DIR}/options.h"
-      "${LEVELDB_PUBLIC_INCLUDE_DIR}/status.h"
       "${LEVELDB_PUBLIC_INCLUDE_DIR}/table_builder.h"
       "${LEVELDB_PUBLIC_INCLUDE_DIR}/table.h"
       "${LEVELDB_PUBLIC_INCLUDE_DIR}/write_batch.h"

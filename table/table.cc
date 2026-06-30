@@ -30,7 +30,7 @@ struct Table::Rep {
   }
 
   Options options;
-  Status status;
+  Error err;
   RandomAccessFile* file;
   uint64_t cache_id;
   FilterBlockReader* filter;
@@ -40,22 +40,22 @@ struct Table::Rep {
   Block* index_block;
 };
 
-Status Table::Open(const Options& options, RandomAccessFile* file,
-                   uint64_t size, Table** table) {
+Error Table::Open(const Options& options, RandomAccessFile* file, uint64_t size,
+                  Table** table) {
   *table = nullptr;
   if (size < Footer::kEncodedLength) {
-    return Status::Corruption("file is too short to be an sstable");
+    return Error(Error::Code::Corruption, "file is too short to be an sstable");
   }
 
   char footer_space[Footer::kEncodedLength];
   std::string_view footer_input;
-  Status s = file->Read(size - Footer::kEncodedLength, Footer::kEncodedLength,
-                        &footer_input, footer_space);
-  if (!s.ok()) return s;
+  Error e = file->Read(size - Footer::kEncodedLength, Footer::kEncodedLength,
+                       &footer_input, footer_space);
+  if (!e.ok()) return e;
 
   Footer footer;
-  s = footer.DecodeFrom(&footer_input);
-  if (!s.ok()) return s;
+  e = footer.DecodeFrom(&footer_input);
+  if (!e.ok()) return e;
 
   // Read the index block
   BlockContents index_block_contents;
@@ -63,9 +63,9 @@ Status Table::Open(const Options& options, RandomAccessFile* file,
   if (options.paranoid_checks) {
     opt.verify_checksums = true;
   }
-  s = ReadBlock(file, opt, footer.index_handle(), &index_block_contents);
+  e = ReadBlock(file, opt, footer.index_handle(), &index_block_contents);
 
-  if (s.ok()) {
+  if (e.ok()) {
     // We've successfully read the footer and the index block: we're
     // ready to serve requests.
     Block* index_block = new Block(index_block_contents);
@@ -81,7 +81,7 @@ Status Table::Open(const Options& options, RandomAccessFile* file,
     (*table)->ReadMeta(footer);
   }
 
-  return s;
+  return e;
 }
 
 void Table::ReadMeta(const Footer& footer) {
@@ -164,11 +164,11 @@ Iterator* Table::BlockReader(void* arg, const ReadOptions& options,
 
   BlockHandle handle;
   std::string_view input = index_value;
-  Status s = handle.DecodeFrom(&input);
+  Error e = handle.DecodeFrom(&input);
   // We intentionally allow extra stuff in index_value so that we
   // can add more features in the future.
 
-  if (s.ok()) {
+  if (e.ok()) {
     BlockContents contents;
     if (block_cache != nullptr) {
       std::array<char, 16> cache_key_buffer;
@@ -181,8 +181,8 @@ Iterator* Table::BlockReader(void* arg, const ReadOptions& options,
       if ((cache_handle = block_cache->Lookup(key))) {
         block = reinterpret_cast<Block*>(block_cache->Value(*cache_handle));
       } else {
-        s = ReadBlock(table->rep_->file, options, handle, &contents);
-        if (s.ok()) {
+        e = ReadBlock(table->rep_->file, options, handle, &contents);
+        if (e.ok()) {
           block = new Block(contents);
           if (contents.cachable && options.fill_cache) {
             cache_handle = block_cache->Insert(key, block, block->size(),
@@ -191,8 +191,8 @@ Iterator* Table::BlockReader(void* arg, const ReadOptions& options,
         }
       }
     } else {
-      s = ReadBlock(table->rep_->file, options, handle, &contents);
-      if (s.ok()) {
+      e = ReadBlock(table->rep_->file, options, handle, &contents);
+      if (e.ok()) {
         block = new Block(contents);
       }
     }
@@ -207,7 +207,7 @@ Iterator* Table::BlockReader(void* arg, const ReadOptions& options,
       iter->RegisterCleanup(&ReleaseBlock, block_cache, *cache_handle);
     }
   } else {
-    iter = NewErrorIterator(s);
+    iter = NewErrorIterator(e);
   }
   return iter;
 }
@@ -218,12 +218,12 @@ Iterator* Table::NewIterator(const ReadOptions& options) const {
       &Table::BlockReader, const_cast<Table*>(this), options);
 }
 
-std::expected<std::string, Status> Table::InternalGet(
+std::expected<std::string, Error> Table::InternalGet(
     const ReadOptions& options, const std::string_view& k,
-    std::function<std::expected<std::string, Status>(const std::string_view&,
-                                                     const std::string_view&)>
+    std::function<std::expected<std::string, Error>(const std::string_view&,
+                                                    const std::string_view&)>
         handle_result) {
-  Status s;
+  Error e;
   Iterator* iiter = rep_->index_block->NewIterator(rep_->options.comparator);
   iiter->Seek(k);
   if (iiter->Valid()) {
@@ -233,7 +233,7 @@ std::expected<std::string, Status> Table::InternalGet(
     if (filter != nullptr && handle.DecodeFrom(&handle_value).ok() &&
         !filter->KeyMayMatch(handle.offset(), k)) {
       delete iiter;
-      return std::unexpected(Status::NotFound(std::string_view()));
+      return std::unexpected(Error(Error::Code::NotFound));
     } else {
       Iterator* block_iter = BlockReader(this, options, iiter->value());
       block_iter->Seek(k);
@@ -243,15 +243,15 @@ std::expected<std::string, Status> Table::InternalGet(
         delete iiter;
         return res;
       }
-      s = block_iter->status();
+      e = block_iter->error();
       delete block_iter;
     }
   }
-  if (s.ok()) {
-    s = iiter->status();
+  if (e.ok()) {
+    e = iiter->error();
   }
   delete iiter;
-  return std::unexpected(s);
+  return std::unexpected(std::move(e));
 }
 
 uint64_t Table::ApproximateOffsetOf(const std::string_view& key) const {
@@ -262,8 +262,8 @@ uint64_t Table::ApproximateOffsetOf(const std::string_view& key) const {
   if (index_iter->Valid()) {
     BlockHandle handle;
     std::string_view input = index_iter->value();
-    Status s = handle.DecodeFrom(&input);
-    if (s.ok()) {
+    Error e = handle.DecodeFrom(&input);
+    if (e.ok()) {
       result = handle.offset();
     } else {
       // Strange: we can't decode the block handle in the index block.

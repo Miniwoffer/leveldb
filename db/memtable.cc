@@ -79,7 +79,7 @@ class MemTableIterator : public Iterator {
     return value->value;
   }
 
-  Status status() const override { return Status::OK(); }
+  Error error() const override { return Error(Error::Code::Ok); }
 
  private:
   MemTable::Table::Iterator iter_;
@@ -118,7 +118,7 @@ void MemTable::Add(SequenceNumber s, ValueType type,
   table_.Insert(reinterpret_cast<const char*>(mem.data()));
 }
 
-std::optional<std::expected<std::string, Status>> MemTable::Get(
+std::optional<std::expected<std::string, Error>> MemTable::Get(
     const LookupKey& key) {
   std::string_view memkey = key.memtable_key();
   Table::Iterator iter(&table_);
@@ -149,7 +149,7 @@ std::optional<std::expected<std::string, Status>> MemTable::Get(
           return std::string(r->value);
         }
         case kTypeDeletion:
-          return std::unexpected(Status::NotFound(""));
+          return std::unexpected(Error(Error::Code::NotFound));
       }
     }
   }
