@@ -569,7 +569,7 @@ void DBImpl::CompactMemTable() {
   base->Unref();
 
   if (e.ok() && shutting_down_.load(std::memory_order_acquire)) {
-    e = Error(Error::Code::IOError, "Deleting DB during memtable compaction");
+    e = Error(Error::Code::IOFault, "Deleting DB during memtable compaction");
   }
 
   // Replace immutable memtable with the generated Table
@@ -1036,7 +1036,7 @@ Error DBImpl::DoCompactionWork(CompactionState* compact) {
   }
 
   if (err.ok() && shutting_down_.load(std::memory_order_acquire)) {
-    err = Error(Error::Code::IOError, "Deleting DB during compaction");
+    err = Error(Error::Code::IOFault, "Deleting DB during compaction");
   }
   if (err.ok() && compact->builder != nullptr) {
     err = FinishCompactionOutputFile(compact, input);

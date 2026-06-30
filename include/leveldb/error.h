@@ -37,7 +37,7 @@ class LEVELDB_EXPORT Error {
     Corruption = 2,
     NotSupported = 3,
     InvalidArgument = 4,
-    IOError = 5,
+    IOFault = 5,
     Count_
   };
 
@@ -66,7 +66,7 @@ class LEVELDB_EXPORT Error {
   bool ok() const { return code_ == Code::Ok; }
   bool IsNotFound() const { return code_ == Code::NotFound; }
   bool IsCorruption() const { return code_ == Code::Corruption; }
-  bool IsIOError() const { return code_ == Code::IOError; }
+  bool IsIOFault() const { return code_ == Code::IOFault; }
   bool IsNotSupported() const { return code_ == Code::NotSupported; }
   bool IsInvalidArgument() const { return code_ == Code::InvalidArgument; }
 
@@ -79,7 +79,7 @@ class LEVELDB_EXPORT Error {
   static inline const std::array<std::string_view,
                                  static_cast<size_t>(Error::Code::Count_)>
       code_strings_ = {"Ok", "Not found", "Corruption", "Invalid argument",
-                       "IO error"};
+                       "IO fault"};
   static_assert(static_cast<size_t>(Error::Code::Count_) ==
                     code_strings_.size(),
                 "Update code_strings_ array to reflect Code enum");

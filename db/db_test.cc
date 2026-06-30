@@ -180,14 +180,14 @@ class SpecialEnv : public EnvWrapper {
         Error e = base_->Close();
         if (e.ok() && IsLogFile(fname_) &&
             env_->log_file_close_.load(std::memory_order_acquire)) {
-          e = Error(Error::Code::IOError, "simulated log file Close error");
+          e = Error(Error::Code::IOFault, "simulated log file Close error");
         }
         return e;
       }
       Error Flush() { return base_->Flush(); }
       Error Sync() {
         if (env_->data_sync_error_.load(std::memory_order_acquire)) {
-          return Error(Error::Code::IOError, "simulated data sync error");
+          return Error(Error::Code::IOFault, "simulated data sync error");
         }
         while (env_->delay_data_sync_.load(std::memory_order_acquire)) {
           DelayMilliseconds(100);
@@ -205,7 +205,7 @@ class SpecialEnv : public EnvWrapper {
       ~ManifestFile() { delete base_; }
       Error Append(const std::string_view& data) {
         if (env_->manifest_write_error_.load(std::memory_order_acquire)) {
-          return Error(Error::Code::IOError, "simulated writer error");
+          return Error(Error::Code::IOFault, "simulated writer error");
         } else {
           return base_->Append(data);
         }
@@ -214,7 +214,7 @@ class SpecialEnv : public EnvWrapper {
       Error Flush() { return base_->Flush(); }
       Error Sync() {
         if (env_->manifest_sync_error_.load(std::memory_order_acquire)) {
-          return Error(Error::Code::IOError, "simulated sync error");
+          return Error(Error::Code::IOFault, "simulated sync error");
         } else {
           return base_->Sync();
         }
@@ -222,7 +222,7 @@ class SpecialEnv : public EnvWrapper {
     };
 
     if (non_writable_.load(std::memory_order_acquire)) {
-      return Error(Error::Code::IOError, "simulated write error");
+      return Error(Error::Code::IOFault, "simulated write error");
     }
 
     Error e = target()->NewWritableFile(f, r);

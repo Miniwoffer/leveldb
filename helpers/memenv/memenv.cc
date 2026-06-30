@@ -72,7 +72,7 @@ class FileState {
              char* scratch) const {
     MutexLock lock(&blocks_mutex_);
     if (offset > size_) {
-      return Error(Error::Code::IOError, "Offset greater than file size.");
+      return Error(Error::Code::IOFault, "Offset greater than file size.");
     }
     const uint64_t available = size_ - offset;
     if (n > available) {
@@ -168,7 +168,7 @@ class SequentialFileImpl : public SequentialFile {
 
   Error Skip(uint64_t n) override {
     if (pos_ > file_->Size()) {
-      return Error(Error::Code::IOError, "pos_ > file_->Size()");
+      return Error(Error::Code::IOFault, "pos_ > file_->Size()");
     }
     const uint64_t available = file_->Size() - pos_;
     if (n > available) {
@@ -237,7 +237,7 @@ class InMemoryEnv : public EnvWrapper {
     MutexLock lock(&mutex_);
     if (file_map_.find(fname) == file_map_.end()) {
       *result = nullptr;
-      return Error(Error::Code::IOError, fname, "File not found");
+      return Error(Error::Code::IOFault, fname, "File not found");
     }
 
     *result = new SequentialFileImpl(file_map_[fname]);
@@ -249,7 +249,7 @@ class InMemoryEnv : public EnvWrapper {
     MutexLock lock(&mutex_);
     if (file_map_.find(fname) == file_map_.end()) {
       *result = nullptr;
-      return Error(Error::Code::IOError, fname, "File not found");
+      return Error(Error::Code::IOFault, fname, "File not found");
     }
 
     *result = new RandomAccessFileImpl(file_map_[fname]);
@@ -324,7 +324,7 @@ class InMemoryEnv : public EnvWrapper {
   Error RemoveFile(const std::string& fname) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(fname) == file_map_.end()) {
-      return Error(Error::Code::IOError, fname, "File not found");
+      return Error(Error::Code::IOFault, fname, "File not found");
     }
 
     RemoveFileInternal(fname);
@@ -342,7 +342,7 @@ class InMemoryEnv : public EnvWrapper {
   Error GetFileSize(const std::string& fname, uint64_t* file_size) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(fname) == file_map_.end()) {
-      return Error(Error::Code::IOError, fname, "File not found");
+      return Error(Error::Code::IOFault, fname, "File not found");
     }
 
     *file_size = file_map_[fname]->Size();
@@ -352,7 +352,7 @@ class InMemoryEnv : public EnvWrapper {
   Error RenameFile(const std::string& src, const std::string& target) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(src) == file_map_.end()) {
-      return Error(Error::Code::IOError, src, "File not found");
+      return Error(Error::Code::IOFault, src, "File not found");
     }
 
     RemoveFileInternal(target);
