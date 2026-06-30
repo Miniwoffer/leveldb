@@ -38,7 +38,7 @@ class LEVELDB_EXPORT Error {
     NotSupported = 3,
     InvalidArgument = 4,
     IOError = 5,
-    _Count
+    Count_
   };
 
   // TODO: deprecate after everything is expected returns semantics
@@ -71,15 +71,13 @@ class LEVELDB_EXPORT Error {
         // Fast path
       } else if (has_msg && other_has_msg) {
         DeleteMessage();
-        std::string msg{other.GetMessage()};
-        SetMessage(std::move(msg));
+        SetMessage(std::string{other.GetMessage()});
       } else if (has_msg && !other_has_msg) {
         DeleteMessage();
         msg_key_ = 0;
       } else if (!has_msg && other_has_msg) {
         msg_key_ = GetNextKey();
-        std::string msg{other.GetMessage()};
-        SetMessage(std::move(msg));
+        SetMessage(std::string{other.GetMessage()});
       }
       code_ = other.code_;
     }
@@ -98,73 +96,6 @@ class LEVELDB_EXPORT Error {
       other.msg_key_ = 0;
     }
     return *this;
-  }
-
-  static Error OK() { return Error(Error::Code::Ok); }
-
-  static Error NotFound(std::string_view msg,
-                        std::string_view msg2 = std::string_view()) {
-    bool has_msg = msg.size() > 0;
-    bool has_msg2 = msg2.size() > 0;
-    if (has_msg && has_msg2) {
-      return Error(Error::Code::NotFound, msg, msg2);
-    } else if (has_msg && !has_msg2) {
-      return Error(Error::Code::NotFound, msg);
-    } else {
-      return Error(Error::Code::NotFound);
-    }
-  }
-
-  static Error Corruption(std::string_view msg,
-                          std::string_view msg2 = std::string_view()) {
-    bool has_msg = msg.size() > 0;
-    bool has_msg2 = msg2.size() > 0;
-    if (has_msg && has_msg2) {
-      return Error(Error::Code::Corruption, msg, msg2);
-    } else if (has_msg && !has_msg2) {
-      return Error(Error::Code::Corruption, msg);
-    } else {
-      return Error(Error::Code::Corruption);
-    }
-  }
-
-  static Error NotSupported(std::string_view msg,
-                            std::string_view msg2 = std::string_view()) {
-    bool has_msg = msg.size() > 0;
-    bool has_msg2 = msg2.size() > 0;
-    if (has_msg && has_msg2) {
-      return Error(Error::Code::NotSupported, msg, msg2);
-    } else if (has_msg && !has_msg2) {
-      return Error(Error::Code::NotSupported, msg);
-    } else {
-      return Error(Error::Code::NotSupported);
-    }
-  }
-
-  static Error InvalidArgument(std::string_view msg,
-                               std::string_view msg2 = std::string_view()) {
-    bool has_msg = msg.size() > 0;
-    bool has_msg2 = msg2.size() > 0;
-    if (has_msg && has_msg2) {
-      return Error(Error::Code::InvalidArgument, msg, msg2);
-    } else if (has_msg && !has_msg2) {
-      return Error(Error::Code::InvalidArgument, msg);
-    } else {
-      return Error(Error::Code::InvalidArgument);
-    }
-  }
-
-  static Error IOError(std::string_view msg,
-                       std::string_view msg2 = std::string_view()) {
-    bool has_msg = msg.size() > 0;
-    bool has_msg2 = msg2.size() > 0;
-    if (has_msg && has_msg2) {
-      return Error(Error::Code::IOError, msg, msg2);
-    } else if (has_msg && !has_msg2) {
-      return Error(Error::Code::IOError, msg);
-    } else {
-      return Error(Error::Code::IOError);
-    }
   }
 
   bool operator==(const Code rhs) const { return code_ == rhs; }
@@ -190,9 +121,11 @@ class LEVELDB_EXPORT Error {
   code_t msg_key_{0};
 
   static inline const std::array<std::string_view,
-                                 static_cast<size_t>(Code::_Count)>
+                                 static_cast<size_t>(Code::Count_)>
       code_strings_ = {"Ok", "Not found", "Corruption", "Invalid argument",
                        "IO error"};
+  static_assert(Error::Code::Count_ == static_cast<Code>(6),
+                "Update code_strings_ array to reflect Code enum");
 
   static inline std::atomic<code_t> next_key_{1};
   static inline std::mutex msg_mu_;
@@ -211,7 +144,7 @@ class LEVELDB_EXPORT Error {
   bool HasMessage() const { return msg_key_ != 0; }
 
   std::string_view GetCodeString() const {
-    return (code_ < Code::_Count) ? code_strings_[static_cast<size_t>(code_)]
+    return (code_ < Code::Count_) ? code_strings_[static_cast<size_t>(code_)]
                                   : "Unknown error code";
   }
 

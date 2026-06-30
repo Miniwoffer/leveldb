@@ -44,7 +44,7 @@ Error Table::Open(const Options& options, RandomAccessFile* file, uint64_t size,
                   Table** table) {
   *table = nullptr;
   if (size < Footer::kEncodedLength) {
-    return Error::Corruption("file is too short to be an sstable");
+    return Error(Error::Code::Corruption, "file is too short to be an sstable");
   }
 
   char footer_space[Footer::kEncodedLength];
@@ -233,7 +233,7 @@ std::expected<std::string, Error> Table::InternalGet(
     if (filter != nullptr && handle.DecodeFrom(&handle_value).ok() &&
         !filter->KeyMayMatch(handle.offset(), k)) {
       delete iiter;
-      return std::unexpected(Error::NotFound(std::string_view()));
+      return std::unexpected(Error(Error::Code::NotFound));
     } else {
       Iterator* block_iter = BlockReader(this, options, iiter->value());
       block_iter->Seek(k);

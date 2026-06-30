@@ -6,7 +6,7 @@
 
 #include "leveldb/dumpfile.h"
 #include "leveldb/env.h"
-#include "leveldb/status.h"
+
 
 namespace leveldb {
 namespace {
@@ -15,11 +15,11 @@ class StdoutPrinter : public WritableFile {
  public:
   Error Append(const std::string_view& data) override {
     fwrite(data.data(), 1, data.size(), stdout);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
-  Error Close() override { return Error::OK(); }
-  Error Flush() override { return Error::OK(); }
-  Error Sync() override { return Error::OK(); }
+  Error Close() override { return Error(Error::Code::Ok); }
+  Error Flush() override { return Error(Error::Code::Ok); }
+  Error Sync() override { return Error(Error::Code::Ok); }
 };
 
 bool HandleDumpCommand(Env* env, char** files, int num) {

@@ -14,7 +14,7 @@
 #include "leveldb/env.h"
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
-#include "leveldb/status.h"
+
 #include "leveldb/table.h"
 #include "leveldb/write_batch.h"
 
@@ -69,7 +69,7 @@ Error PrintLogContents(Env* env, const std::string& fname,
     (*func)(reader.LastRecordOffset(), record, dst);
   }
   delete file;
-  return Error::OK();
+  return Error(Error::Code::Ok);
 }
 
 // Called on every item found in a WriteBatch.
@@ -209,7 +209,7 @@ Error DumpTable(Env* env, const std::string& fname, WritableFile* dst) {
   delete iter;
   delete table;
   delete file;
-  return Error::OK();
+  return Error(Error::Code::Ok);
 }
 
 }  // namespace
@@ -217,7 +217,7 @@ Error DumpTable(Env* env, const std::string& fname, WritableFile* dst) {
 Error DumpFile(Env* env, const std::string& fname, WritableFile* dst) {
   FileType ftype;
   if (!GuessType(fname, &ftype)) {
-    return Error::InvalidArgument(fname + ": unknown file type");
+    return Error(Error::Code::InvalidArgument, fname + ": unknown file type");
   }
   switch (ftype) {
     case kLogFile:
@@ -229,7 +229,7 @@ Error DumpFile(Env* env, const std::string& fname, WritableFile* dst) {
     default:
       break;
   }
-  return Error::InvalidArgument(fname + ": not a dump-able file type");
+  return Error(Error::Code::InvalidArgument, fname + ": not a dump-able file type");
 }
 
 }  // namespace leveldb

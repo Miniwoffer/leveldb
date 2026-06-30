@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "leveldb/env.h"
-#include "leveldb/status.h"
+
 
 #include "port/port.h"
 #include "port/thread_annotations.h"
@@ -73,7 +73,7 @@ class FileState {
               char* scratch) const {
     MutexLock lock(&blocks_mutex_);
     if (offset > size_) {
-      return Error::IOError("Offset greater than file size.");
+      return Error(Error::Code::IOError, "Offset greater than file size.");
     }
     const uint64_t available = size_ - offset;
     if (n > available) {
@@ -81,7 +81,7 @@ class FileState {
     }
     if (n == 0) {
       *result = std::string_view();
-      return Error::OK();
+      return Error(Error::Code::Ok);
     }
 
     assert(offset / kBlockSize <= std::numeric_limits<size_t>::max());
@@ -104,7 +104,7 @@ class FileState {
     }
 
     *result = std::string_view(scratch, n);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error Append(const std::string_view& data) {
@@ -134,7 +134,7 @@ class FileState {
       size_ += avail;
     }
 
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
  private:
@@ -169,14 +169,14 @@ class SequentialFileImpl : public SequentialFile {
 
   Error Skip(uint64_t n) override {
     if (pos_ > file_->Size()) {
-      return Error::IOError("pos_ > file_->Size()");
+      return Error(Error::Code::IOError, "pos_ > file_->Size()");
     }
     const uint64_t available = file_->Size() - pos_;
     if (n > available) {
       n = available;
     }
     pos_ += n;
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
  private:
@@ -209,9 +209,9 @@ class WritableFileImpl : public WritableFile {
     return file_->Append(data);
   }
 
-  Error Close() override { return Error::OK(); }
-  Error Flush() override { return Error::OK(); }
-  Error Sync() override { return Error::OK(); }
+  Error Close() override { return Error(Error::Code::Ok); }
+  Error Flush() override { return Error(Error::Code::Ok); }
+  Error Sync() override { return Error(Error::Code::Ok); }
 
  private:
   FileState* file_;
@@ -238,11 +238,11 @@ class InMemoryEnv : public EnvWrapper {
     MutexLock lock(&mutex_);
     if (file_map_.find(fname) == file_map_.end()) {
       *result = nullptr;
-      return Error::IOError(fname, "File not found");
+      return Error(Error::Code::IOError, fname, "File not found");
     }
 
     *result = new SequentialFileImpl(file_map_[fname]);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error NewRandomAccessFile(const std::string& fname,
@@ -250,11 +250,11 @@ class InMemoryEnv : public EnvWrapper {
     MutexLock lock(&mutex_);
     if (file_map_.find(fname) == file_map_.end()) {
       *result = nullptr;
-      return Error::IOError(fname, "File not found");
+      return Error(Error::Code::IOError, fname, "File not found");
     }
 
     *result = new RandomAccessFileImpl(file_map_[fname]);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error NewWritableFile(const std::string& fname,
@@ -274,7 +274,7 @@ class InMemoryEnv : public EnvWrapper {
     }
 
     *result = new WritableFileImpl(file);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error NewAppendableFile(const std::string& fname,
@@ -287,7 +287,7 @@ class InMemoryEnv : public EnvWrapper {
       file->Ref();
     }
     *result = new WritableFileImpl(file);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   bool FileExists(const std::string& fname) override {
@@ -309,7 +309,7 @@ class InMemoryEnv : public EnvWrapper {
       }
     }
 
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   void RemoveFileInternal(const std::string& fname)
@@ -325,58 +325,58 @@ class InMemoryEnv : public EnvWrapper {
   Error RemoveFile(const std::string& fname) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(fname) == file_map_.end()) {
-      return Error::IOError(fname, "File not found");
+      return Error(Error::Code::IOError, fname, "File not found");
     }
 
     RemoveFileInternal(fname);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
-  Error CreateDir(const std::string& dirname) override { return Error::OK(); }
+  Error CreateDir(const std::string& dirname) override { return Error(Error::Code::Ok); }
 
-  Error RemoveDir(const std::string& dirname) override { return Error::OK(); }
+  Error RemoveDir(const std::string& dirname) override { return Error(Error::Code::Ok); }
 
   Error GetFileSize(const std::string& fname, uint64_t* file_size) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(fname) == file_map_.end()) {
-      return Error::IOError(fname, "File not found");
+      return Error(Error::Code::IOError, fname, "File not found");
     }
 
     *file_size = file_map_[fname]->Size();
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error RenameFile(const std::string& src,
                     const std::string& target) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(src) == file_map_.end()) {
-      return Error::IOError(src, "File not found");
+      return Error(Error::Code::IOError, src, "File not found");
     }
 
     RemoveFileInternal(target);
     file_map_[target] = file_map_[src];
     file_map_.erase(src);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error LockFile(const std::string& fname, FileLock** lock) override {
     *lock = new FileLock;
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error UnlockFile(FileLock* lock) override {
     delete lock;
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error GetTestDirectory(std::string* path) override {
     *path = "/test";
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error NewLogger(const std::string& fname, Logger** result) override {
     *result = new NoOpLogger;
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
  private:

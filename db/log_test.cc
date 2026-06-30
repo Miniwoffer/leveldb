@@ -166,12 +166,12 @@ class LogTest : public testing::Test {
  private:
   class StringDest : public WritableFile {
    public:
-    Error Close() override { return Error::OK(); }
-    Error Flush() override { return Error::OK(); }
-    Error Sync() override { return Error::OK(); }
+    Error Close() override { return Error(Error::Code::Ok); }
+    Error Flush() override { return Error(Error::Code::Ok); }
+    Error Sync() override { return Error(Error::Code::Ok); }
     Error Append(const std::string_view& slice) override {
       contents_.append(slice.data(), slice.size());
-      return Error::OK();
+      return Error(Error::Code::Ok);
     }
 
     std::string contents_;
@@ -187,7 +187,7 @@ class LogTest : public testing::Test {
       if (force_error_) {
         force_error_ = false;
         returned_partial_ = true;
-        return Error::Corruption("read error");
+        return Error(Error::Code::Corruption, "read error");
       }
 
       if (contents_.size() < n) {
@@ -196,18 +196,18 @@ class LogTest : public testing::Test {
       }
       *result = std::string_view(contents_.data(), n);
       contents_.remove_prefix(n);
-      return Error::OK();
+      return Error(Error::Code::Ok);
     }
 
     Error Skip(uint64_t n) override {
       if (n > contents_.size()) {
         contents_ = {};
-        return Error::NotFound("in-memory file skipped past end");
+        return Error(Error::Code::NotFound, "in-memory file skipped past end");
       }
 
       contents_.remove_prefix(n);
 
-      return Error::OK();
+      return Error(Error::Code::Ok);
     }
 
     std::string_view contents_;

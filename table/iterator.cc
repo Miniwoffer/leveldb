@@ -67,7 +67,7 @@ class EmptyIterator : public Iterator {
 
 }  // anonymous namespace
 
-Iterator* NewEmptyIterator() { return new EmptyIterator(Error::OK()); }
+Iterator* NewEmptyIterator() { return new EmptyIterator(Error(Error::Code::Ok)); }
 
 Iterator* NewErrorIterator(const Error& status) {
   return new EmptyIterator(status);

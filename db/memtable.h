@@ -12,6 +12,7 @@
 #include <string_view>
 
 #include "leveldb/db.h"
+#include "leveldb/error.h"
 
 #include "util/arena.h"
 
