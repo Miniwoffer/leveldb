@@ -61,7 +61,7 @@ Error PosixError(const std::string& context, int error_number) {
   if (error_number == ENOENT) {
     return Error(Error::Code::NotFound, context, std::strerror(error_number));
   } else {
-    return Error(Error::Code::IOError, context, std::strerror(error_number));
+    return Error(Error::Code::IOFault, context, std::strerror(error_number));
   }
 }
 
@@ -661,7 +661,7 @@ class PosixEnv : public Env {
 
     if (!locks_.Insert(filename)) {
       ::close(fd);
-      return Error(Error::Code::IOError, "lock " + filename,
+      return Error(Error::Code::IOFault, "lock " + filename,
                    "already held by process");
     }
 

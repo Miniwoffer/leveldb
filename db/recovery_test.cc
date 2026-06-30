@@ -339,8 +339,8 @@ TEST_F(RecoveryTest, ManifestMissing) {
   Error err = std::move(res.error());
 
 #if defined(LEVELDB_PLATFORM_CHROMIUM)
-  // TODO(crbug.com/760362): See comment in MakeIOError() from env_chromium.cc.
-  ASSERT_TRUE(err.IsIOError());
+  // TODO(crbug.com/760362): See comment in MakeIOFault() from env_chromium.cc.
+  ASSERT_TRUE(err.IsIOFault());
 #else
   ASSERT_TRUE(err.IsCorruption());
 #endif  // defined(LEVELDB_PLATFORM_CHROMIUM)

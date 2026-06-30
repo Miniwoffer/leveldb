@@ -103,7 +103,7 @@ class Repairer {
       return err;
     }
     if (filenames.empty()) {
-      return Error(Error::Code::IOError, dbname_, "repair found no files");
+      return Error(Error::Code::IOFault, dbname_, "repair found no files");
     }
 
     uint64_t number;

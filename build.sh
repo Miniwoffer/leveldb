@@ -39,7 +39,7 @@ done
 shift $((OPTIND - 1))
 
 if [[ $BUILD_TYPE != "None" ]]; then
-    cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
+    CXX=/usr/bin/clang++ CC=/usr/bin/clang cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
 fi
 
 if $BUILD; then

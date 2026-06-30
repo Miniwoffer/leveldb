@@ -36,7 +36,7 @@ TEST(Error, MoveConstructor) {
 
   {
     Error self_moved =
-        Error(Error::Code::IOError, "custom IOError error message");
+        Error(Error::Code::IOFault, "custom IO fault error message");
 
     // Needed to bypass compiler warning about explicit move-assignment.
     Error& self_moved_reference = self_moved;
