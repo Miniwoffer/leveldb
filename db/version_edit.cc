@@ -236,7 +236,7 @@ Error VersionEdit::DecodeFrom(const std::string_view& src) {
 
   Error result;
   if (msg != nullptr) {
-    result = Error::Corruption("VersionEdit", msg);
+    result = Error(Error::Code::Corruption, "VersionEdit", msg);
   }
   return result;
 }

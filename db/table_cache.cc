@@ -57,7 +57,7 @@ std::expected<Cache::Handle*, Error> TableCache::FindTable(uint64_t file_number,
   if (!e.ok()) {
     std::string old_fname = SSTTableFileName(dbname_, file_number);
     if (env_->NewRandomAccessFile(old_fname, &file).ok()) {
-      e = Error::OK();
+      e = Error(Error::Code::Ok);
     }
   }
   if (e.ok()) {
@@ -78,7 +78,7 @@ std::expected<Cache::Handle*, Error> TableCache::FindTable(uint64_t file_number,
   if (auto handle = cache_->Insert(key, tf, 1, &DeleteEntry)) {
     return *handle;
   } else {
-    return std::unexpected(Error::NotFound({}));
+    return std::unexpected(Error(Error::Code::NotFound));
   }
 }
 

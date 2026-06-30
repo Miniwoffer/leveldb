@@ -19,7 +19,7 @@ Env::Env() = default;
 Env::~Env() = default;
 
 Error Env::NewAppendableFile(const std::string& fname, WritableFile** result) {
-  return Error::NotSupported("NewAppendableFile", fname);
+  return Error(Error::Code::NotSupported, "NewAppendableFile", fname);
 }
 
 Error Env::RemoveDir(const std::string& dirname) { return DeleteDir(dirname); }

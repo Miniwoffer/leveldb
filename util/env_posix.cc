@@ -59,9 +59,9 @@ constexpr const size_t kWritableFileBufferSize = 65536;
 
 Error PosixError(const std::string& context, int error_number) {
   if (error_number == ENOENT) {
-    return Error::NotFound(context, std::strerror(error_number));
+    return Error(Error::Code::NotFound, context, std::strerror(error_number));
   } else {
-    return Error::IOError(context, std::strerror(error_number));
+    return Error(Error::Code::IOError, context, std::strerror(error_number));
   }
 }
 
@@ -159,7 +159,7 @@ class PosixSequentialFile final : public SequentialFile {
     if (::lseek(fd_, n, SEEK_CUR) == static_cast<off_t>(-1)) {
       return PosixError(filename_, errno);
     }
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
  private:
@@ -263,7 +263,7 @@ class PosixMmapReadableFile final : public RandomAccessFile {
     }
 
     *result = std::string_view(mmap_base_ + offset, n);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
  private:
@@ -300,7 +300,7 @@ class PosixWritableFile final : public WritableFile {
     write_size -= copy_size;
     pos_ += copy_size;
     if (write_size == 0) {
-      return Error::OK();
+      return Error(Error::Code::Ok);
     }
 
     // Can't fit in buffer, so need to do at least one write.
@@ -313,7 +313,7 @@ class PosixWritableFile final : public WritableFile {
     if (write_size < kWritableFileBufferSize) {
       std::memcpy(buf_, write_data, write_size);
       pos_ = write_size;
-      return Error::OK();
+      return Error(Error::Code::Ok);
     }
     return WriteUnbuffered(write_data, write_size);
   }
@@ -368,7 +368,7 @@ class PosixWritableFile final : public WritableFile {
       data += write_result;
       size -= write_result;
     }
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error SyncDirIfManifest() {
@@ -400,7 +400,7 @@ class PosixWritableFile final : public WritableFile {
     // filesystems don't support fcntl(F_FULLFSYNC), and require a fallback to
     // fsync().
     if (::fcntl(fd, F_FULLFSYNC) == 0) {
-      return Error::OK();
+      return Error(Error::Code::Ok);
     }
 #endif  // HAVE_FULLFSYNC
 
@@ -411,7 +411,7 @@ class PosixWritableFile final : public WritableFile {
 #endif  // HAVE_FDATASYNC
 
     if (sync_success) {
-      return Error::OK();
+      return Error(Error::Code::Ok);
     }
     return PosixError(fd_path, errno);
   }
@@ -532,7 +532,7 @@ class PosixEnv : public Env {
     }
 
     *result = new PosixSequentialFile(filename, fd);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error NewRandomAccessFile(const std::string& filename,
@@ -545,7 +545,7 @@ class PosixEnv : public Env {
 
     if (!mmap_limiter_.Acquire()) {
       *result = new PosixRandomAccessFile(filename, fd, &fd_limiter_);
-      return Error::OK();
+      return Error(Error::Code::Ok);
     }
 
     uint64_t file_size;
@@ -578,7 +578,7 @@ class PosixEnv : public Env {
     }
 
     *result = new PosixWritableFile(filename, fd);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error NewAppendableFile(const std::string& filename,
@@ -591,7 +591,7 @@ class PosixEnv : public Env {
     }
 
     *result = new PosixWritableFile(filename, fd);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   bool FileExists(const std::string& filename) override {
@@ -610,28 +610,28 @@ class PosixEnv : public Env {
       result->emplace_back(entry->d_name);
     }
     ::closedir(dir);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error RemoveFile(const std::string& filename) override {
     if (::unlink(filename.c_str()) != 0) {
       return PosixError(filename, errno);
     }
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error CreateDir(const std::string& dirname) override {
     if (::mkdir(dirname.c_str(), 0755) != 0) {
       return PosixError(dirname, errno);
     }
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error RemoveDir(const std::string& dirname) override {
     if (::rmdir(dirname.c_str()) != 0) {
       return PosixError(dirname, errno);
     }
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error GetFileSize(const std::string& filename, uint64_t* size) override {
@@ -641,14 +641,14 @@ class PosixEnv : public Env {
       return PosixError(filename, errno);
     }
     *size = file_stat.st_size;
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error RenameFile(const std::string& from, const std::string& to) override {
     if (std::rename(from.c_str(), to.c_str()) != 0) {
       return PosixError(from, errno);
     }
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error LockFile(const std::string& filename, FileLock** lock) override {
@@ -661,7 +661,7 @@ class PosixEnv : public Env {
 
     if (!locks_.Insert(filename)) {
       ::close(fd);
-      return Error::IOError("lock " + filename, "already held by process");
+      return Error(Error::Code::IOError, "lock " + filename, "already held by process");
     }
 
     if (LockOrUnlock(fd, true) == -1) {
@@ -672,7 +672,7 @@ class PosixEnv : public Env {
     }
 
     *lock = new PosixFileLock(fd, filename);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error UnlockFile(FileLock* lock) override {
@@ -683,7 +683,7 @@ class PosixEnv : public Env {
     locks_.Remove(posix_file_lock->filename());
     ::close(posix_file_lock->fd());
     delete posix_file_lock;
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   void Schedule(void (*background_work_function)(void* background_work_arg),
@@ -709,7 +709,7 @@ class PosixEnv : public Env {
     // The CreateDir err is ignored because the directory may already exist.
     CreateDir(*result);
 
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error NewLogger(const std::string& filename, Logger** result) override {
@@ -727,7 +727,7 @@ class PosixEnv : public Env {
       return PosixError(filename, errno);
     } else {
       *result = new PosixLogger(fp);
-      return Error::OK();
+      return Error(Error::Code::Ok);
     }
   }
 

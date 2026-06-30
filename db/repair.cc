@@ -103,7 +103,7 @@ class Repairer {
       return err;
     }
     if (filenames.empty()) {
-      return Error::IOError(dbname_, "repair found no files");
+      return Error(Error::Code::IOError, dbname_, "repair found no files");
     }
 
     uint64_t number;
@@ -184,7 +184,7 @@ class Repairer {
     while (reader.ReadRecord(&record, &scratch)) {
       if (record.size() < 12) {
         reporter.Corruption(record.size(),
-                            Error::Corruption("log record too small"));
+                            Error(Error::Code::Corruption, "log record too small"));
         continue;
       }
       WriteBatchInternal::SetContents(&batch, record);
@@ -194,7 +194,7 @@ class Repairer {
       } else {
         Log(options_.info_log, "Log #%llu: ignoring %s",
             (unsigned long long)log, err.ToString().c_str());
-        err = Error::OK();  // Keep going with rest of file
+        err = Error(Error::Code::Ok);  // Keep going with rest of file
       }
     }
     delete lfile;
@@ -243,7 +243,7 @@ class Repairer {
       fname = SSTTableFileName(dbname_, number);
       Error e2 = env_->GetFileSize(fname, &t.meta.file_size);
       if (e2.ok()) {
-        err = Error::OK();
+        err = Error(Error::Code::Ok);
       }
     }
     if (!err.ok()) {

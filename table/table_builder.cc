@@ -82,7 +82,7 @@ Error TableBuilder::ChangeOptions(const Options& options) {
   // this function to catch changes that should not be allowed to
   // change in the middle of building a Table.
   if (options.comparator != rep_->options.comparator) {
-    return Error::InvalidArgument("changing comparator while building table");
+    return Error(Error::Code::InvalidArgument, "changing comparator while building table");
   }
 
   // Note that any live BlockBuilders point to rep_->options and therefore
@@ -90,7 +90,7 @@ Error TableBuilder::ChangeOptions(const Options& options) {
   rep_->options = options;
   rep_->index_block_options = options;
   rep_->index_block_options.block_restart_interval = 1;
-  return Error::OK();
+  return Error(Error::Code::Ok);
 }
 
 void TableBuilder::Add(const std::string_view& key,

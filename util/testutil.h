@@ -9,6 +9,7 @@
 #include <string_view>
 
 #include "leveldb/env.h"
+#include "leveldb/error.h"
 
 #include "util/random.h"
 
@@ -59,21 +60,21 @@ class ErrorEnv : public EnvWrapper {
   ~ErrorEnv() override { delete target(); }
 
   Error NewWritableFile(const std::string& fname,
-                         WritableFile** result) override {
+                        WritableFile** result) override {
     if (writable_file_error_) {
       ++num_writable_file_errors_;
       *result = nullptr;
-      return Error::IOError(fname, "fake error");
+      return Error(Error::Code::IOError, fname, "fake error");
     }
     return target()->NewWritableFile(fname, result);
   }
 
   Error NewAppendableFile(const std::string& fname,
-                           WritableFile** result) override {
+                          WritableFile** result) override {
     if (writable_file_error_) {
       ++num_writable_file_errors_;
       *result = nullptr;
-      return Error::IOError(fname, "fake error");
+      return Error(Error::Code::IOError, fname, "fake error");
     }
     return target()->NewAppendableFile(fname, result);
   }

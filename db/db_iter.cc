@@ -135,7 +135,7 @@ inline bool DBIter::ParseKey(ParsedInternalKey* ikey) {
   bytes_until_read_sampling_ -= bytes_read;
 
   if (!ParseInternalKey(k, ikey)) {
-    err_ = Error::Corruption("corrupted internal key in DBIter");
+    err_ = Error(Error::Code::Corruption, "corrupted internal key in DBIter");
     return false;
   } else {
     return true;

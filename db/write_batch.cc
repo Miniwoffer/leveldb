@@ -45,7 +45,7 @@ size_t WriteBatch::ApproximateSize() const { return rep_.size(); }
 Error WriteBatch::Iterate(Handler* handler) const {
   std::string_view input(rep_);
   if (input.size() < kHeader) {
-    return Error::Corruption("malformed WriteBatch (too small)");
+    return Error(Error::Code::Corruption, "malformed WriteBatch (too small)");
   }
 
   input.remove_prefix(kHeader);
@@ -58,12 +58,12 @@ Error WriteBatch::Iterate(Handler* handler) const {
       case kTypeValue: {
         auto key = GetLengthPrefixedBlob<uint32_t>(input);
         if (!key) {
-          return Error::Corruption("bad WriteBatch Put");
+          return Error(Error::Code::Corruption, "bad WriteBatch Put");
         }
         input = key->remaining_input;
         auto value = GetLengthPrefixedBlob<uint64_t>(input);
         if (!value) {
-          return Error::Corruption("bad WriteBatch Put");
+          return Error(Error::Code::Corruption, "bad WriteBatch Put");
         }
         input = value->remaining_input;
         handler->Put(key->value, value->value);
@@ -71,19 +71,19 @@ Error WriteBatch::Iterate(Handler* handler) const {
       case kTypeDeletion: {
         auto key = GetLengthPrefixedBlob<uint32_t>(input);
         if (!key) {
-          return Error::Corruption("bad WriteBatch Delete");
+          return Error(Error::Code::Corruption, "bad WriteBatch Delete");
         }
         input = key->remaining_input;
         handler->Delete(key->value);
       } break;
       default:
-        return Error::Corruption("unknown WriteBatch tag");
+        return Error(Error::Code::Corruption, "unknown WriteBatch tag");
     }
   }
   if (found != WriteBatchInternal::Count(this)) {
-    return Error::Corruption("WriteBatch has wrong count");
+    return Error(Error::Code::Corruption, "WriteBatch has wrong count");
   } else {
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 }
 

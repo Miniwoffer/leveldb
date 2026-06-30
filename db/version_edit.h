@@ -11,6 +11,8 @@
 #include <utility>
 #include <vector>
 
+#include "leveldb/error.h"
+
 namespace leveldb {
 
 class VersionSet;

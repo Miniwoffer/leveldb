@@ -17,7 +17,7 @@
 #include "leveldb/cache.h"
 #include "leveldb/env.h"
 #include "leveldb/filter_policy.h"
-#include "leveldb/status.h"
+
 #include "leveldb/table.h"
 
 #include "port/port.h"
@@ -172,7 +172,7 @@ class SpecialEnv : public EnvWrapper {
       Error Append(const std::string_view& data) {
         if (env_->no_space_.load(std::memory_order_acquire)) {
           // Drop writes on the floor
-          return Error::OK();
+          return Error(Error::Code::Ok);
         } else {
           return base_->Append(data);
         }
@@ -181,14 +181,14 @@ class SpecialEnv : public EnvWrapper {
         Error e = base_->Close();
         if (e.ok() && IsLogFile(fname_) &&
             env_->log_file_close_.load(std::memory_order_acquire)) {
-          e = Error::IOError("simulated log file Close error");
+          e = Error(Error::Code::IOError, "simulated log file Close error");
         }
         return e;
       }
       Error Flush() { return base_->Flush(); }
       Error Sync() {
         if (env_->data_sync_error_.load(std::memory_order_acquire)) {
-          return Error::IOError("simulated data sync error");
+          return Error(Error::Code::IOError, "simulated data sync error");
         }
         while (env_->delay_data_sync_.load(std::memory_order_acquire)) {
           DelayMilliseconds(100);
@@ -206,7 +206,7 @@ class SpecialEnv : public EnvWrapper {
       ~ManifestFile() { delete base_; }
       Error Append(const std::string_view& data) {
         if (env_->manifest_write_error_.load(std::memory_order_acquire)) {
-          return Error::IOError("simulated writer error");
+          return Error(Error::Code::IOError, "simulated writer error");
         } else {
           return base_->Append(data);
         }
@@ -215,7 +215,7 @@ class SpecialEnv : public EnvWrapper {
       Error Flush() { return base_->Flush(); }
       Error Sync() {
         if (env_->manifest_sync_error_.load(std::memory_order_acquire)) {
-          return Error::IOError("simulated sync error");
+          return Error(Error::Code::IOError, "simulated sync error");
         } else {
           return base_->Sync();
         }
@@ -223,7 +223,7 @@ class SpecialEnv : public EnvWrapper {
     };
 
     if (non_writable_.load(std::memory_order_acquire)) {
-      return Error::IOError("simulated write error");
+      return Error(Error::Code::IOError, "simulated write error");
     }
 
     Error e = target()->NewWritableFile(f, r);
@@ -2134,7 +2134,7 @@ class ModelDB : public DB {
   std::expected<std::string, Error> Get(const ReadOptions& options,
                                         const std::string_view key) override {
     assert(false);  // Not implemented
-    return std::unexpected(Error::NotFound(std::string(key)));
+    return std::unexpected(Error(Error::Code::NotFound, std::string(key)));
   }
   std::unique_ptr<Iterator> NewIterator(const ReadOptions& options) override {
     if (options.snapshot == nullptr) {
@@ -2208,7 +2208,7 @@ class ModelDB : public DB {
     void Prev() override { --iter_; }
     std::string_view key() const override { return iter_->first; }
     std::string_view value() const override { return iter_->second; }
-    Error error() const override { return Error::OK(); }
+    Error error() const override { return Error(Error::Code::Ok); }
 
    private:
     const KVMap* const map_;

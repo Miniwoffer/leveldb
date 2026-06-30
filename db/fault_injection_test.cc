@@ -49,7 +49,7 @@ static std::string GetDirName(const std::string& filename) {
 
 Error SyncDir(const std::string& dir) {
   // As this is a test it isn't required to *actually* sync this directory.
-  return Error::OK();
+  return Error(Error::Code::Ok);
 }
 
 // A basic file truncation function suitable for this test.
@@ -213,7 +213,7 @@ Error TestWritableFile::SyncParent() {
 
 Error TestWritableFile::Sync() {
   if (!env_->IsFilesystemActive()) {
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
   // Ensure new files referred to by the manifest are in the filesystem.
   Error e = target_->Sync();
@@ -430,9 +430,9 @@ class FaultInjectionTest : public testing::Test {
         }
       } else if (e.ok()) {
         std::fprintf(stderr, "Expected an error at %d, but was OK\n", i);
-        e = Error::IOError(dbname_, "Expected value error:");
+        e = Error(Error::Code::IOError, dbname_, "Expected value error:");
       } else {
-        e = Error::OK();  // An expected error
+        e = Error(Error::Code::Ok);  // An expected error
       }
     }
     return e;

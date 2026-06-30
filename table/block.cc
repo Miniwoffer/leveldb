@@ -265,7 +265,7 @@ class Block::Iter : public Iterator {
   void CorruptionError() {
     current_ = restarts_;
     restart_index_ = num_restarts_;
-    err_ = Error::Corruption("bad entry in block");
+    err_ = Error(Error::Code::Corruption, "bad entry in block");
     key_.clear();
     value_ = {};
   }
@@ -302,7 +302,7 @@ class Block::Iter : public Iterator {
 
 Iterator* Block::NewIterator(const Comparator* comparator) {
   if (size_ < sizeof(uint32_t)) {
-    return NewErrorIterator(Error::Corruption("bad block contents"));
+    return NewErrorIterator(Error(Error::Code::Corruption, "bad block contents"));
   }
   const uint32_t num_restarts = NumRestarts();
   if (num_restarts == 0) {

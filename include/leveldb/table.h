@@ -11,6 +11,7 @@
 #include <string>
 #include <string_view>
 
+#include "leveldb/error.h"
 #include "leveldb/export.h"
 #include "leveldb/iterator.h"
 
@@ -42,7 +43,7 @@ class LEVELDB_EXPORT Table {
   //
   // *file must remain live while this Table is in use.
   static Error Open(const Options& options, RandomAccessFile* file,
-                     uint64_t file_size, Table** table);
+                    uint64_t file_size, Table** table);
 
   Table(const Table&) = delete;
   Table& operator=(const Table&) = delete;
@@ -77,7 +78,7 @@ class LEVELDB_EXPORT Table {
   std::expected<std::string, Error> InternalGet(
       const ReadOptions&, const std::string_view& key,
       std::function<std::expected<std::string, Error>(const std::string_view&,
-                                                       const std::string_view&)>
+                                                      const std::string_view&)>
           handle_result);
   void ReadMeta(const Footer& footer);
   void ReadFilter(const std::string_view& filter_handle_value);

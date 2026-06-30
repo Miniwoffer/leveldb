@@ -228,7 +228,7 @@ void DBImpl::MaybeIgnoreError(Error* s) const {
     // No change needed
   } else {
     Log(options_.info_log, "Ignoring error %s", s->ToString().c_str());
-    *s = Error::OK();
+    *s = Error(Error::Code::Ok);
   }
 }
 
@@ -321,12 +321,12 @@ Error DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
         return e;
       }
     } else {
-      return Error::InvalidArgument(
+      return Error(Error::Code::InvalidArgument, 
           dbname_, "does not exist (create_if_missing is false)");
     }
   } else {
     if (options_.error_if_exists) {
-      return Error::InvalidArgument(dbname_,
+      return Error(Error::Code::InvalidArgument, dbname_,
                                     "exists (error_if_exists is true)");
     }
   }
@@ -367,7 +367,7 @@ Error DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
     char buf[50];
     std::snprintf(buf, sizeof(buf), "%d missing files; e.g.",
                   static_cast<int>(expected.size()));
-    return Error::Corruption(buf, TableFileName(dbname_, *(expected.begin())));
+    return Error(Error::Code::Corruption, buf, TableFileName(dbname_, *(expected.begin())));
   }
 
   // Recover in the order in which the logs were generated
@@ -389,7 +389,7 @@ Error DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
     versions_->SetLastSequence(max_sequence);
   }
 
-  return Error::OK();
+  return Error(Error::Code::Ok);
 }
 
 Error DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
@@ -442,7 +442,7 @@ Error DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
   while (reader.ReadRecord(&record, &scratch) && err.ok()) {
     if (record.size() < 12) {
       reporter.Corruption(record.size(),
-                          Error::Corruption("log record too small"));
+                          Error(Error::Code::Corruption, "log record too small"));
       continue;
     }
     WriteBatchInternal::SetContents(&batch, record);
@@ -568,7 +568,7 @@ void DBImpl::CompactMemTable() {
   base->Unref();
 
   if (e.ok() && shutting_down_.load(std::memory_order_acquire)) {
-    e = Error::IOError("Deleting DB during memtable compaction");
+    e = Error(Error::Code::IOError, "Deleting DB during memtable compaction");
   }
 
   // Replace immutable memtable with the generated Table
@@ -669,7 +669,7 @@ Error DBImpl::TEST_CompactMemTable() {
          !shutting_down_.load(std::memory_order_acquire)) {
     background_work_finished_signal_.Wait();
   }
-  return (imm_ != nullptr) ? bg_error_ : Error::OK();
+  return (imm_ != nullptr) ? bg_error_ : Error(Error::Code::Ok);
 }
 
 void DBImpl::RecordBackgroundError(const Error& s) {
@@ -1035,7 +1035,7 @@ Error DBImpl::DoCompactionWork(CompactionState* compact) {
   }
 
   if (err.ok() && shutting_down_.load(std::memory_order_acquire)) {
-    err = Error::IOError("Deleting DB during compaction");
+    err = Error(Error::Code::IOError, "Deleting DB during compaction");
   }
   if (err.ok() && compact->builder != nullptr) {
     err = FinishCompactionOutputFile(compact, input);
@@ -1567,7 +1567,7 @@ Error DestroyDB(const std::string& dbname, const Options& options) {
   Error result = env->GetChildren(dbname, &filenames);
   if (!result.ok()) {
     // Ignore error in case directory does not exist
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   FileLock* lock;

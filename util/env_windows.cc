@@ -63,8 +63,8 @@ std::string GetWindowsErrorMessage(DWORD error_code) {
 
 Error WindowsError(const std::string& context, DWORD error_code) {
   if (error_code == ERROR_FILE_NOT_FOUND || error_code == ERROR_PATH_NOT_FOUND)
-    return Error::NotFound(context, GetWindowsErrorMessage(error_code));
-  return Error::IOError(context, GetWindowsErrorMessage(error_code));
+    return Error(Error::Code::NotFound, context, GetWindowsErrorMessage(error_code));
+  return Error(Error::Code::IOError, context, GetWindowsErrorMessage(error_code));
 }
 
 class ScopedHandle {
@@ -180,7 +180,7 @@ class WindowsSequentialFile : public SequentialFile {
     }
 
     *result = std::string_view(scratch, bytes_read);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error Skip(uint64_t n) override {
@@ -189,7 +189,7 @@ class WindowsSequentialFile : public SequentialFile {
     if (!::SetFilePointerEx(handle_.get(), distance, nullptr, FILE_CURRENT)) {
       return WindowsError(filename_, ::GetLastError());
     }
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
  private:
@@ -216,12 +216,12 @@ class WindowsRandomAccessFile : public RandomAccessFile {
       DWORD error_code = ::GetLastError();
       if (error_code != ERROR_HANDLE_EOF) {
         *result = std::string_view(scratch, 0);
-        return Error::IOError(filename_, GetWindowsErrorMessage(error_code));
+        return Error(Error::Code::IOError, filename_, GetWindowsErrorMessage(error_code));
       }
     }
 
     *result = std::string_view(scratch, bytes_read);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
  private:
@@ -252,7 +252,7 @@ class WindowsMmapReadableFile : public RandomAccessFile {
     }
 
     *result = std::string_view(mmap_base_ + offset, n);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
  private:
@@ -280,7 +280,7 @@ class WindowsWritableFile : public WritableFile {
     write_size -= copy_size;
     pos_ += copy_size;
     if (write_size == 0) {
-      return Error::OK();
+      return Error(Error::Code::Ok);
     }
 
     // Can't fit in buffer, so need to do at least one write.
@@ -293,7 +293,7 @@ class WindowsWritableFile : public WritableFile {
     if (write_size < kWritableFileBufferSize) {
       std::memcpy(buf_, write_data, write_size);
       pos_ = write_size;
-      return Error::OK();
+      return Error(Error::Code::Ok);
     }
     return WriteUnbuffered(write_data, write_size);
   }
@@ -318,10 +318,10 @@ class WindowsWritableFile : public WritableFile {
     }
 
     if (!::FlushFileBuffers(handle_.get())) {
-      return Error::IOError(filename_,
+      return Error(Error::Code::IOError, filename_,
                             GetWindowsErrorMessage(::GetLastError()));
     }
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
  private:
@@ -335,10 +335,10 @@ class WindowsWritableFile : public WritableFile {
     DWORD bytes_written;
     if (!::WriteFile(handle_.get(), data, static_cast<DWORD>(size),
                      &bytes_written, nullptr)) {
-      return Error::IOError(filename_,
+      return Error(Error::Code::IOError, filename_,
                             GetWindowsErrorMessage(::GetLastError()));
     }
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   // buf_[0, pos_-1] contains data to be written to handle_.
@@ -403,7 +403,7 @@ class WindowsEnv : public Env {
     }
 
     *result = new WindowsSequentialFile(filename, std::move(handle));
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error NewRandomAccessFile(const std::string& filename,
@@ -421,7 +421,7 @@ class WindowsEnv : public Env {
     }
     if (!mmap_limiter_.Acquire()) {
       *result = new WindowsRandomAccessFile(filename, std::move(handle));
-      return Error::OK();
+      return Error(Error::Code::Ok);
     }
 
     LARGE_INTEGER file_size;
@@ -446,7 +446,7 @@ class WindowsEnv : public Env {
         *result = new WindowsMmapReadableFile(
             filename, reinterpret_cast<char*>(mmap_base),
             static_cast<size_t>(file_size.QuadPart), &mmap_limiter_);
-        return Error::OK();
+        return Error(Error::Code::Ok);
       }
     }
     mmap_limiter_.Release();
@@ -467,7 +467,7 @@ class WindowsEnv : public Env {
     }
 
     *result = new WindowsWritableFile(filename, std::move(handle));
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error NewAppendableFile(const std::string& filename,
@@ -484,7 +484,7 @@ class WindowsEnv : public Env {
     }
 
     *result = new WindowsWritableFile(filename, std::move(handle));
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   bool FileExists(const std::string& filename) override {
@@ -499,7 +499,7 @@ class WindowsEnv : public Env {
     if (dir_handle == INVALID_HANDLE_VALUE) {
       DWORD last_error = ::GetLastError();
       if (last_error == ERROR_FILE_NOT_FOUND) {
-        return Error::OK();
+        return Error(Error::Code::Ok);
       }
       return WindowsError(directory_path, last_error);
     }
@@ -517,28 +517,28 @@ class WindowsEnv : public Env {
     if (last_error != ERROR_NO_MORE_FILES) {
       return WindowsError(directory_path, last_error);
     }
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error RemoveFile(const std::string& filename) override {
     if (!::DeleteFileA(filename.c_str())) {
       return WindowsError(filename, ::GetLastError());
     }
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error CreateDir(const std::string& dirname) override {
     if (!::CreateDirectoryA(dirname.c_str(), nullptr)) {
       return WindowsError(dirname, ::GetLastError());
     }
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error RemoveDir(const std::string& dirname) override {
     if (!::RemoveDirectoryA(dirname.c_str())) {
       return WindowsError(dirname, ::GetLastError());
     }
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error GetFileSize(const std::string& filename, uint64_t* size) override {
@@ -551,14 +551,14 @@ class WindowsEnv : public Env {
     file_size.HighPart = file_attributes.nFileSizeHigh;
     file_size.LowPart = file_attributes.nFileSizeLow;
     *size = file_size.QuadPart;
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error RenameFile(const std::string& from, const std::string& to) override {
     // Try a simple move first. It will only succeed when |to| doesn't already
     // exist.
     if (::MoveFileA(from.c_str(), to.c_str())) {
-      return Error::OK();
+      return Error(Error::Code::Ok);
     }
     DWORD move_error = ::GetLastError();
 
@@ -569,7 +569,7 @@ class WindowsEnv : public Env {
     if (::ReplaceFileA(to.c_str(), from.c_str(), /*lpBackupFileName=*/nullptr,
                        REPLACEFILE_IGNORE_MERGE_ERRORS,
                        /*lpExclude=*/nullptr, /*lpReserved=*/nullptr)) {
-      return Error::OK();
+      return Error(Error::Code::Ok);
     }
     DWORD replace_error = ::GetLastError();
     // In the case of FILE_ERROR_NOT_FOUND from ReplaceFile, it is likely that
@@ -608,7 +608,7 @@ class WindowsEnv : public Env {
                           ::GetLastError());
     }
     delete windows_file_lock;
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   void Schedule(void (*background_work_function)(void* background_work_arg),
@@ -624,7 +624,7 @@ class WindowsEnv : public Env {
     const char* env = getenv("TEST_TMPDIR");
     if (env && env[0] != '\0') {
       *result = env;
-      return Error::OK();
+      return Error(Error::Code::Ok);
     }
 
     char tmp_path[MAX_PATH];
@@ -637,7 +637,7 @@ class WindowsEnv : public Env {
 
     // Directory may already exist
     CreateDir(*result);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
   Error NewLogger(const std::string& filename, Logger** result) override {
@@ -647,7 +647,7 @@ class WindowsEnv : public Env {
       return WindowsError(filename, ::GetLastError());
     } else {
       *result = new WindowsLogger(fp);
-      return Error::OK();
+      return Error(Error::Code::Ok);
     }
   }
 

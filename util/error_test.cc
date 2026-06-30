@@ -2,9 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
-#include <utility>
+#include "leveldb/error.h"
 
-#include "leveldb/status.h"
+#include <utility>
 
 #include "gtest/gtest.h"
 
@@ -20,14 +20,14 @@ TEST(Error, MoveConstructor) {
     Error e(Error::Code::InvalidArgument);
     Error e2 = foo();
 
-    Error ok = Error::OK();
+    Error ok = Error(Error::Code::Ok);
     Error ok2 = std::move(ok);
 
     ASSERT_TRUE(ok2.ok());
   }
 
   {
-    Error err = Error::NotFound("custom Not found error message");
+    Error err = Error(Error::Code::NotFound, "custom Not found error message");
     Error err2 = std::move(err);
 
     ASSERT_TRUE(err2.IsNotFound());
@@ -35,7 +35,8 @@ TEST(Error, MoveConstructor) {
   }
 
   {
-    Error self_moved = Error::IOError("custom IOError error message");
+    Error self_moved =
+        Error(Error::Code::IOError, "custom IOError error message");
 
     // Needed to bypass compiler warning about explicit move-assignment.
     Error& self_moved_reference = self_moved;

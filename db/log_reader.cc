@@ -178,7 +178,7 @@ bool Reader::ReadRecord(std::string_view* record, std::string* scratch) {
 uint64_t Reader::LastRecordOffset() { return last_record_offset_; }
 
 void Reader::ReportCorruption(uint64_t bytes, const char* reason) {
-  ReportDrop(bytes, Error::Corruption(reason));
+  ReportDrop(bytes, Error(Error::Code::Corruption, reason));
 }
 
 void Reader::ReportDrop(uint64_t bytes, const Error& reason) {

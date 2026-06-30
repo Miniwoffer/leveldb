@@ -79,7 +79,7 @@ class MemTableIterator : public Iterator {
     return value->value;
   }
 
-  Error error() const override { return Error::OK(); }
+  Error error() const override { return Error(Error::Code::Ok); }
 
  private:
   MemTable::Table::Iterator iter_;
@@ -149,7 +149,7 @@ std::optional<std::expected<std::string, Error>> MemTable::Get(
           return std::string(r->value);
         }
         case kTypeDeletion:
-          return std::unexpected(Error::NotFound(""));
+          return std::unexpected(Error(Error::Code::NotFound));
       }
     }
   }

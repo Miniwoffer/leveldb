@@ -96,13 +96,13 @@ class StringSink : public WritableFile {
 
   const std::string& contents() const { return contents_; }
 
-  Error Close() override { return Error::OK(); }
-  Error Flush() override { return Error::OK(); }
-  Error Sync() override { return Error::OK(); }
+  Error Close() override { return Error(Error::Code::Ok); }
+  Error Flush() override { return Error(Error::Code::Ok); }
+  Error Sync() override { return Error(Error::Code::Ok); }
 
   Error Append(const std::string_view& data) override {
     contents_.append(data.data(), data.size());
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
  private:
@@ -121,14 +121,14 @@ class StringSource : public RandomAccessFile {
   Error Read(uint64_t offset, size_t n, std::string_view* result,
              char* scratch) const override {
     if (offset >= contents_.size()) {
-      return Error::InvalidArgument("invalid Read offset");
+      return Error(Error::Code::InvalidArgument, "invalid Read offset");
     }
     if (offset + n > contents_.size()) {
       n = contents_.size() - offset;
     }
     std::memcpy(scratch, &contents_[offset], n);
     *result = std::string_view(scratch, n);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
 
  private:
@@ -198,7 +198,7 @@ class BlockConstructor : public Constructor {
     contents.cachable = false;
     contents.heap_allocated = false;
     block_ = new Block(contents);
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
   std::unique_ptr<Iterator> NewIterator() const override {
     return std::unique_ptr<Iterator>(block_->NewIterator(comparator_));
@@ -286,7 +286,7 @@ class KeyConvertingIterator : public Iterator {
     assert(Valid());
     ParsedInternalKey key;
     if (!ParseInternalKey(iter_->key(), &key)) {
-      err_ = Error::Corruption("malformed internal key");
+      err_ = Error(Error::Code::Corruption, "malformed internal key");
       return std::string_view("corrupted key");
     }
     return key.user_key;
@@ -317,7 +317,7 @@ class MemTableConstructor : public Constructor {
       memtable_->Add(seq, kTypeValue, kvp.first, kvp.second);
       seq++;
     }
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
   std::unique_ptr<Iterator> NewIterator() const override {
     return std::unique_ptr<KeyConvertingIterator>(
@@ -345,7 +345,7 @@ class DBConstructor : public Constructor {
       batch.Put(std::string_view(kvp.first), kvp.second);
       EXPECT_TRUE(db_->Write(WriteOptions(), &batch));
     }
-    return Error::OK();
+    return Error(Error::Code::Ok);
   }
   std::unique_ptr<Iterator> NewIterator() const override {
     return db_->NewIterator(ReadOptions());

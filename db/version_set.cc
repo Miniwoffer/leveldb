@@ -202,7 +202,7 @@ class Version::LevelFileNumIterator : public Iterator {
     EncodeFixed<uint64_t>(span, (*flist_)[index_]->file_size);
     return std::string_view(value_buf_);
   }
-  Error error() const override { return Error::OK(); }
+  Error error() const override { return Error(Error::Code::Ok); }
 
  private:
   const InternalKeyComparator icmp_;
@@ -218,7 +218,7 @@ static Iterator* GetFileIterator(void* arg, const ReadOptions& options,
   TableCache* cache = reinterpret_cast<TableCache*>(arg);
   if (file_value.size() != 16) {
     return NewErrorIterator(
-        Error::Corruption("FileReader invoked with unexpected value"));
+        Error(Error::Code::Corruption, "FileReader invoked with unexpected value"));
   } else {
     return cache->NewIterator(options, DecodeFixed<uint64_t>(file_value),
                               DecodeFixed<uint64_t>(file_value.data() + 8));
@@ -307,7 +307,7 @@ std::tuple<std::expected<std::string, Error>, Version::GetStats> Version::Get(
   bool deleted = false;
   const Comparator* ucmp = vset_->icmp_.user_comparator();
   std::expected<std::string, Error> res =
-      std::unexpected(Error::NotFound(std::string_view()));
+      std::unexpected(Error(Error::Code::NotFound));
 
   std::string_view user_key = k.user_key();
   std::string_view ikey = k.internal_key();
@@ -323,7 +323,7 @@ std::tuple<std::expected<std::string, Error>, Version::GetStats> Version::Get(
     ParsedInternalKey parsed_key;
     if (!ParseInternalKey(ikey, &parsed_key)) {
       return std::unexpected(
-          Error::Corruption("corrcupted key for ", user_key));
+          Error(Error::Code::Corruption, "corrcupted key for ", user_key));
     }
 
     if (ucmp->Compare(parsed_key.user_key, user_key) == 0) {
@@ -332,7 +332,7 @@ std::tuple<std::expected<std::string, Error>, Version::GetStats> Version::Get(
       }
       deleted = true;
     }
-    return std::unexpected(Error::NotFound(std::string_view()));
+    return std::unexpected(Error(Error::Code::NotFound));
   };
 
   auto handle_result = [&](int level, FileMetaData* f) {
@@ -828,7 +828,7 @@ Error VersionSet::Recover(bool* save_manifest) {
     return e;
   }
   if (current.empty() || current[current.size() - 1] != '\n') {
-    return Error::Corruption("CURRENT file does not end with newline");
+    return Error(Error::Code::Corruption, "CURRENT file does not end with newline");
   }
   current.resize(current.size() - 1);
 
@@ -837,7 +837,7 @@ Error VersionSet::Recover(bool* save_manifest) {
   e = env_->NewSequentialFile(dscname, &file);
   if (!e.ok()) {
     if (e.IsNotFound()) {
-      return Error::Corruption("CURRENT points to a non-existent file",
+      return Error(Error::Code::Corruption, "CURRENT points to a non-existent file",
                                e.ToString());
     }
     return e;
@@ -868,7 +868,7 @@ Error VersionSet::Recover(bool* save_manifest) {
       if (e.ok()) {
         if (edit.has_comparator_ &&
             edit.comparator_ != icmp_.user_comparator()->Name()) {
-          e = Error::InvalidArgument(
+          e = Error(Error::Code::InvalidArgument, 
               edit.comparator_ + " does not match existing comparator ",
               icmp_.user_comparator()->Name());
         }
@@ -904,11 +904,11 @@ Error VersionSet::Recover(bool* save_manifest) {
 
   if (e.ok()) {
     if (!have_next_file) {
-      e = Error::Corruption("no meta-nextfile entry in descriptor");
+      e = Error(Error::Code::Corruption, "no meta-nextfile entry in descriptor");
     } else if (!have_log_number) {
-      e = Error::Corruption("no meta-lognumber entry in descriptor");
+      e = Error(Error::Code::Corruption, "no meta-lognumber entry in descriptor");
     } else if (!have_last_sequence) {
-      e = Error::Corruption("no last-sequence-number entry in descriptor");
+      e = Error(Error::Code::Corruption, "no last-sequence-number entry in descriptor");
     }
 
     if (!have_prev_log_number) {
