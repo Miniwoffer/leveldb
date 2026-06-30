@@ -17,7 +17,6 @@
 #include "leveldb/filter_policy.h"
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
-
 #include "leveldb/write_batch.h"
 
 using leveldb::Cache;
@@ -25,6 +24,7 @@ using leveldb::Comparator;
 using leveldb::CompressionType;
 using leveldb::DB;
 using leveldb::Env;
+using leveldb::Error;
 using leveldb::FileLock;
 using leveldb::FilterPolicy;
 using leveldb::Iterator;
@@ -39,7 +39,6 @@ using leveldb::Range;
 using leveldb::ReadOptions;
 using leveldb::SequentialFile;
 using leveldb::Snapshot;
-using leveldb::Error;
 using leveldb::WritableFile;
 using leveldb::WriteBatch;
 using leveldb::WriteOptions;

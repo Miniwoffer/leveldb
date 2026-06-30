@@ -321,13 +321,13 @@ Error DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
         return e;
       }
     } else {
-      return Error(Error::Code::InvalidArgument, 
-          dbname_, "does not exist (create_if_missing is false)");
+      return Error(Error::Code::InvalidArgument, dbname_,
+                   "does not exist (create_if_missing is false)");
     }
   } else {
     if (options_.error_if_exists) {
       return Error(Error::Code::InvalidArgument, dbname_,
-                                    "exists (error_if_exists is true)");
+                   "exists (error_if_exists is true)");
     }
   }
 
@@ -367,7 +367,8 @@ Error DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
     char buf[50];
     std::snprintf(buf, sizeof(buf), "%d missing files; e.g.",
                   static_cast<int>(expected.size()));
-    return Error(Error::Code::Corruption, buf, TableFileName(dbname_, *(expected.begin())));
+    return Error(Error::Code::Corruption, buf,
+                 TableFileName(dbname_, *(expected.begin())));
   }
 
   // Recover in the order in which the logs were generated
@@ -441,8 +442,8 @@ Error DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
   MemTable* mem = nullptr;
   while (reader.ReadRecord(&record, &scratch) && err.ok()) {
     if (record.size() < 12) {
-      reporter.Corruption(record.size(),
-                          Error(Error::Code::Corruption, "log record too small"));
+      reporter.Corruption(record.size(), Error(Error::Code::Corruption,
+                                               "log record too small"));
       continue;
     }
     WriteBatchInternal::SetContents(&batch, record);

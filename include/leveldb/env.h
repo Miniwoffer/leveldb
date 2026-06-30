@@ -19,8 +19,8 @@
 #include <string_view>
 #include <vector>
 
-#include "leveldb/export.h"
 #include "leveldb/error.h"
+#include "leveldb/export.h"
 
 // This workaround can be removed when leveldb::Env::DeleteFile is removed.
 #if defined(_WIN32)
@@ -72,7 +72,7 @@ class LEVELDB_EXPORT Env {
   //
   // The returned file will only be accessed by one thread at a time.
   virtual Error NewSequentialFile(const std::string& fname,
-                                   SequentialFile** result) = 0;
+                                  SequentialFile** result) = 0;
 
   // Create an object supporting random-access reads from the file with the
   // specified name.  On success, stores a pointer to the new file in
@@ -83,7 +83,7 @@ class LEVELDB_EXPORT Env {
   //
   // The returned file may be concurrently accessed by multiple threads.
   virtual Error NewRandomAccessFile(const std::string& fname,
-                                     RandomAccessFile** result) = 0;
+                                    RandomAccessFile** result) = 0;
 
   // Create an object that writes to a new file with the specified
   // name.  Deletes any existing file with the same name and creates a
@@ -93,7 +93,7 @@ class LEVELDB_EXPORT Env {
   //
   // The returned file will only be accessed by one thread at a time.
   virtual Error NewWritableFile(const std::string& fname,
-                                 WritableFile** result) = 0;
+                                WritableFile** result) = 0;
 
   // Create an object that either appends to an existing file, or
   // writes to a new file (if the file does not exist to begin with).
@@ -108,7 +108,7 @@ class LEVELDB_EXPORT Env {
   // the leveldb implementation) must be prepared to deal with
   // an Env that does not support appending.
   virtual Error NewAppendableFile(const std::string& fname,
-                                   WritableFile** result);
+                                  WritableFile** result);
 
   // Returns true iff the named file exists.
   virtual bool FileExists(const std::string& fname) = 0;
@@ -117,7 +117,7 @@ class LEVELDB_EXPORT Env {
   // The names are relative to "dir".
   // Original contents of *results are dropped.
   virtual Error GetChildren(const std::string& dir,
-                             std::vector<std::string>* result) = 0;
+                            std::vector<std::string>* result) = 0;
   // Delete the named file.
   //
   // The default implementation calls DeleteFile, to support legacy Env
@@ -166,7 +166,7 @@ class LEVELDB_EXPORT Env {
 
   // Rename file src to target.
   virtual Error RenameFile(const std::string& src,
-                            const std::string& target) = 0;
+                           const std::string& target) = 0;
 
   // Lock the specified file.  Used to prevent concurrent access to
   // the same db by multiple processes.  On failure, stores nullptr in
@@ -268,7 +268,7 @@ class LEVELDB_EXPORT RandomAccessFile {
   //
   // Safe for concurrent use by multiple threads.
   virtual Error Read(uint64_t offset, size_t n, std::string_view* result,
-                      char* scratch) const = 0;
+                     char* scratch) const = 0;
 };
 
 // A file abstraction for sequential writing.  The implementation
@@ -323,11 +323,11 @@ void Log(Logger* info_log, const char* format, ...)
 
 // A utility routine: write "data" to the named file.
 LEVELDB_EXPORT Error WriteStringToFile(Env* env, const std::string_view& data,
-                                        const std::string& fname);
+                                       const std::string& fname);
 
 // A utility routine: read contents of named file into *data
 LEVELDB_EXPORT Error ReadFileToString(Env* env, const std::string& fname,
-                                       std::string* data);
+                                      std::string* data);
 
 // An implementation of Env that forwards all calls to another Env.
 // May be useful to clients who wish to override just part of the
@@ -346,7 +346,7 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
     return target_->NewSequentialFile(f, r);
   }
   Error NewRandomAccessFile(const std::string& f,
-                             RandomAccessFile** r) override {
+                            RandomAccessFile** r) override {
     return target_->NewRandomAccessFile(f, r);
   }
   Error NewWritableFile(const std::string& f, WritableFile** r) override {
@@ -359,7 +359,7 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
     return target_->FileExists(f);
   }
   Error GetChildren(const std::string& dir,
-                     std::vector<std::string>* r) override {
+                    std::vector<std::string>* r) override {
     return target_->GetChildren(dir, r);
   }
   Error RemoveFile(const std::string& f) override {

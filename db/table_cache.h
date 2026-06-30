@@ -48,7 +48,7 @@ class TableCache {
       const ReadOptions& options, uint64_t file_number, uint64_t file_size,
       const std::string_view& k,
       std::function<std::expected<std::string, Error>(const std::string_view&,
-                                                       const std::string_view&)>
+                                                      const std::string_view&)>
           handle_result);
 
   // Evict any entry for the specified file number
@@ -56,7 +56,7 @@ class TableCache {
 
  private:
   std::expected<Cache::Handle*, Error> FindTable(uint64_t file_number,
-                                                  uint64_t file_size);
+                                                 uint64_t file_size);
 
   Env* const env_;
   const std::string dbname_;

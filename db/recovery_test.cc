@@ -40,7 +40,7 @@ class RecoveryTest : public testing::Test {
     WritableFile* tmp;
     Error e = env_->NewAppendableFile(CurrentFileName(dbname_), &tmp);
     delete tmp;
-    if (e.IsNotSupportedError()) {
+    if (e.IsNotSupported()) {
       return false;
     } else {
       return true;

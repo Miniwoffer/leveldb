@@ -8,8 +8,8 @@
 #include <string>
 
 #include "leveldb/env.h"
-#include "leveldb/export.h"
 #include "leveldb/error.h"
+#include "leveldb/export.h"
 
 namespace leveldb {
 
@@ -21,7 +21,7 @@ namespace leveldb {
 // Returns a non-OK result if fname does not name a leveldb storage
 // file, or if the file cannot be read.
 LEVELDB_EXPORT Error DumpFile(Env* env, const std::string& fname,
-                               WritableFile* dst);
+                              WritableFile* dst);
 
 }  // namespace leveldb
 

@@ -15,7 +15,7 @@
 namespace leveldb {
 
 namespace {
-static consteval auto CodeBaseType_() {
+static consteval auto CodeType_() {
   constexpr const size_t ptr_sz = sizeof(size_t);
   if constexpr (ptr_sz == 8) {
     return uint32_t{};
@@ -28,7 +28,7 @@ static consteval auto CodeBaseType_() {
 }  // namespace
 
 class LEVELDB_EXPORT Error {
-  using code_t = decltype(CodeBaseType_());
+  using code_t = decltype(CodeType_());
 
  public:
   enum class Code : code_t {
@@ -41,10 +41,10 @@ class LEVELDB_EXPORT Error {
     Count_
   };
 
-  // TODO: deprecate after everything is expected returns semantics
-  Error() noexcept {}
-
+  Error() noexcept = default;  // TODO: deprecate after everything is expected
+                               // returns semantics
   Error(Code c) noexcept : code_(c) {}
+  ~Error();
 
   template <typename... Args>
     requires(std::convertible_to<Args, std::string_view> && ...)
@@ -56,82 +56,38 @@ class LEVELDB_EXPORT Error {
     SetMessage(std::move(buffer));
   }
 
-  ~Error() {
-    if (HasMessage()) {
-      DeleteMessage();
-    }
-  }
+  Error(const Error&);
+  Error& operator=(const Error&);
 
-  Error(const Error& other) { *this = other; }
-  Error& operator=(const Error& other) {
-    if (this != &other) {
-      bool has_msg = HasMessage();
-      bool other_has_msg = other.HasMessage();
-      if (!has_msg && !other_has_msg) {
-        // Fast path
-      } else if (has_msg && other_has_msg) {
-        DeleteMessage();
-        SetMessage(std::string{other.GetMessage()});
-      } else if (has_msg && !other_has_msg) {
-        DeleteMessage();
-        msg_key_ = 0;
-      } else if (!has_msg && other_has_msg) {
-        msg_key_ = GetNextKey();
-        SetMessage(std::string{other.GetMessage()});
-      }
-      code_ = other.code_;
-    }
-    return *this;
-  }
-
-  Error(Error&& other) noexcept { *this = std::move(other); }
-  Error& operator=(Error&& other) noexcept {
-    if (this != &other) {
-      if (HasMessage()) {
-        DeleteMessage();
-      }
-      code_ = other.code_;
-      msg_key_ = other.msg_key_;
-      other.code_ = static_cast<Code>(0);
-      other.msg_key_ = 0;
-    }
-    return *this;
-  }
+  Error(Error&&) noexcept;
+  Error& operator=(Error&&) noexcept;
 
   bool operator==(const Code rhs) const { return code_ == rhs; }
-
   bool ok() const { return code_ == Code::Ok; }
   bool IsNotFound() const { return code_ == Code::NotFound; }
   bool IsCorruption() const { return code_ == Code::Corruption; }
   bool IsIOError() const { return code_ == Code::IOError; }
-  bool IsNotSupportedError() const { return code_ == Code::NotSupported; }
+  bool IsNotSupported() const { return code_ == Code::NotSupported; }
   bool IsInvalidArgument() const { return code_ == Code::InvalidArgument; }
 
-  std::string ToString() const {
-    std::string error_string{GetCodeString()};
-    if (HasMessage()) {
-      error_string.append(": ");
-      error_string.append(GetMessage());
-    }
-    return error_string;
-  }
+  std::string ToString() const;
 
  private:
   Code code_{0};
   code_t msg_key_{0};
 
   static inline const std::array<std::string_view,
-                                 static_cast<size_t>(Code::Count_)>
+                                 static_cast<size_t>(Error::Code::Count_)>
       code_strings_ = {"Ok", "Not found", "Corruption", "Invalid argument",
                        "IO error"};
-  static_assert(Error::Code::Count_ == static_cast<Code>(6),
+  static_assert(static_cast<size_t>(Error::Code::Count_) ==
+                    code_strings_.size(),
                 "Update code_strings_ array to reflect Code enum");
 
   static inline std::atomic<code_t> next_key_{1};
   static inline std::mutex msg_mu_;
   static inline std::map<code_t, std::string> messages_;
 
-  // Can deliberately overflow
   code_t GetNextKey() const {
     code_t key = next_key_.fetch_add(1);
     if (key == 0) {

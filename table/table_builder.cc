@@ -82,7 +82,8 @@ Error TableBuilder::ChangeOptions(const Options& options) {
   // this function to catch changes that should not be allowed to
   // change in the middle of building a Table.
   if (options.comparator != rep_->options.comparator) {
-    return Error(Error::Code::InvalidArgument, "changing comparator while building table");
+    return Error(Error::Code::InvalidArgument,
+                 "changing comparator while building table");
   }
 
   // Note that any live BlockBuilders point to rep_->options and therefore

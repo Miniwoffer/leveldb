@@ -217,8 +217,8 @@ static Iterator* GetFileIterator(void* arg, const ReadOptions& options,
                                  const std::string_view& file_value) {
   TableCache* cache = reinterpret_cast<TableCache*>(arg);
   if (file_value.size() != 16) {
-    return NewErrorIterator(
-        Error(Error::Code::Corruption, "FileReader invoked with unexpected value"));
+    return NewErrorIterator(Error(Error::Code::Corruption,
+                                  "FileReader invoked with unexpected value"));
   } else {
     return cache->NewIterator(options, DecodeFixed<uint64_t>(file_value),
                               DecodeFixed<uint64_t>(file_value.data() + 8));
@@ -828,7 +828,8 @@ Error VersionSet::Recover(bool* save_manifest) {
     return e;
   }
   if (current.empty() || current[current.size() - 1] != '\n') {
-    return Error(Error::Code::Corruption, "CURRENT file does not end with newline");
+    return Error(Error::Code::Corruption,
+                 "CURRENT file does not end with newline");
   }
   current.resize(current.size() - 1);
 
@@ -837,8 +838,8 @@ Error VersionSet::Recover(bool* save_manifest) {
   e = env_->NewSequentialFile(dscname, &file);
   if (!e.ok()) {
     if (e.IsNotFound()) {
-      return Error(Error::Code::Corruption, "CURRENT points to a non-existent file",
-                               e.ToString());
+      return Error(Error::Code::Corruption,
+                   "CURRENT points to a non-existent file", e.ToString());
     }
     return e;
   }
@@ -868,9 +869,9 @@ Error VersionSet::Recover(bool* save_manifest) {
       if (e.ok()) {
         if (edit.has_comparator_ &&
             edit.comparator_ != icmp_.user_comparator()->Name()) {
-          e = Error(Error::Code::InvalidArgument, 
-              edit.comparator_ + " does not match existing comparator ",
-              icmp_.user_comparator()->Name());
+          e = Error(Error::Code::InvalidArgument,
+                    edit.comparator_ + " does not match existing comparator ",
+                    icmp_.user_comparator()->Name());
         }
       }
 
@@ -904,11 +905,14 @@ Error VersionSet::Recover(bool* save_manifest) {
 
   if (e.ok()) {
     if (!have_next_file) {
-      e = Error(Error::Code::Corruption, "no meta-nextfile entry in descriptor");
+      e = Error(Error::Code::Corruption,
+                "no meta-nextfile entry in descriptor");
     } else if (!have_log_number) {
-      e = Error(Error::Code::Corruption, "no meta-lognumber entry in descriptor");
+      e = Error(Error::Code::Corruption,
+                "no meta-lognumber entry in descriptor");
     } else if (!have_last_sequence) {
-      e = Error(Error::Code::Corruption, "no last-sequence-number entry in descriptor");
+      e = Error(Error::Code::Corruption,
+                "no last-sequence-number entry in descriptor");
     }
 
     if (!have_prev_log_number) {

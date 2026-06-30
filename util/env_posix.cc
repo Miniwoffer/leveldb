@@ -661,7 +661,8 @@ class PosixEnv : public Env {
 
     if (!locks_.Insert(filename)) {
       ::close(fd);
-      return Error(Error::Code::IOError, "lock " + filename, "already held by process");
+      return Error(Error::Code::IOError, "lock " + filename,
+                   "already held by process");
     }
 
     if (LockOrUnlock(fd, true) == -1) {

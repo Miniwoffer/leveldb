@@ -53,16 +53,16 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
 
   // Implementations of the DB interface
   std::expected<void, Error> Put(const WriteOptions& options,
-                                  const std::string_view key,
-                                  const std::string_view value) override;
+                                 const std::string_view key,
+                                 const std::string_view value) override;
 
   std::expected<void, Error> Delete(const WriteOptions&,
-                                     const std::string_view key) override;
+                                    const std::string_view key) override;
   std::expected<void, Error> Write(const WriteOptions& options,
-                                    WriteBatch* updates) override;
+                                   WriteBatch* updates) override;
 
   std::expected<std::string, Error> Get(const ReadOptions& options,
-                                         const std::string_view key) override;
+                                        const std::string_view key) override;
   std::unique_ptr<Iterator> NewIterator(const ReadOptions&) override;
   std::optional<std::string> GetProperty(
       const std::string_view property) override;
@@ -149,7 +149,7 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
   void CompactMemTable() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   Error RecoverLogFile(uint64_t log_number, bool last_log, bool* save_manifest,
-                        VersionEdit* edit, SequenceNumber* max_sequence)
+                       VersionEdit* edit, SequenceNumber* max_sequence)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   Error WriteLevel0Table(MemTable* mem, VersionEdit* edit, Version* base)

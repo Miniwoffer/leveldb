@@ -7,7 +7,6 @@
 #include "leveldb/dumpfile.h"
 #include "leveldb/env.h"
 
-
 namespace leveldb {
 namespace {
 
