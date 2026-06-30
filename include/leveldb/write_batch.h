@@ -21,8 +21,11 @@
 #ifndef STORAGE_LEVELDB_INCLUDE_WRITE_BATCH_H_
 #define STORAGE_LEVELDB_INCLUDE_WRITE_BATCH_H_
 
+#include <cstddef>
+#include <iterator>
 #include <string>
 #include <string_view>
+#include <variant>
 
 #include "leveldb/export.h"
 #include "leveldb/status.h"
@@ -71,13 +74,60 @@ class LEVELDB_EXPORT WriteBatch {
 
   // Support for iterating over the contents of a batch.
   Status Iterate(Handler* handler) const;
+  struct DeleteEntry {
+    std::string_view key;
+  };
+  struct PutEntry {
+    std::string_view key;
+    std::string_view value;
+  };
+  typedef std::variant<DeleteEntry, PutEntry> Entry;
+  class Iterator {
+   public:
+    using iterator_category = std::input_iterator_tag;
+    using difference_type = std::ptrdiff_t;
+    using value_type = Entry;
+    using pointer = Entry*;
+    using referance = Entry&;
+
+    Iterator() = default;
+    Iterator(std::string_view view) : current(view), next(view) {
+      ParseEntry();
+    };
+
+    referance operator*() const { return entry; };
+    pointer operator->() const { return &entry; };
+
+    Iterator& operator++();    // prefix ++
+    Iterator operator++(int);  // postfix ++
+
+    friend bool operator==(const Iterator& a, const Iterator& b) {
+      return a.current == b.current;
+    }
+    friend bool operator!=(const Iterator& a, const Iterator& b) {
+      return a.current != b.current;
+    }
+
+   private:
+    void ParseEntry();
+    mutable std::string_view current;
+    mutable std::string_view next;
+    mutable value_type entry;
+  };
+
+  Iterator begin();
+  Iterator end();
 
  private:
   friend class WriteBatchInternal;
 
   std::string rep_;  // See comment in write_batch.cc for the format of rep_
 };
-
+static_assert(std::ranges::range<WriteBatch>,
+              "WriteBatch does not fulfill the requirerments for a std::ranges::range");
+static_assert(std::input_iterator<WriteBatch::Iterator>,
+              "WriteBatch::Iterator does not fulfill the requirements for a "
+              "std::input_iterator");
 }  // namespace leveldb
 
 #endif  // STORAGE_LEVELDB_INCLUDE_WRITE_BATCH_H_
