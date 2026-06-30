@@ -63,8 +63,10 @@ std::string GetWindowsErrorMessage(DWORD error_code) {
 
 Error WindowsError(const std::string& context, DWORD error_code) {
   if (error_code == ERROR_FILE_NOT_FOUND || error_code == ERROR_PATH_NOT_FOUND)
-    return Error(Error::Code::NotFound, context, GetWindowsErrorMessage(error_code));
-  return Error(Error::Code::IOError, context, GetWindowsErrorMessage(error_code));
+    return Error(Error::Code::NotFound, context,
+                 GetWindowsErrorMessage(error_code));
+  return Error(Error::Code::IOError, context,
+               GetWindowsErrorMessage(error_code));
 }
 
 class ScopedHandle {
@@ -216,7 +218,8 @@ class WindowsRandomAccessFile : public RandomAccessFile {
       DWORD error_code = ::GetLastError();
       if (error_code != ERROR_HANDLE_EOF) {
         *result = std::string_view(scratch, 0);
-        return Error(Error::Code::IOError, filename_, GetWindowsErrorMessage(error_code));
+        return Error(Error::Code::IOError, filename_,
+                     GetWindowsErrorMessage(error_code));
       }
     }
 
@@ -319,7 +322,7 @@ class WindowsWritableFile : public WritableFile {
 
     if (!::FlushFileBuffers(handle_.get())) {
       return Error(Error::Code::IOError, filename_,
-                            GetWindowsErrorMessage(::GetLastError()));
+                   GetWindowsErrorMessage(::GetLastError()));
     }
     return Error(Error::Code::Ok);
   }
@@ -336,7 +339,7 @@ class WindowsWritableFile : public WritableFile {
     if (!::WriteFile(handle_.get(), data, static_cast<DWORD>(size),
                      &bytes_written, nullptr)) {
       return Error(Error::Code::IOError, filename_,
-                            GetWindowsErrorMessage(::GetLastError()));
+                   GetWindowsErrorMessage(::GetLastError()));
     }
     return Error(Error::Code::Ok);
   }

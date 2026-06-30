@@ -181,6 +181,7 @@ target_sources(leveldb
     "util/crc32c.h"
     "util/env.cc"
     "util/hash.cc"
+    "util/error.cc"
     "util/hash.h"
     "util/logging.cc"
     "util/logging.h"

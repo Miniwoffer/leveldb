@@ -12,7 +12,6 @@
 
 #include "leveldb/env.h"
 
-
 #include "port/port.h"
 #include "port/thread_annotations.h"
 #include "util/mutexlock.h"
@@ -70,7 +69,7 @@ class FileState {
   }
 
   Error Read(uint64_t offset, size_t n, std::string_view* result,
-              char* scratch) const {
+             char* scratch) const {
     MutexLock lock(&blocks_mutex_);
     if (offset > size_) {
       return Error(Error::Code::IOError, "Offset greater than file size.");
@@ -191,7 +190,7 @@ class RandomAccessFileImpl : public RandomAccessFile {
   ~RandomAccessFileImpl() override { file_->Unref(); }
 
   Error Read(uint64_t offset, size_t n, std::string_view* result,
-              char* scratch) const override {
+             char* scratch) const override {
     return file_->Read(offset, n, result, scratch);
   }
 
@@ -234,7 +233,7 @@ class InMemoryEnv : public EnvWrapper {
 
   // Partial implementation of the Env interface.
   Error NewSequentialFile(const std::string& fname,
-                           SequentialFile** result) override {
+                          SequentialFile** result) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(fname) == file_map_.end()) {
       *result = nullptr;
@@ -246,7 +245,7 @@ class InMemoryEnv : public EnvWrapper {
   }
 
   Error NewRandomAccessFile(const std::string& fname,
-                             RandomAccessFile** result) override {
+                            RandomAccessFile** result) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(fname) == file_map_.end()) {
       *result = nullptr;
@@ -258,7 +257,7 @@ class InMemoryEnv : public EnvWrapper {
   }
 
   Error NewWritableFile(const std::string& fname,
-                         WritableFile** result) override {
+                        WritableFile** result) override {
     MutexLock lock(&mutex_);
     FileSystem::iterator it = file_map_.find(fname);
 
@@ -278,7 +277,7 @@ class InMemoryEnv : public EnvWrapper {
   }
 
   Error NewAppendableFile(const std::string& fname,
-                           WritableFile** result) override {
+                          WritableFile** result) override {
     MutexLock lock(&mutex_);
     FileState** sptr = &file_map_[fname];
     FileState* file = *sptr;
@@ -296,7 +295,7 @@ class InMemoryEnv : public EnvWrapper {
   }
 
   Error GetChildren(const std::string& dir,
-                     std::vector<std::string>* result) override {
+                    std::vector<std::string>* result) override {
     MutexLock lock(&mutex_);
     result->clear();
 
@@ -332,9 +331,13 @@ class InMemoryEnv : public EnvWrapper {
     return Error(Error::Code::Ok);
   }
 
-  Error CreateDir(const std::string& dirname) override { return Error(Error::Code::Ok); }
+  Error CreateDir(const std::string& dirname) override {
+    return Error(Error::Code::Ok);
+  }
 
-  Error RemoveDir(const std::string& dirname) override { return Error(Error::Code::Ok); }
+  Error RemoveDir(const std::string& dirname) override {
+    return Error(Error::Code::Ok);
+  }
 
   Error GetFileSize(const std::string& fname, uint64_t* file_size) override {
     MutexLock lock(&mutex_);
@@ -346,8 +349,7 @@ class InMemoryEnv : public EnvWrapper {
     return Error(Error::Code::Ok);
   }
 
-  Error RenameFile(const std::string& src,
-                    const std::string& target) override {
+  Error RenameFile(const std::string& src, const std::string& target) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(src) == file_map_.end()) {
       return Error(Error::Code::IOError, src, "File not found");

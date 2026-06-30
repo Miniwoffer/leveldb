@@ -302,7 +302,8 @@ class Block::Iter : public Iterator {
 
 Iterator* Block::NewIterator(const Comparator* comparator) {
   if (size_ < sizeof(uint32_t)) {
-    return NewErrorIterator(Error(Error::Code::Corruption, "bad block contents"));
+    return NewErrorIterator(
+        Error(Error::Code::Corruption, "bad block contents"));
   }
   const uint32_t num_restarts = NumRestarts();
   if (num_restarts == 0) {

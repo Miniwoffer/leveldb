@@ -183,8 +183,8 @@ class Repairer {
     int counter = 0;
     while (reader.ReadRecord(&record, &scratch)) {
       if (record.size() < 12) {
-        reporter.Corruption(record.size(),
-                            Error(Error::Code::Corruption, "log record too small"));
+        reporter.Corruption(record.size(), Error(Error::Code::Corruption,
+                                                 "log record too small"));
         continue;
       }
       WriteBatchInternal::SetContents(&batch, record);

@@ -14,7 +14,6 @@
 #include "leveldb/env.h"
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
-
 #include "leveldb/table.h"
 #include "leveldb/write_batch.h"
 
@@ -229,7 +228,8 @@ Error DumpFile(Env* env, const std::string& fname, WritableFile* dst) {
     default:
       break;
   }
-  return Error(Error::Code::InvalidArgument, fname + ": not a dump-able file type");
+  return Error(Error::Code::InvalidArgument,
+               fname + ": not a dump-able file type");
 }
 
 }  // namespace leveldb

@@ -132,13 +132,15 @@ Error ReadBlock(RandomAccessFile* file, const ReadOptions& options,
       size_t ulength = 0;
       if (!port::Snappy_GetUncompressedLength(data, n, &ulength)) {
         delete[] buf;
-        return Error(Error::Code::Corruption, "corrupted snappy compressed block length");
+        return Error(Error::Code::Corruption,
+                     "corrupted snappy compressed block length");
       }
       char* ubuf = new char[ulength];
       if (!port::Snappy_Uncompress(data, n, ubuf)) {
         delete[] buf;
         delete[] ubuf;
-        return Error(Error::Code::Corruption, "corrupted snappy compressed block contents");
+        return Error(Error::Code::Corruption,
+                     "corrupted snappy compressed block contents");
       }
       delete[] buf;
       result->data = std::string_view(ubuf, ulength);
@@ -150,13 +152,15 @@ Error ReadBlock(RandomAccessFile* file, const ReadOptions& options,
       size_t ulength = 0;
       if (!port::Zstd_GetUncompressedLength(data, n, &ulength)) {
         delete[] buf;
-        return Error(Error::Code::Corruption, "corrupted zstd compressed block length");
+        return Error(Error::Code::Corruption,
+                     "corrupted zstd compressed block length");
       }
       char* ubuf = new char[ulength];
       if (!port::Zstd_Uncompress(data, n, ubuf)) {
         delete[] buf;
         delete[] ubuf;
-        return Error(Error::Code::Corruption, "corrupted zstd compressed block contents");
+        return Error(Error::Code::Corruption,
+                     "corrupted zstd compressed block contents");
       }
       delete[] buf;
       result->data = std::string_view(ubuf, ulength);

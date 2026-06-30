@@ -76,7 +76,7 @@ bool ParseFileName(const std::string& filename, uint64_t* number,
 // Make the CURRENT file point to the descriptor file with the
 // specified number.
 Error SetCurrentFile(Env* env, const std::string& dbname,
-                      uint64_t descriptor_number);
+                     uint64_t descriptor_number);
 
 }  // namespace leveldb
 
