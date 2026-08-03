@@ -139,8 +139,8 @@ class FaultInjectionTestEnv : public EnvWrapper {
   ~FaultInjectionTestEnv() override = default;
   std::expected<WritableFile*, Error> NewWritableFile(
       const std::string& fname) override;
-  Error NewAppendableFile(const std::string& fname,
-                          WritableFile** result) override;
+  std::expected<WritableFile*, Error> NewAppendableFile(
+      const std::string& fname) override;
   Error RemoveFile(const std::string& f) override;
   Error RenameFile(const std::string& s, const std::string& t) override;
 
@@ -255,11 +255,10 @@ std::expected<WritableFile*, Error> FaultInjectionTestEnv::NewWritableFile(
   }
 }
 
-Error FaultInjectionTestEnv::NewAppendableFile(const std::string& fname,
-                                               WritableFile** result) {
-  WritableFile* actual_writable_file;
-  Error e = target()->NewAppendableFile(fname, &actual_writable_file);
-  if (e.ok()) {
+std::expeced<WritableFile*, Error> FaultInjectionTestEnv::NewAppendableFile(
+    const std::string& fname) {
+  if (auto ret = target()->NewAppendableFile(fname)) {
+    WritableFile* actual_writable_file = ret.value();
     FileState state(fname);
     state.pos_ = 0;
     {
@@ -270,9 +269,10 @@ Error FaultInjectionTestEnv::NewAppendableFile(const std::string& fname,
         state = db_file_state_[fname];
       }
     }
-    *result = new TestWritableFile(state, actual_writable_file, this);
+    return new TestWritableFile(state, actual_writable_file, this);
+  } else {
+    return ret;
   }
-  return e;
 }
 
 Error FaultInjectionTestEnv::DropUnsyncedFileData() {

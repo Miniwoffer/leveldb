@@ -37,10 +37,8 @@ class RecoveryTest : public testing::Test {
   Env* env() const { return env_; }
 
   bool CanAppend() {
-    WritableFile* tmp;
-    Error e = env_->NewAppendableFile(CurrentFileName(dbname_), &tmp);
-    delete tmp;
-    if (e.IsNotSupported()) {
+    auto ret = env_->NewAppendableFile(CurrentFileName(dbname_));
+    if (!ret && ret.error().IsNotSupported()) {
       return false;
     } else {
       return true;
@@ -198,7 +196,9 @@ TEST_F(RecoveryTest, LargeManifestCompacted) {
   {
     uint64_t len = FileSize(old_manifest);
     WritableFile* file;
-    ASSERT_LEVELDB_OK(env()->NewAppendableFile(old_manifest, &file));
+    auto ret = env()->NewAppendableFile(old_manifest);
+    ASSERT_TRUE(ret);
+    file = ret.value();
     std::string zeroes(3 * 1048576 - static_cast<size_t>(len), 0);
     ASSERT_LEVELDB_OK(file->Append(zeroes));
     ASSERT_LEVELDB_OK(file->Flush());

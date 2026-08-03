@@ -273,8 +273,8 @@ class InMemoryEnv : public EnvWrapper {
     return new WritableFileImpl(file);
   }
 
-  Error NewAppendableFile(const std::string& fname,
-                          WritableFile** result) override {
+  std::expected<WritableFile*, Error> NewAppendableFile(
+      const std::string& fname) override {
     MutexLock lock(&mutex_);
     FileState** sptr = &file_map_[fname];
     FileState* file = *sptr;
@@ -282,8 +282,7 @@ class InMemoryEnv : public EnvWrapper {
       file = new FileState();
       file->Ref();
     }
-    *result = new WritableFileImpl(file);
-    return Error(Error::Code::Ok);
+    return new WritableFileImpl(file);
   }
 
   bool FileExists(const std::string& fname) override {

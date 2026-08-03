@@ -235,13 +235,17 @@ TEST_F(EnvTest, ReopenAppendableFile) {
   env_->RemoveFile(test_file_name);
 
   WritableFile* appendable_file;
-  ASSERT_LEVELDB_OK(env_->NewAppendableFile(test_file_name, &appendable_file));
+  auto ret = env_->NewAppendableFile(test_file_name);
+  ASSERT_TRUE(ret);
+  appendable_file = ret.value();
   std::string data("hello world!");
   ASSERT_LEVELDB_OK(appendable_file->Append(data));
   ASSERT_LEVELDB_OK(appendable_file->Close());
   delete appendable_file;
 
-  ASSERT_LEVELDB_OK(env_->NewAppendableFile(test_file_name, &appendable_file));
+  ret = env_->NewAppendableFile(test_file_name);
+  ASSERT_TRUE(ret);
+  appendable_file = ret.value();
   data = "42";
   ASSERT_LEVELDB_OK(appendable_file->Append(data));
   ASSERT_LEVELDB_OK(appendable_file->Close());

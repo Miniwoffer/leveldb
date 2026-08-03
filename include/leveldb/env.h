@@ -108,8 +108,8 @@ class LEVELDB_EXPORT Env {
   // not allow appending to an existing file.  Users of Env (including
   // the leveldb implementation) must be prepared to deal with
   // an Env that does not support appending.
-  virtual Error NewAppendableFile(const std::string& fname,
-                                  WritableFile** result);
+  virtual std::expected<WritableFile*, Error> NewAppendableFile(
+      const std::string& fname);
 
   // Returns true iff the named file exists.
   virtual bool FileExists(const std::string& fname) = 0;
@@ -355,8 +355,9 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
       const std::string& f) override {
     return std::move(target_->NewWritableFile(f));
   }
-  Error NewAppendableFile(const std::string& f, WritableFile** r) override {
-    return target_->NewAppendableFile(f, r);
+  std::expected<WritableFile*, Error> NewAppendableFile(
+      const std::string& f) override {
+    return std::move(target_->NewAppendableFile(f));
   }
   bool FileExists(const std::string& f) override {
     return target_->FileExists(f);
