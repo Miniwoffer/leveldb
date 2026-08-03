@@ -156,7 +156,7 @@ class SpecialEnv : public EnvWrapper {
         log_file_close_(false),
         count_random_reads_(false) {}
 
-  Error NewWritableFile(const std::string& f, WritableFile** r) {
+  std::expected<WritableFile*, Error> NewWritableFile(const std::string& f) {
     class DataFile : public WritableFile {
      private:
       SpecialEnv* const env_;
@@ -222,18 +222,21 @@ class SpecialEnv : public EnvWrapper {
     };
 
     if (non_writable_.load(std::memory_order_acquire)) {
-      return Error(Error::Code::IOFault, "simulated write error");
+      return std::unexpected(
+          Error(Error::Code::IOFault, "simulated write error"));
     }
 
-    Error e = target()->NewWritableFile(f, r);
-    if (e.ok()) {
+    if (auto ret = target()->NewWritableFile(f)) {
+      auto r = ret.value();
       if (IsLdbFile(f) || IsLogFile(f)) {
-        *r = new DataFile(this, *r, f);
+        r = new DataFile(this, r, f);
       } else if (IsManifestFile(f)) {
-        *r = new ManifestFile(this, *r);
+        r = new ManifestFile(this, r);
       }
+      return r;
+    } else {
+      return std::move(ret);
     }
-    return e;
   }
 
   std::expected<RandomAccessFile*, Error> NewRandomAccessFile(

@@ -50,11 +50,13 @@ void Log(Logger* info_log, const char* format, ...) {
 static Error DoWriteStringToFile(Env* env, const std::string_view& data,
                                  const std::string& fname, bool should_sync) {
   WritableFile* file;
-  Error e = env->NewWritableFile(fname, &file);
-  if (!e.ok()) {
-    return e;
+  if (auto ret = env->NewWritableFile(fname)) {
+    file = ret.value();
+  } else {
+    return std::move(ret.error());
   }
-  e = file->Append(data);
+
+  Error e = file->Append(data);
   if (e.ok() && should_sync) {
     e = file->Sync();
   }

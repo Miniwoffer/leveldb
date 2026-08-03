@@ -761,10 +761,12 @@ Error VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
     // first call to LogAndApply (when opening the database).
     assert(descriptor_file_ == nullptr);
     new_manifest_file = DescriptorFileName(dbname_, manifest_file_number_);
-    e = env_->NewWritableFile(new_manifest_file, &descriptor_file_);
-    if (e.ok()) {
+    if (auto ret = env_->NewWritableFile(new_manifest_file)) {
+      descriptor_file_ = ret.value();
       descriptor_log_ = new log::Writer(descriptor_file_);
       e = WriteSnapshot(descriptor_log_);
+    } else {
+      e = std::move(ret.error());
     }
   }
 

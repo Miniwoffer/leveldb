@@ -30,7 +30,9 @@ TEST_F(EnvTest, ReadWrite) {
   ASSERT_LEVELDB_OK(env_->GetTestDirectory(&test_dir));
   std::string test_file_name = test_dir + "/open_on_read.txt";
   WritableFile* writable_file;
-  ASSERT_LEVELDB_OK(env_->NewWritableFile(test_file_name, &writable_file));
+  auto ret = env_->NewWritableFile(test_file_name, &writable_file);
+  ASSERT_TRUE(ret);
+  writable_file = ret.value();
 
   // Fill a file with data generated via a sequence of randomly sized writes.
   static const size_t kDataSize = 10 * 1048576;
@@ -205,13 +207,17 @@ TEST_F(EnvTest, ReopenWritableFile) {
   env_->RemoveFile(test_file_name);
 
   WritableFile* writable_file;
-  ASSERT_LEVELDB_OK(env_->NewWritableFile(test_file_name, &writable_file));
+  auto ret = env_->NewWritableFile(test_file_name, &writable_file);
+  ASSERT_TRUE(ret);
+  writable_file = ret.value();
   std::string data("hello world!");
   ASSERT_LEVELDB_OK(writable_file->Append(data));
   ASSERT_LEVELDB_OK(writable_file->Close());
   delete writable_file;
 
-  ASSERT_LEVELDB_OK(env_->NewWritableFile(test_file_name, &writable_file));
+  ret = env_->NewWritableFile(test_file_name, &writable_file);
+  ASSERT_TRUE(ret);
+  writable_file = ret.value();
   data = "42";
   ASSERT_LEVELDB_OK(writable_file->Append(data));
   ASSERT_LEVELDB_OK(writable_file->Close());

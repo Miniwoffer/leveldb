@@ -93,8 +93,8 @@ class LEVELDB_EXPORT Env {
   // returns non-OK.
   //
   // The returned file will only be accessed by one thread at a time.
-  virtual Error NewWritableFile(const std::string& fname,
-                                WritableFile** result) = 0;
+  virtual std::expected<WritableFile*, Error> NewWritableFile(
+      const std::string& fname) = 0;
 
   // Create an object that either appends to an existing file, or
   // writes to a new file (if the file does not exist to begin with).
@@ -351,8 +351,9 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
       const std::string& f) override {
     return target_->NewRandomAccessFile(f);
   }
-  Error NewWritableFile(const std::string& f, WritableFile** r) override {
-    return target_->NewWritableFile(f, r);
+  std::expected<WritableFile*, Error> NewWritableFile(
+      const std::string& f) override {
+    return std::move(target_->NewWritableFile(f));
   }
   Error NewAppendableFile(const std::string& f, WritableFile** r) override {
     return target_->NewAppendableFile(f, r);

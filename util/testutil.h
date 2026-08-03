@@ -59,14 +59,13 @@ class ErrorEnv : public EnvWrapper {
         num_writable_file_errors_(0) {}
   ~ErrorEnv() override { delete target(); }
 
-  Error NewWritableFile(const std::string& fname,
-                        WritableFile** result) override {
+  std::expected<WritableFile*, Error> NewWritableFile(
+      const std::string& fname) override {
     if (writable_file_error_) {
       ++num_writable_file_errors_;
-      *result = nullptr;
-      return Error(Error::Code::IOFault, fname, "fake error");
+      return std::unexpected(Error(Error::Code::IOFault, fname, "fake error"));
     }
-    return target()->NewWritableFile(fname, result);
+    return target()->NewWritableFile(fname);
   }
 
   Error NewAppendableFile(const std::string& fname,
