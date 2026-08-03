@@ -225,7 +225,9 @@ TEST_F(EnvPosixTest, TestCloseOnExecSequentialFile) {
   ASSERT_LEVELDB_OK(WriteStringToFile(env_, "0123456789", file_path));
 
   leveldb::SequentialFile* file = nullptr;
-  ASSERT_LEVELDB_OK(env_->NewSequentialFile(file_path, &file));
+  std::expected<SequentialFile*, Error> ret;
+  ASSERT_TRUE(ret = env_->NewSequentialFile(file_path));
+  file = ret.value();
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   delete file;
 

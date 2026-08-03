@@ -55,10 +55,12 @@ Error PrintLogContents(Env* env, const std::string& fname,
                        void (*func)(uint64_t, std::string_view, WritableFile*),
                        WritableFile* dst) {
   SequentialFile* file;
-  Error e = env->NewSequentialFile(fname, &file);
-  if (!e.ok()) {
-    return e;
+  if (auto ret = env->NewSequentialFile(fname); !ret) {
+    return ret.error();
+  } else {
+    file = ret.value();
   }
+
   CorruptionReporter reporter;
   reporter.dst_ = dst;
   log::Reader reader(file, &reporter, true, 0);

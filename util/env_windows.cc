@@ -392,9 +392,8 @@ class WindowsEnv : public Env {
     std::abort();
   }
 
-  Error NewSequentialFile(const std::string& filename,
-                          SequentialFile** result) override {
-    *result = nullptr;
+  std::expected<SequentialFile*, Error> NewSequentialFile(
+      const std::string& filename) override {
     DWORD desired_access = GENERIC_READ;
     DWORD share_mode = FILE_SHARE_READ;
     ScopedHandle handle = ::CreateFileA(
@@ -402,11 +401,10 @@ class WindowsEnv : public Env {
         /*lpSecurityAttributes=*/nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
         /*hTemplateFile=*/nullptr);
     if (!handle.is_valid()) {
-      return WindowsError(filename, ::GetLastError());
+      return std::unexpected(WindowsError(filename, ::GetLastError()));
     }
 
-    *result = new WindowsSequentialFile(filename, std::move(handle));
-    return Error(Error::Code::Ok);
+    return new WindowsSequentialFile(filename, std::move(handle));
   }
 
   Error NewRandomAccessFile(const std::string& filename,

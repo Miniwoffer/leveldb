@@ -157,9 +157,10 @@ class Repairer {
     // Open the log file
     std::string logname = LogFileName(dbname_, log);
     SequentialFile* lfile;
-    Error err = env_->NewSequentialFile(logname, &lfile);
-    if (!err.ok()) {
-      return err;
+    if (auto ret = env_->NewSequentialFile(logname); !ret) {
+      return ret.error();
+    } else {
+      lfile = ret.value();
     }
 
     // Create the log reader.
@@ -178,6 +179,7 @@ class Repairer {
     std::string scratch;
     std::string_view record;
     WriteBatch batch;
+    Error err;
     MemTable* mem = new MemTable(icmp_);
     mem->Ref();
     int counter = 0;

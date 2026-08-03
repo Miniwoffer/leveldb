@@ -57,8 +57,12 @@ Error Truncate(const std::string& filename, uint64_t length) {
   leveldb::Env* env = leveldb::Env::Default();
 
   SequentialFile* orig_file;
-  Error e = env->NewSequentialFile(filename, &orig_file);
-  if (!e.ok()) return e;
+  Error e;
+  if (auto ret = env->NewSequentialFile(filename); !ret) {
+    return ret.error();
+  } else {
+    orig_file = ret.value();
+  }
 
   char* scratch = new char[length];
   leveldb::std::string_view result;

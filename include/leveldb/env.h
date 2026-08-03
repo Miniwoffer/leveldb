@@ -15,6 +15,7 @@
 
 #include <cstdarg>
 #include <cstdint>
+#include <expected>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -71,8 +72,8 @@ class LEVELDB_EXPORT Env {
   // NotFound status when the file does not exist.
   //
   // The returned file will only be accessed by one thread at a time.
-  virtual Error NewSequentialFile(const std::string& fname,
-                                  SequentialFile** result) = 0;
+  virtual std::expected<SequentialFile*, Error> NewSequentialFile(
+      const std::string& fname) = 0;
 
   // Create an object supporting random-access reads from the file with the
   // specified name.  On success, stores a pointer to the new file in
@@ -342,8 +343,9 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
   Env* target() const { return target_; }
 
   // The following text is boilerplate that forwards all methods to target().
-  Error NewSequentialFile(const std::string& f, SequentialFile** r) override {
-    return target_->NewSequentialFile(f, r);
+  std::expected<SequentialFile*, Error> NewSequentialFile(
+      const std::string& f) override {
+    return target_->NewSequentialFile(f);
   }
   Error NewRandomAccessFile(const std::string& f,
                             RandomAccessFile** r) override {
