@@ -1039,11 +1039,11 @@ class Benchmark {
     std::snprintf(fname, sizeof(fname), "%s/heap-%04d", FLAGS_db,
                   ++heap_counter_);
     WritableFile* file;
-    if (auto ret = g_env->NewWritableFile(fname); !ret) {
+    if (auto ret = g_env->NewWritableFile(fname)) {
+      file = ret.value();
+    } else {
       std::fprintf(stderr, "%s\n", ret.error().ToString().c_str());
       return;
-    } else {
-      file = ret.value();
     }
 
     bool ok = port::GetHeapProfile(WriteToFile, file);

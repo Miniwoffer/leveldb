@@ -58,10 +58,10 @@ Error Truncate(const std::string& filename, uint64_t length) {
 
   SequentialFile* orig_file;
   Error e;
-  if (auto ret = env->NewSequentialFile(filename); !ret) {
-    return ret.error();
-  } else {
+  if (auto ret = env->NewSequentialFile(filename)) {
     orig_file = ret.value();
+  } else {
+    return std::move(ret.error());
   }
 
   char* scratch = new char[length];

@@ -85,10 +85,10 @@ Error ReadFileToString(Env* env, const std::string& fname, std::string* data) {
   SequentialFile* file;
   Error e;
 
-  if (auto ret = env->NewSequentialFile(fname); !ret) {
-    return ret.error();
-  } else {
+  if (auto ret = env->NewSequentialFile(fname)) {
     file = ret.value();
+  } else {
+    return std::move(ret.error());
   }
 
   static const int kBufferSize = 8192;

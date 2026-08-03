@@ -55,10 +55,10 @@ Error PrintLogContents(Env* env, const std::string& fname,
                        void (*func)(uint64_t, std::string_view, WritableFile*),
                        WritableFile* dst) {
   SequentialFile* file;
-  if (auto ret = env->NewSequentialFile(fname); !ret) {
-    return ret.error();
-  } else {
+  if (auto ret = env->NewSequentialFile(fname)) {
     file = ret.value();
+  } else {
+    return std::move(ret.error());
   }
 
   CorruptionReporter reporter;
@@ -157,7 +157,7 @@ Error DumpTable(Env* env, const std::string& fname, WritableFile* dst) {
     if (auto ret = env->NewRandomAccessFile(fname)) {
       file = ret.value();
     } else {
-      e = ret.error();
+      e = std::move(ret.error());
     }
   }
   if (e.ok()) {

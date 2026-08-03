@@ -837,15 +837,15 @@ Error VersionSet::Recover(bool* save_manifest) {
 
   std::string dscname = dbname_ + "/" + current;
   SequentialFile* file;
-  if (auto ret = env_->NewSequentialFile(dscname); !ret) {
-    e = ret.error();
+  if (auto ret = env_->NewSequentialFile(dscname)) {
+    file = ret.value();
+  } else {
+    e = std::move(ret.error());
     if (e.IsNotFound()) {
       return Error(Error::Code::Corruption,
                    "CURRENT points to a non-existent file", e.ToString());
     }
     return e;
-  } else {
-    file = ret.value();
   }
 
   bool have_log_number = false;
