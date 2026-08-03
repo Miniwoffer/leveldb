@@ -157,10 +157,10 @@ class Repairer {
     // Open the log file
     std::string logname = LogFileName(dbname_, log);
     SequentialFile* lfile;
-    if (auto ret = env_->NewSequentialFile(logname); !ret) {
-      return ret.error();
-    } else {
+    if (auto ret = env_->NewSequentialFile(logname)) {
       lfile = ret.value();
+    } else {
+      return std::move(ret.error());
     }
 
     // Create the log reader.
