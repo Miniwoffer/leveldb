@@ -39,7 +39,9 @@ TEST_F(MemEnvTest, Basics) {
   ASSERT_EQ(0, children.size());
 
   // Create a file.
-  ASSERT_LEVELDB_OK(env_->NewWritableFile("/dir/f", &writable_file));
+  auto ret = env_->NewWritableFile("/dir/f");
+  ASSERT_TRUE(ret);
+  writable_file = ret.value();
   ASSERT_LEVELDB_OK(env_->GetFileSize("/dir/f", &file_size));
   ASSERT_EQ(0, file_size);
   delete writable_file;
@@ -53,7 +55,9 @@ TEST_F(MemEnvTest, Basics) {
   ASSERT_EQ("f", children[0]);
 
   // Write to the file.
-  ASSERT_LEVELDB_OK(env_->NewWritableFile("/dir/f", &writable_file));
+  ret = env_->NewWritableFile("/dir/f");
+  ASSERT_TRUE(ret);
+  writable_file = ret.value();
   ASSERT_LEVELDB_OK(writable_file->Append("abc"));
   delete writable_file;
 
@@ -98,7 +102,9 @@ TEST_F(MemEnvTest, ReadWrite) {
 
   ASSERT_LEVELDB_OK(env_->CreateDir("/dir"));
 
-  ASSERT_LEVELDB_OK(env_->NewWritableFile("/dir/f", &writable_file));
+  auto wr_ret = env_->NewWritableFile("/dir/f");
+  ASSERT_TRUE(wr_ret);
+  writable_file = wr_ret.value();
   ASSERT_LEVELDB_OK(writable_file->Append("hello "));
   ASSERT_LEVELDB_OK(writable_file->Append("world"));
   delete writable_file;
@@ -150,7 +156,9 @@ TEST_F(MemEnvTest, Misc) {
   ASSERT_TRUE(!test_dir.empty());
 
   WritableFile* writable_file;
-  ASSERT_LEVELDB_OK(env_->NewWritableFile("/a/b", &writable_file));
+  auto ret = env_->NewWritableFile("/a/b");
+  ASSERT_TRUE(ret);
+  writable_file = ret.value();
 
   // These are no-ops, but we test they return success.
   ASSERT_LEVELDB_OK(writable_file->Sync());
@@ -169,16 +177,18 @@ TEST_F(MemEnvTest, LargeWrite) {
   }
 
   WritableFile* writable_file;
-  ASSERT_LEVELDB_OK(env_->NewWritableFile("/dir/f", &writable_file));
+  auto wr_ret = env_->NewWritableFile("/dir/f");
+  ASSERT_TRUE(wr_ret);
+  writable_file = wr_ret.value();
   ASSERT_LEVELDB_OK(writable_file->Append("foo"));
   ASSERT_LEVELDB_OK(writable_file->Append(write_data));
   delete writable_file;
 
-  std::expected<SequentialFile*, Error> ret;
+  std::expected<SequentialFile*, Error> seq_ret;
   SequentialFile* seq_file;
   std::string_view result;
-  ASSERT_TRUE(ret = env_->NewSequentialFile("/dir/f"));
-  seq_file = ret.value();
+  ASSERT_TRUE(seq_ret = env_->NewSequentialFile("/dir/f"));
+  seq_file = seq_ret.value();
   ASSERT_LEVELDB_OK(seq_file->Read(3, &result, scratch));  // Read "foo".
   ASSERT_EQ(0, result.compare("foo"));
 

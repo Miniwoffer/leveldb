@@ -71,8 +71,8 @@ Error Truncate(const std::string& filename, uint64_t length) {
   if (e.ok()) {
     std::string tmp_name = GetDirName(filename) + "/truncate.tmp";
     WritableFile* tmp_file;
-    e = env->NewWritableFile(tmp_name, &tmp_file);
-    if (e.ok()) {
+    if (auto ret = env->NewWritableFile(tmp_name)) {
+      tmp_file = ret.value();
       e = tmp_file->Append(result);
       delete tmp_file;
       if (e.ok()) {
@@ -80,6 +80,8 @@ Error Truncate(const std::string& filename, uint64_t length) {
       } else {
         env->RemoveFile(tmp_name);
       }
+    } else {
+      e = std::move(ret.error());
     }
   }
 
@@ -135,8 +137,8 @@ class FaultInjectionTestEnv : public EnvWrapper {
   FaultInjectionTestEnv()
       : EnvWrapper(Env::Default()), filesystem_active_(true) {}
   ~FaultInjectionTestEnv() override = default;
-  Error NewWritableFile(const std::string& fname,
-                        WritableFile** result) override;
+  std::expected<WritableFile*, Error> NewWritableFile(
+      const std::string& fname) override;
   Error NewAppendableFile(const std::string& fname,
                           WritableFile** result) override;
   Error RemoveFile(const std::string& f) override;
@@ -233,22 +235,24 @@ Error TestWritableFile::Sync() {
   return e;
 }
 
-Error FaultInjectionTestEnv::NewWritableFile(const std::string& fname,
-                                             WritableFile** result) {
-  WritableFile* actual_writable_file;
-  Error e = target()->NewWritableFile(fname, &actual_writable_file);
-  if (e.ok()) {
+std::expected<WritableFile*, Error> FaultInjectionTestEnv::NewWritableFile(
+    const std::string& fname) {
+  if (auto ret = target()->NewWritableFile(fname, &actual_writable_file)) {
+    WritableFile* actual_writable_file = ret.value();
     FileState state(fname);
     state.pos_ = 0;
-    *result = new TestWritableFile(state, actual_writable_file, this);
+    WritableFile* result =
+        new TestWritableFile(state, actual_writable_file, this);
     // NewWritableFile doesn't append to files, so if the same file is
     // opened again then it will be truncated - so forget our saved
     // state.
     UntrackFile(fname);
     MutexLock l(&mutex_);
     new_files_since_last_dir_sync_.insert(fname);
+    return result;
+  } else {
+    return std::move(ret);
   }
-  return e;
 }
 
 Error FaultInjectionTestEnv::NewAppendableFile(const std::string& fname,

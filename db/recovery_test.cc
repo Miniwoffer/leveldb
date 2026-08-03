@@ -149,7 +149,9 @@ class RecoveryTest : public testing::Test {
                    const std::string_view key, std::string_view val) {
     std::string fname = LogFileName(dbname_, lognum);
     WritableFile* file;
-    ASSERT_LEVELDB_OK(env_->NewWritableFile(fname, &file));
+    auto ret = env_->NewWritableFile(fname);
+    ASSERT_TRUE(ret);
+    file = ret.value();
     log::Writer writer(file);
     WriteBatch batch;
     batch.Put(key, val);

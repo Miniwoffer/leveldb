@@ -301,8 +301,9 @@ class Repairer {
     // Create builder.
     std::string copy = TableFileName(dbname_, next_file_number_++);
     WritableFile* file;
-    Error e = env_->NewWritableFile(copy, &file);
-    if (!e.ok()) {
+    if (auto ret = env_->NewWritableFile(copy)) {
+      file = ret.value();
+    } else {
       return;
     }
     TableBuilder* builder = new TableBuilder(options_, file);
@@ -317,6 +318,7 @@ class Repairer {
     delete iter;
 
     ArchiveFile(src);
+    Error e;
     if (counter == 0) {
       builder->Abandon();  // Nothing to save
     } else {
@@ -351,9 +353,11 @@ class Repairer {
   Error WriteDescriptor() {
     std::string tmp = TempFileName(dbname_, 1);
     WritableFile* file;
-    Error err = env_->NewWritableFile(tmp, &file);
-    if (!err.ok()) {
-      return err;
+    Error err;
+    if (auto ret = env_->NewWritableFile(tmp)) {
+      file = ret.value();
+    } else {
+      return std::move(ret.error());
     }
 
     SequenceNumber max_sequence = 0;

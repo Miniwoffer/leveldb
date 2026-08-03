@@ -277,7 +277,9 @@ TEST_F(EnvPosixTest, TestCloseOnExecWritableFile) {
   ASSERT_LEVELDB_OK(WriteStringToFile(env_, "0123456789", file_path));
 
   leveldb::WritableFile* file = nullptr;
-  ASSERT_LEVELDB_OK(env_->NewWritableFile(file_path, &file));
+  auto ret = env_->NewWritableFile(file_path);
+  ASSERT_TRUE(ret);
+  file = ret.value();
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   delete file;
 

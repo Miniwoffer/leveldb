@@ -254,8 +254,8 @@ class InMemoryEnv : public EnvWrapper {
     return new RandomAccessFileImpl(file_map_[fname]);
   }
 
-  Error NewWritableFile(const std::string& fname,
-                        WritableFile** result) override {
+  std::expected<WritableFile*, Error> NewWritableFile(
+      const std::string& fname) override {
     MutexLock lock(&mutex_);
     FileSystem::iterator it = file_map_.find(fname);
 
@@ -270,8 +270,7 @@ class InMemoryEnv : public EnvWrapper {
       file->Truncate();
     }
 
-    *result = new WritableFileImpl(file);
-    return Error(Error::Code::Ok);
+    return new WritableFileImpl(file);
   }
 
   Error NewAppendableFile(const std::string& fname,

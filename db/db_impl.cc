@@ -189,6 +189,7 @@ DBImpl::~DBImpl() {
 }
 
 Error DBImpl::NewDB() {
+  Error e;
   VersionEdit new_db;
   new_db.SetComparatorName(user_comparator()->Name());
   new_db.SetLogNumber(0);
@@ -197,9 +198,10 @@ Error DBImpl::NewDB() {
 
   const std::string manifest = DescriptorFileName(dbname_, 1);
   WritableFile* file;
-  Error e = env_->NewWritableFile(manifest, &file);
-  if (!e.ok()) {
-    return e;
+  if (auto ret = env_->NewWritableFile(manifest)) {
+    file = ret.value();
+  } else {
+    return std::move(ret.error());
   }
   {
     log::Writer log(file);
@@ -840,9 +842,12 @@ Error DBImpl::OpenCompactionOutputFile(CompactionState* compact) {
 
   // Make the output file
   std::string fname = TableFileName(dbname_, file_number);
-  Error e = env_->NewWritableFile(fname, &compact->outfile);
-  if (e.ok()) {
+  Error e;
+  if (auto ret = env_->NewWritableFile(fname)) {
+    compact->outfile = ret.value();
     compact->builder = new TableBuilder(options_, compact->outfile);
+  } else {
+    e = std::move(ret.error());
   }
   return e;
 }
@@ -1394,8 +1399,10 @@ Error DBImpl::MakeRoomForWrite(bool force) {
       assert(versions_->PrevLogNumber() == 0);
       uint64_t new_log_number = versions_->NewFileNumber();
       WritableFile* lfile = nullptr;
-      e = env_->NewWritableFile(LogFileName(dbname_, new_log_number), &lfile);
-      if (!e.ok()) {
+      if (auto ret =
+              env_->NewWritableFile(LogFileName(dbname_, new_log_number))) {
+        lfile = ret.value();
+      } else {
         // Avoid chewing through file number space in a tight loop.
         versions_->ReuseFileNumber(new_log_number);
         break;
@@ -1535,15 +1542,17 @@ std::expected<std::shared_ptr<DB>, Error> DB::Open(
     // Create new log and a corresponding memtable.
     uint64_t new_log_number = impl->versions_->NewFileNumber();
     WritableFile* lfile;
-    e = options.env->NewWritableFile(LogFileName(dbname_, new_log_number),
-                                     &lfile);
-    if (e.ok()) {
+    if (auto ret = options.env->NewWritableFile(
+            LogFileName(dbname_, new_log_number))) {
+      lfile = ret.value();
       edit.SetLogNumber(new_log_number);
       impl->logfile_ = lfile;
       impl->logfile_number_ = new_log_number;
       impl->log_ = new log::Writer(lfile);
       impl->mem_ = new MemTable(impl->internal_comparator_);
       impl->mem_->Ref();
+    } else {
+      e = std::move(ret.error());
     }
   }
   if (e.ok() && save_manifest) {

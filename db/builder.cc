@@ -24,9 +24,10 @@ Error BuildTable(const std::string& dbname, Env* env, const Options& options,
   std::string fname = TableFileName(dbname, meta->number);
   if (iter->Valid()) {
     WritableFile* file;
-    e = env->NewWritableFile(fname, &file);
-    if (!e.ok()) {
-      return e;
+    if (auto ret = env->NewWritableFile(fname)) {
+      file = ret.value();
+    } else {
+      return std::move(ret.error());
     }
 
     TableBuilder* builder = new TableBuilder(options, file);
