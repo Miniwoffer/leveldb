@@ -77,11 +77,8 @@ TEST_F(MemEnvTest, Basics) {
   ASSERT_EQ(8, file_size);
 
   // Check that opening non-existent file fails.
-  SequentialFile* seq_file;
-  RandomAccessFile* rand_file;
   ASSERT_FALSE(env_->NewSequentialFile("/dir/non_existent"));
-  ASSERT_TRUE(!env_->NewRandomAccessFile("/dir/non_existent", &rand_file).ok());
-  ASSERT_TRUE(!rand_file);
+  ASSERT_FALSE(env_->NewRandomAccessFile("/dir/non_existent"));
 
   // Check that deleting works.
   ASSERT_TRUE(!env_->RemoveFile("/dir/non_existent").ok());
@@ -107,9 +104,9 @@ TEST_F(MemEnvTest, ReadWrite) {
   delete writable_file;
 
   // Read sequentially.
-  std::expected<SequentialFile*, Error> ret;
-  ASSERT_TRUE(ret = env_->NewSequentialFile("/dir/f"));
-  seq_file = ret.value();
+  std::expected<SequentialFile*, Error> seq_ret;
+  ASSERT_TRUE(seq_ret = env_->NewSequentialFile("/dir/f"));
+  seq_file = seq_ret.value();
   ASSERT_LEVELDB_OK(seq_file->Read(5, &result, scratch));  // Read "hello".
   ASSERT_EQ(0, result.compare("hello"));
   ASSERT_LEVELDB_OK(seq_file->Skip(1));
@@ -124,7 +121,9 @@ TEST_F(MemEnvTest, ReadWrite) {
   delete seq_file;
 
   // Random reads.
-  ASSERT_LEVELDB_OK(env_->NewRandomAccessFile("/dir/f", &rand_file));
+  std::expected<RandomAccessFile*, Error> rand_ret;
+  ASSERT_TRUE(rand_ret = env_->NewRandomAccessFile("/dir/f"));
+  rand_file = rand_ret.value();
   ASSERT_LEVELDB_OK(rand_file->Read(6, 5, &result, scratch));  // Read "world".
   ASSERT_EQ(0, result.compare("world"));
   ASSERT_LEVELDB_OK(rand_file->Read(0, 5, &result, scratch));  // Read "hello".
@@ -203,7 +202,9 @@ TEST_F(MemEnvTest, OverwriteOpenFile) {
   ASSERT_LEVELDB_OK(WriteStringToFile(env_, kWrite1Data, kTestFileName));
 
   RandomAccessFile* rand_file;
-  ASSERT_LEVELDB_OK(env_->NewRandomAccessFile(kTestFileName, &rand_file));
+  std::expected<RandomAccessFile*, Error> ret;
+  ASSERT_TRUE(ret = env_->NewRandomAccessFile(kTestFileName));
+  rand_file = ret.value();
 
   const char kWrite2Data[] = "Write #2 data";
   ASSERT_LEVELDB_OK(WriteStringToFile(env_, kWrite2Data, kTestFileName));

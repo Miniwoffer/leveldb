@@ -533,28 +533,27 @@ class PosixEnv : public Env {
     return new PosixSequentialFile(filename, fd);
   }
 
-  Error NewRandomAccessFile(const std::string& filename,
-                            RandomAccessFile** result) override {
-    *result = nullptr;
+  std::expected<RandomAccessFile*, Error> NewRandomAccessFile(
+      const std::string& filename) override {
     int fd = ::open(filename.c_str(), O_RDONLY | kOpenBaseFlags);
     if (fd < 0) {
-      return PosixError(filename, errno);
+      return std::unexpected(PosixError(filename, errno));
     }
 
     if (!mmap_limiter_.Acquire()) {
-      *result = new PosixRandomAccessFile(filename, fd, &fd_limiter_);
-      return Error(Error::Code::Ok);
+      return new PosixRandomAccessFile(filename, fd, &fd_limiter_);
     }
 
     uint64_t file_size;
+    RandomAccessFile* result;
     Error err = GetFileSize(filename, &file_size);
     if (err.ok()) {
       void* mmap_base =
           ::mmap(/*addr=*/nullptr, file_size, PROT_READ, MAP_SHARED, fd, 0);
       if (mmap_base != MAP_FAILED) {
-        *result = new PosixMmapReadableFile(filename,
-                                            reinterpret_cast<char*>(mmap_base),
-                                            file_size, &mmap_limiter_);
+        result = new PosixMmapReadableFile(filename,
+                                           reinterpret_cast<char*>(mmap_base),
+                                           file_size, &mmap_limiter_);
       } else {
         err = PosixError(filename, errno);
       }
@@ -562,8 +561,10 @@ class PosixEnv : public Env {
     ::close(fd);
     if (!err.ok()) {
       mmap_limiter_.Release();
+      return std::unexpected(err);
     }
-    return err;
+
+    return result;
   }
 
   Error NewWritableFile(const std::string& filename,

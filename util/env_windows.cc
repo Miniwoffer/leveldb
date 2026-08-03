@@ -407,9 +407,8 @@ class WindowsEnv : public Env {
     return new WindowsSequentialFile(filename, std::move(handle));
   }
 
-  Error NewRandomAccessFile(const std::string& filename,
-                            RandomAccessFile** result) override {
-    *result = nullptr;
+  std::expected<RandomAccessFile*, Error> NewRandomAccessFile(
+      const std::string& filename) override {
     DWORD desired_access = GENERIC_READ;
     DWORD share_mode = FILE_SHARE_READ;
     ScopedHandle handle =
@@ -418,18 +417,17 @@ class WindowsEnv : public Env {
                       FILE_ATTRIBUTE_READONLY,
                       /*hTemplateFile=*/nullptr);
     if (!handle.is_valid()) {
-      return WindowsError(filename, ::GetLastError());
+      return std::unexpected(WindowsError(filename, ::GetLastError()));
     }
     if (!mmap_limiter_.Acquire()) {
-      *result = new WindowsRandomAccessFile(filename, std::move(handle));
-      return Error(Error::Code::Ok);
+      return new WindowsRandomAccessFile(filename, std::move(handle));
     }
 
     LARGE_INTEGER file_size;
     Error err;
     if (!::GetFileSizeEx(handle.get(), &file_size)) {
       mmap_limiter_.Release();
-      return WindowsError(filename, ::GetLastError());
+      return std::unexpeceted(WindowsError(filename, ::GetLastError()));
     }
 
     ScopedHandle mapping =
@@ -444,14 +442,13 @@ class WindowsEnv : public Env {
                                         /*dwFileOffsetLow=*/0,
                                         /*dwNumberOfBytesToMap=*/0);
       if (mmap_base) {
-        *result = new WindowsMmapReadableFile(
+        return new WindowsMmapReadableFile(
             filename, reinterpret_cast<char*>(mmap_base),
             static_cast<size_t>(file_size.QuadPart), &mmap_limiter_);
-        return Error(Error::Code::Ok);
       }
     }
     mmap_limiter_.Release();
-    return WindowsError(filename, ::GetLastError());
+    return std::unexpected(WindowsError(filename, ::GetLastError()));
   }
 
   Error NewWritableFile(const std::string& filename,

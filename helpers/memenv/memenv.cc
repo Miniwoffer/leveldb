@@ -243,16 +243,15 @@ class InMemoryEnv : public EnvWrapper {
     return new SequentialFileImpl(file_map_[fname]);
   }
 
-  Error NewRandomAccessFile(const std::string& fname,
-                            RandomAccessFile** result) override {
+  std::expected<RandomAccessFile*, Error> NewRandomAccessFile(
+      const std::string& fname) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(fname) == file_map_.end()) {
-      *result = nullptr;
-      return Error(Error::Code::IOFault, fname, "File not found");
+      return std::unexpected(
+          Error(Error::Code::IOFault, fname, "File not found"));
     }
 
-    *result = new RandomAccessFileImpl(file_map_[fname]);
-    return Error(Error::Code::Ok);
+    return new RandomAccessFileImpl(file_map_[fname]);
   }
 
   Error NewWritableFile(const std::string& fname,

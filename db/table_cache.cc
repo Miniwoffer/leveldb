@@ -53,14 +53,18 @@ std::expected<Cache::Handle*, Error> TableCache::FindTable(uint64_t file_number,
   std::string fname = TableFileName(dbname_, file_number);
   RandomAccessFile* file = nullptr;
   Table* table = nullptr;
-  Error e = env_->NewRandomAccessFile(fname, &file);
-  if (!e.ok()) {
+  Error e;
+  if (auto ret = env_->NewRandomAccessFile(fname); !ret) {
     std::string old_fname = SSTTableFileName(dbname_, file_number);
-    if (env_->NewRandomAccessFile(old_fname, &file).ok()) {
+    if ((ret = env_->NewRandomAccessFile(old_fname))) {
+      file = ret.value();
       e = Error(Error::Code::Ok);
     }
+  } else {
+    file = ret.value();
   }
-  if (e.ok()) {
+
+  if (file) {
     e = Table::Open(options_, file, file_size, &table);
   }
 
