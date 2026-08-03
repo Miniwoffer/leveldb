@@ -466,8 +466,8 @@ class WindowsEnv : public Env {
     return new WindowsWritableFile(filename, std::move(handle));
   }
 
-  Error NewAppendableFile(const std::string& filename,
-                          WritableFile** result) override {
+  std::expected<WritableFile*, Error> NewAppendableFile(
+      const std::string& filename) override {
     DWORD desired_access = FILE_APPEND_DATA;
     DWORD share_mode = 0;  // Exclusive access.
     ScopedHandle handle = ::CreateFileA(
@@ -475,12 +475,10 @@ class WindowsEnv : public Env {
         /*lpSecurityAttributes=*/nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL,
         /*hTemplateFile=*/nullptr);
     if (!handle.is_valid()) {
-      *result = nullptr;
-      return WindowsError(filename, ::GetLastError());
+      return std::unexpected(WindowsError(filename, ::GetLastError()));
     }
 
-    *result = new WindowsWritableFile(filename, std::move(handle));
-    return Error(Error::Code::Ok);
+    return new WindowsWritableFile(filename, std::move(handle));
   }
 
   bool FileExists(const std::string& filename) override {

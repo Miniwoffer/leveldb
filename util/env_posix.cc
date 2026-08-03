@@ -578,17 +578,15 @@ class PosixEnv : public Env {
     return new PosixWritableFile(filename, fd);
   }
 
-  Error NewAppendableFile(const std::string& filename,
-                          WritableFile** result) override {
+  std::expected<WritableFile*, Error> NewAppendableFile(
+      const std::string& filename) override {
     int fd = ::open(filename.c_str(),
                     O_APPEND | O_WRONLY | O_CREAT | kOpenBaseFlags, 0644);
     if (fd < 0) {
-      *result = nullptr;
-      return PosixError(filename, errno);
+      return std::unexpected(PosixError(filename, errno));
     }
 
-    *result = new PosixWritableFile(filename, fd);
-    return Error(Error::Code::Ok);
+    return new PosixWritableFile(filename, fd);
   }
 
   bool FileExists(const std::string& filename) override {

@@ -62,7 +62,9 @@ TEST_F(MemEnvTest, Basics) {
   delete writable_file;
 
   // Check that append works.
-  ASSERT_LEVELDB_OK(env_->NewAppendableFile("/dir/f", &writable_file));
+  ret = env_->NewAppendableFile("/dir/f");
+  ASSERT_TRUE(ret);
+  writable_file = ret.value();
   ASSERT_LEVELDB_OK(env_->GetFileSize("/dir/f", &file_size));
   ASSERT_EQ(3, file_size);
   ASSERT_LEVELDB_OK(writable_file->Append("hello"));

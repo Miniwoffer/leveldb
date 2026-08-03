@@ -489,18 +489,20 @@ Error DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
     assert(log_ == nullptr);
     assert(mem_ == nullptr);
     uint64_t lfile_size;
-    if (env_->GetFileSize(fname, &lfile_size).ok() &&
-        env_->NewAppendableFile(fname, &logfile_).ok()) {
-      Log(options_.info_log, "Reusing old log %s \n", fname.c_str());
-      log_ = new log::Writer(logfile_, lfile_size);
-      logfile_number_ = log_number;
-      if (mem != nullptr) {
-        mem_ = mem;
-        mem = nullptr;
-      } else {
-        // mem can be nullptr if lognum exists but was empty.
-        mem_ = new MemTable(internal_comparator_);
-        mem_->Ref();
+    if (env_->GetFileSize(fname, &lfile_size).ok()) {
+      if (auto ret = env_->NewAppendableFile(fname)) {
+        logfile_ = ret.value();
+        Log(options_.info_log, "Reusing old log %s \n", fname.c_str());
+        log_ = new log::Writer(logfile_, lfile_size);
+        logfile_number_ = log_number;
+        if (mem != nullptr) {
+          mem_ = mem;
+          mem = nullptr;
+        } else {
+          // mem can be nullptr if lognum exists but was empty.
+          mem_ = new MemTable(internal_comparator_);
+          mem_->Ref();
+        }
       }
     }
   }

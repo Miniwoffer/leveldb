@@ -972,9 +972,11 @@ bool VersionSet::ReuseManifest(const std::string& dscname,
 
   assert(descriptor_file_ == nullptr);
   assert(descriptor_log_ == nullptr);
-  Error r = env_->NewAppendableFile(dscname, &descriptor_file_);
-  if (!r.ok()) {
-    Log(options_->info_log, "Reuse MANIFEST: %s\n", r.ToString().c_str());
+  if (auto ret = env_->NewAppendableFile(dscname)) {
+    descriptor_file_ = ret.value();
+  } else {
+    Log(options_->info_log, "Reuse MANIFEST: %s\n",
+        ret.error().ToString().c_str());
     assert(descriptor_file_ == nullptr);
     return false;
   }
