@@ -79,8 +79,7 @@ TEST_F(MemEnvTest, Basics) {
   // Check that opening non-existent file fails.
   SequentialFile* seq_file;
   RandomAccessFile* rand_file;
-  ASSERT_TRUE(!env_->NewSequentialFile("/dir/non_existent", &seq_file).ok());
-  ASSERT_TRUE(!seq_file);
+  ASSERT_FALSE(env_->NewSequentialFile("/dir/non_existent"));
   ASSERT_TRUE(!env_->NewRandomAccessFile("/dir/non_existent", &rand_file).ok());
   ASSERT_TRUE(!rand_file);
 
@@ -108,7 +107,9 @@ TEST_F(MemEnvTest, ReadWrite) {
   delete writable_file;
 
   // Read sequentially.
-  ASSERT_LEVELDB_OK(env_->NewSequentialFile("/dir/f", &seq_file));
+  std::expected<SequentialFile*, Error> ret;
+  ASSERT_TRUE(ret = env_->NewSequentialFile("/dir/f"));
+  seq_file = ret.value();
   ASSERT_LEVELDB_OK(seq_file->Read(5, &result, scratch));  // Read "hello".
   ASSERT_EQ(0, result.compare("hello"));
   ASSERT_LEVELDB_OK(seq_file->Skip(1));
@@ -174,9 +175,11 @@ TEST_F(MemEnvTest, LargeWrite) {
   ASSERT_LEVELDB_OK(writable_file->Append(write_data));
   delete writable_file;
 
+  std::expected<SequentialFile*, Error> ret;
   SequentialFile* seq_file;
   std::string_view result;
-  ASSERT_LEVELDB_OK(env_->NewSequentialFile("/dir/f", &seq_file));
+  ASSERT_TRUE(ret = env_->NewSequentialFile("/dir/f"));
+  seq_file = ret.value();
   ASSERT_LEVELDB_OK(seq_file->Read(3, &result, scratch));  // Read "foo".
   ASSERT_EQ(0, result.compare("foo"));
 

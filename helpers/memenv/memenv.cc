@@ -232,16 +232,15 @@ class InMemoryEnv : public EnvWrapper {
   }
 
   // Partial implementation of the Env interface.
-  Error NewSequentialFile(const std::string& fname,
-                          SequentialFile** result) override {
+  std::expected<SequentialFile*, Error> NewSequentialFile(
+      const std::string& fname) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(fname) == file_map_.end()) {
-      *result = nullptr;
-      return Error(Error::Code::IOFault, fname, "File not found");
+      return std::unexpected(
+          Error(Error::Code::IOFault, fname, "File not found"));
     }
 
-    *result = new SequentialFileImpl(file_map_[fname]);
-    return Error(Error::Code::Ok);
+    return new SequentialFileImpl(file_map_[fname]);
   }
 
   Error NewRandomAccessFile(const std::string& fname,

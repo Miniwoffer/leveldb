@@ -51,7 +51,10 @@ TEST_F(EnvTest, ReadWrite) {
 
   // Read all data using a sequence of randomly sized reads.
   SequentialFile* sequential_file;
-  ASSERT_LEVELDB_OK(env_->NewSequentialFile(test_file_name, &sequential_file));
+  std::expected<SequentialFile*, Error> ret;
+  ASSERT_TRUE(ret = env_->NewSequentialFile(test_file_name));
+  sequential_file = ret.value();
+
   std::string read_result;
   std::string scratch;
   while (read_result.size() < data.size()) {
@@ -187,13 +190,12 @@ TEST_F(EnvTest, TestOpenNonExistentFile) {
   ASSERT_TRUE(err.IsNotFound());
 #endif  // defined(LEVELDB_PLATFORM_CHROMIUM)
 
-  SequentialFile* sequential_file;
-  err = env_->NewSequentialFile(non_existent_file, &sequential_file);
+  auto ret = env_->NewSequentialFile(non_existent_file);
 #if defined(LEVELDB_PLATFORM_CHROMIUM)
   // TODO(crbug.com/760362): See comment in MakeIOFault() from env_chromium.cc.
-  ASSERT_TRUE(err.IsIOFault());
+  ASSERT_TRUE(ret.error().IsIOFault());
 #else
-  ASSERT_TRUE(err.IsNotFound());
+  ASSERT_TRUE(ret.error().IsNotFound());
 #endif  // defined(LEVELDB_PLATFORM_CHROMIUM)
 }
 

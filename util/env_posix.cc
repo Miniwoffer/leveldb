@@ -523,16 +523,14 @@ class PosixEnv : public Env {
     std::abort();
   }
 
-  Error NewSequentialFile(const std::string& filename,
-                          SequentialFile** result) override {
+  std::expected<SequentialFile*, Error> NewSequentialFile(
+      const std::string& filename) override {
     int fd = ::open(filename.c_str(), O_RDONLY | kOpenBaseFlags);
     if (fd < 0) {
-      *result = nullptr;
-      return PosixError(filename, errno);
+      return std::unexpected(PosixError(filename, errno));
     }
 
-    *result = new PosixSequentialFile(filename, fd);
-    return Error(Error::Code::Ok);
+    return new PosixSequentialFile(filename, fd);
   }
 
   Error NewRandomAccessFile(const std::string& filename,

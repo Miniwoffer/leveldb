@@ -414,10 +414,13 @@ Error DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
   // Open the log file
   std::string fname = LogFileName(dbname_, log_number);
   SequentialFile* file;
-  Error err = env_->NewSequentialFile(fname, &file);
-  if (!err.ok()) {
+  Error err;
+  if (auto ret = env_->NewSequentialFile(fname); !ret) {
+    err = ret.error();
     MaybeIgnoreError(&err);
     return err;
+  } else {
+    file = ret.value();
   }
 
   // Create the log reader.

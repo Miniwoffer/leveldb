@@ -81,10 +81,14 @@ Error WriteStringToFileSync(Env* env, const std::string_view& data,
 Error ReadFileToString(Env* env, const std::string& fname, std::string* data) {
   data->clear();
   SequentialFile* file;
-  Error e = env->NewSequentialFile(fname, &file);
-  if (!e.ok()) {
-    return e;
+  Error e;
+
+  if (auto ret = env->NewSequentialFile(fname); !ret) {
+    return ret.error();
+  } else {
+    file = ret.value();
   }
+
   static const int kBufferSize = 8192;
   char* space = new char[kBufferSize];
   while (true) {
