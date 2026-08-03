@@ -154,7 +154,11 @@ Error DumpTable(Env* env, const std::string& fname, WritableFile* dst) {
   Table* table = nullptr;
   Error e = env->GetFileSize(fname, &file_size);
   if (e.ok()) {
-    e = env->NewRandomAccessFile(fname, &file);
+    if (auto ret = env->NewRandomAccessFile(fname)) {
+      file = ret.value();
+    } else {
+      e = ret.error();
+    }
   }
   if (e.ok()) {
     // We use the default comparator, which may or may not match the

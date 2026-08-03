@@ -198,8 +198,10 @@ TEST_F(EnvPosixTest, TestOpenOnRead) {
   // open-on-read behavior of POSIX Env leveldb::RandomAccessFile.
   const int kNumFiles = kReadOnlyFileLimit + kMMapLimit + 5;
   leveldb::RandomAccessFile* files[kNumFiles] = {0};
+  std::expected<RandomAccessFile*, Error> ret;
   for (int i = 0; i < kNumFiles; i++) {
-    ASSERT_LEVELDB_OK(env_->NewRandomAccessFile(test_file, &files[i]));
+    ASSERT_TRUE(ret = env_->NewRandomAccessFile(test_file));
+    files[i] = ret.value();
   }
   char scratch;
   std::string_view read_result;
@@ -247,12 +249,15 @@ TEST_F(EnvPosixTest, TestCloseOnExecRandomAccessFile) {
   // RandomAccessFile instance below is backed by a file descriptor, not by an
   // mmap region.
   leveldb::RandomAccessFile* mmapped_files[kMMapLimit];
+  std::expected<RandomAccessFile*, Error> ret;
   for (int i = 0; i < kMMapLimit; i++) {
-    ASSERT_LEVELDB_OK(env_->NewRandomAccessFile(file_path, &mmapped_files[i]));
+    ASSERT_TRUE(ret = env_->NewRandomAccessFile(file_path));
+    mmapped_files[i] = ret.value();
   }
 
   leveldb::RandomAccessFile* file = nullptr;
-  ASSERT_LEVELDB_OK(env_->NewRandomAccessFile(file_path, &file));
+  ASSERT_TRUE(ret = env_->NewRandomAccessFile(file_path));
+  file = ret.value();
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   delete file;
 

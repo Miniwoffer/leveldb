@@ -236,7 +236,8 @@ class SpecialEnv : public EnvWrapper {
     return e;
   }
 
-  Error NewRandomAccessFile(const std::string& f, RandomAccessFile** r) {
+  std::expected<RandomAccessFile*, Error> NewRandomAccessFile(
+      const std::string& f) {
     class CountingFile : public RandomAccessFile {
      private:
       RandomAccessFile* target_;
@@ -253,11 +254,11 @@ class SpecialEnv : public EnvWrapper {
       }
     };
 
-    Error e = target()->NewRandomAccessFile(f, r);
-    if (e.ok() && count_random_reads_) {
-      *r = new CountingFile(*r, &random_read_counter_);
+    auto ret = target()->NewRandomAccessFile(f);
+    if (ret && count_random_reads_) {
+      return new CountingFile(ret.value(), &random_read_counter_);
     }
-    return e;
+    return ret;
   }
 };
 

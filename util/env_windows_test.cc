@@ -42,8 +42,10 @@ TEST_F(EnvWindowsTest, TestOpenOnRead) {
   // to basic file reading.
   const int kNumFiles = kMMapLimit + 5;
   leveldb::RandomAccessFile* files[kNumFiles] = {0};
+  std::expected<RandomAccessFile*, Error> ret;
   for (int i = 0; i < kNumFiles; i++) {
-    ASSERT_LEVELDB_OK(env_->NewRandomAccessFile(test_file, &files[i]));
+    ASSERT_TRUE(ret = env_->NewRandomAccessFile(test_file));
+    files[i] = ret.value();
   }
   char scratch;
   std::string_view read_result;

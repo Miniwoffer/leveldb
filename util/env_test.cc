@@ -181,13 +181,12 @@ TEST_F(EnvTest, TestOpenNonExistentFile) {
   std::string non_existent_file = test_dir + "/non_existent_file";
   ASSERT_TRUE(!env_->FileExists(non_existent_file));
 
-  RandomAccessFile* random_access_file;
-  Error err = env_->NewRandomAccessFile(non_existent_file, &random_access_file);
+  auto ret = env_->NewRandomAccessFile(non_existent_file);
 #if defined(LEVELDB_PLATFORM_CHROMIUM)
   // TODO(crbug.com/760362): See comment in MakeIOFault() from env_chromium.cc.
-  ASSERT_TRUE(err.IsIOFault());
+  ASSERT_TRUE(ret.error().IsIOFault());
 #else
-  ASSERT_TRUE(err.IsNotFound());
+  ASSERT_TRUE(ret.error().IsNotFound());
 #endif  // defined(LEVELDB_PLATFORM_CHROMIUM)
 
   auto ret = env_->NewSequentialFile(non_existent_file);

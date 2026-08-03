@@ -83,8 +83,8 @@ class LEVELDB_EXPORT Env {
   // not exist.
   //
   // The returned file may be concurrently accessed by multiple threads.
-  virtual Error NewRandomAccessFile(const std::string& fname,
-                                    RandomAccessFile** result) = 0;
+  virtual std::expected<RandomAccessFile*, Error> NewRandomAccessFile(
+      const std::string& fname) = 0;
 
   // Create an object that writes to a new file with the specified
   // name.  Deletes any existing file with the same name and creates a
@@ -347,9 +347,9 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
       const std::string& f) override {
     return target_->NewSequentialFile(f);
   }
-  Error NewRandomAccessFile(const std::string& f,
-                            RandomAccessFile** r) override {
-    return target_->NewRandomAccessFile(f, r);
+  std::expected<RandomAccessFile*, Error> NewRandomAccessFile(
+      const std::string& f) override {
+    return target_->NewRandomAccessFile(f);
   }
   Error NewWritableFile(const std::string& f, WritableFile** r) override {
     return target_->NewWritableFile(f, r);
