@@ -212,7 +212,7 @@ class LEVELDB_EXPORT Env {
   virtual std::expected<std::string, Error> GetTestDirectory() = 0;
 
   // Create and return a log file for storing informational messages.
-  virtual Error NewLogger(const std::string& fname, Logger** result) = 0;
+  virtual std::expected<Logger*, Error> NewLogger(const std::string& fname) = 0;
 
   // Returns the number of micro-seconds since some fixed point in time. Only
   // useful for computing deltas of time.
@@ -400,8 +400,8 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
   std::expected<std::string, Error> GetTestDirectory() override {
     return target_->GetTestDirectory();
   }
-  Error NewLogger(const std::string& fname, Logger** result) override {
-    return target_->NewLogger(fname, result);
+  std::expected<Logger*, Error> NewLogger(const std::string& fname) override {
+    return target_->NewLogger(fname);
   }
   uint64_t NowMicros() override { return target_->NowMicros(); }
   void SleepForMicroseconds(int micros) override {

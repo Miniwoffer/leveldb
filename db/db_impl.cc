@@ -111,8 +111,10 @@ Options SanitizeOptions(const std::string& dbname,
     // Open a log file in the same directory as the db
     src.env->CreateDir(dbname);  // In case it does not exist
     src.env->RenameFile(InfoLogFileName(dbname), OldInfoLogFileName(dbname));
-    Error e = src.env->NewLogger(InfoLogFileName(dbname), &result.info_log);
-    if (!e.ok()) {
+
+    if (auto ret = src.env->NewLogger(InfoLogFileName(dbname))) {
+      result.info_log = std::move(ret.value());
+    } else {
       // No place suitable for logging
       result.info_log = nullptr;
     }

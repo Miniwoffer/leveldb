@@ -708,23 +708,20 @@ class PosixEnv : public Env {
     return result;
   }
 
-  Error NewLogger(const std::string& filename, Logger** result) override {
+  std::expected<Logger*, Error> NewLogger(
+      const std::string& filename) override {
     int fd = ::open(filename.c_str(),
                     O_APPEND | O_WRONLY | O_CREAT | kOpenBaseFlags, 0644);
     if (fd < 0) {
-      *result = nullptr;
-      return PosixError(filename, errno);
+      return std::unexpected(PosixError(filename, errno));
     }
 
     std::FILE* fp = ::fdopen(fd, "w");
     if (fp == nullptr) {
       ::close(fd);
-      *result = nullptr;
-      return PosixError(filename, errno);
-    } else {
-      *result = new PosixLogger(fp);
-      return Error(Error::Code::Ok);
+      return std::unexpected(PosixError(filename, errno));
     }
+    return new PosixLogger(fp);
   }
 
   uint64_t NowMicros() override {
