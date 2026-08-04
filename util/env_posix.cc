@@ -610,11 +610,11 @@ class PosixEnv : public Env {
     return result;
   }
 
-  Error RemoveFile(const std::string& filename) override {
+  std::optional<Error> RemoveFile(const std::string& filename) override {
     if (::unlink(filename.c_str()) != 0) {
       return PosixError(filename, errno);
     }
-    return Error(Error::Code::Ok);
+    return {};
   }
 
   Error CreateDir(const std::string& dirname) override {

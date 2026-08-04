@@ -1590,16 +1590,16 @@ Error DestroyDB(const std::string& dbname, const Options& options) {
 
   FileLock* lock;
   const std::string lockname = LockFileName(dbname);
-  Error result = env->LockFile(lockname, &lock);
-  if (result.ok()) {
+  Error err = env->LockFile(lockname, &lock);
+  if (err.ok()) {
     uint64_t number;
     FileType type;
     for (size_t i = 0; i < filenames.size(); i++) {
       if (ParseFileName(filenames[i], &number, &type) &&
           type != kDBLockFile) {  // Lock file will be deleted at end
-        Error del = env->RemoveFile(dbname + "/" + filenames[i]);
-        if (result.ok() && !del.ok()) {
-          result = std::move(del);
+        auto del = env->RemoveFile(dbname + "/" + filenames[i]);
+        if (err.ok() && del.has_value()) {
+          err = std::move(del.value());
         }
       }
     }
@@ -1607,7 +1607,7 @@ Error DestroyDB(const std::string& dbname, const Options& options) {
     env->RemoveFile(lockname);
     env->RemoveDir(dbname);  // Ignore error in case dir contains other files
   }
-  return result;
+  return err;
 }
 
 }  // namespace leveldb
