@@ -169,9 +169,9 @@ class LogTest : public testing::Test {
     Error Close() override { return Error(Error::Code::Ok); }
     Error Flush() override { return Error(Error::Code::Ok); }
     Error Sync() override { return Error(Error::Code::Ok); }
-    Error Append(const std::string_view& slice) override {
+    std::optional<Error> Append(const std::string_view& slice) override {
       contents_.append(slice.data(), slice.size());
-      return Error(Error::Code::Ok);
+      return {};
     }
 
     std::string contents_;

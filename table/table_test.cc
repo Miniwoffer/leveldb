@@ -100,9 +100,9 @@ class StringSink : public WritableFile {
   Error Flush() override { return Error(Error::Code::Ok); }
   Error Sync() override { return Error(Error::Code::Ok); }
 
-  Error Append(const std::string_view& data) override {
+  std::optional<Error> Append(const std::string_view& data) override {
     contents_.append(data.data(), data.size());
-    return Error(Error::Code::Ok);
+    return {};
   }
 
  private:

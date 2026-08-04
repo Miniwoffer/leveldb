@@ -105,7 +105,7 @@ class FileState {
     return std::string_view(scratch, n);
   }
 
-  Error Append(const std::string_view& data) {
+  std::optional<Error> Append(const std::string_view& data) {
     const char* src = data.data();
     size_t src_len = data.size();
 
@@ -132,7 +132,7 @@ class FileState {
       size_ += avail;
     }
 
-    return Error(Error::Code::Ok);
+    return {};
   }
 
  private:
@@ -204,7 +204,7 @@ class WritableFileImpl : public WritableFile {
 
   ~WritableFileImpl() override { file_->Unref(); }
 
-  Error Append(const std::string_view& data) override {
+  std::optional<Error> Append(const std::string_view& data) override {
     return file_->Append(data);
   }
 
