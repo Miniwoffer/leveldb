@@ -319,8 +319,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecLockFile) {
   ASSERT_TRUE(ret);
   lock = ret.value();
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
-  ASSERT_LEVELDB_OK(env_->UnlockFile(lock));
-
+  ASSERT_FALSE(env_->UnlockFile(lock).has_value());
   ASSERT_FALSE(env_->RemoveFile(file_path).has_value());
 }
 
