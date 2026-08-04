@@ -167,7 +167,7 @@ TEST_F(MemEnvTest, Locks) {
   auto ret = env_->LockFile("some file");
   ASSERT_TRUE(ret);
   lock = ret.value();
-  ASSERT_LEVELDB_OK(env_->UnlockFile(lock));
+  ASSERT_FALSE(env_->UnlockFile(lock).has_value());
 }
 
 TEST_F(MemEnvTest, Misc) {

@@ -362,9 +362,9 @@ class InMemoryEnv : public EnvWrapper {
     return new FileLock;
   }
 
-  Error UnlockFile(FileLock* lock) override {
+  std::optional<Error> UnlockFile(FileLock* lock) override {
     delete lock;
-    return Error(Error::Code::Ok);
+    return {};
   }
 
   Error GetTestDirectory(std::string* path) override {

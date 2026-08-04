@@ -594,7 +594,7 @@ class WindowsEnv : public Env {
     return new WindowsFileLock(std::move(handle), filename);
   }
 
-  Error UnlockFile(FileLock* lock) override {
+  std::optional<Error> UnlockFile(FileLock* lock) override {
     WindowsFileLock* windows_file_lock =
         reinterpret_cast<WindowsFileLock*>(lock);
     if (!LockOrUnlock(windows_file_lock->handle().get(), false)) {
@@ -602,7 +602,7 @@ class WindowsEnv : public Env {
                           ::GetLastError());
     }
     delete windows_file_lock;
-    return Error(Error::Code::Ok);
+    return {};
   }
 
   void Schedule(void (*background_work_function)(void* background_work_arg),
