@@ -367,9 +367,8 @@ class InMemoryEnv : public EnvWrapper {
     return {};
   }
 
-  Error GetTestDirectory(std::string* path) override {
-    *path = "/test";
-    return Error(Error::Code::Ok);
+  std::expected<std::string, Error> GetTestDirectory() override {
+    return "/test";
   }
 
   Error NewLogger(const std::string& fname, Logger** result) override {

@@ -614,24 +614,23 @@ class WindowsEnv : public Env {
     new_thread.detach();
   }
 
-  Error GetTestDirectory(std::string* result) override {
+  std::expected<std::string, Error> GetTestDirectory() override {
     const char* env = getenv("TEST_TMPDIR");
     if (env && env[0] != '\0') {
-      *result = env;
-      return Error(Error::Code::Ok);
+      return env;
     }
 
     char tmp_path[MAX_PATH];
     if (!GetTempPathA(ARRAYSIZE(tmp_path), tmp_path)) {
-      return WindowsError("GetTempPath", ::GetLastError());
+      return std::unexpected(WindowsError("GetTempPath", ::GetLastError()));
     }
     std::stringstream ss;
     ss << tmp_path << "leveldbtest-" << std::this_thread::get_id();
-    *result = ss.str();
+    std::string result = ss.str();
 
     // Directory may already exist
-    CreateDir(*result);
-    return Error(Error::Code::Ok);
+    CreateDir(result);
+    return result;
   }
 
   Error NewLogger(const std::string& filename, Logger** result) override {

@@ -691,21 +691,21 @@ class PosixEnv : public Env {
     new_thread.detach();
   }
 
-  Error GetTestDirectory(std::string* result) override {
+  std::expected<std::string, Error> GetTestDirectory() override {
     const char* env = std::getenv("TEST_TMPDIR");
+    std::string result;
     if (env && env[0] != '\0') {
-      *result = env;
+      result = env;
     } else {
       char buf[100];
       std::snprintf(buf, sizeof(buf), "/tmp/leveldbtest-%d",
                     static_cast<int>(::geteuid()));
-      *result = buf;
+      result = buf;
     }
 
     // The CreateDir err is ignored because the directory may already exist.
-    CreateDir(*result);
-
-    return Error(Error::Code::Ok);
+    CreateDir(result);
+    return result;
   }
 
   Error NewLogger(const std::string& filename, Logger** result) override {
