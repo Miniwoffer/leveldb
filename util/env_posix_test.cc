@@ -340,14 +340,16 @@ TEST_F(EnvPosixTest, TestCloseOnExecLogger) {
   GetOpenFileDescriptors(&open_fds);
 
   std::string test_dir;
-  auto ret = env_->GetTestDirectory();
-  ASSERT_TRUE(ret);
-  test_dir = std::move(ret.value());
+  auto td_ret = env_->GetTestDirectory();
+  ASSERT_TRUE(td_ret);
+  test_dir = std::move(td_ret.value());
   std::string file_path = test_dir + "/close_on_exec_logger.txt";
   ASSERT_LEVELDB_OK(WriteStringToFile(env_, "0123456789", file_path));
 
   leveldb::Logger* file = nullptr;
-  ASSERT_LEVELDB_OK(env_->NewLogger(file_path, &file));
+  auto nl_ret = env_->NewLogger(file_path);
+  ASSERT_TRUE(nl_ret);
+  file = nl_ret.value();
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   delete file;
 

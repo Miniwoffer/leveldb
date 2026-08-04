@@ -371,9 +371,8 @@ class InMemoryEnv : public EnvWrapper {
     return "/test";
   }
 
-  Error NewLogger(const std::string& fname, Logger** result) override {
-    *result = new NoOpLogger;
-    return Error(Error::Code::Ok);
+  std::expected<Logger*, Error> NewLogger(const std::string& fname) override {
+    return new NoOpLogger;
   }
 
  private:

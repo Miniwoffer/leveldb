@@ -633,14 +633,13 @@ class WindowsEnv : public Env {
     return result;
   }
 
-  Error NewLogger(const std::string& filename, Logger** result) override {
+  std::expected<Logger*, Error> NewLogger(
+      const std::string& filename) override {
     std::FILE* fp = std::fopen(filename.c_str(), "wN");
     if (fp == nullptr) {
-      *result = nullptr;
-      return WindowsError(filename, ::GetLastError());
+      return std::unexpected(WindowsError(filename, ::GetLastError()));
     } else {
-      *result = new WindowsLogger(fp);
-      return Error(Error::Code::Ok);
+      return new WindowsLogger(fp);
     }
   }
 
