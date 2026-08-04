@@ -334,14 +334,15 @@ class InMemoryEnv : public EnvWrapper {
     return Error(Error::Code::Ok);
   }
 
-  Error GetFileSize(const std::string& fname, uint64_t* file_size) override {
+  std::expected<uint64_t, Error> GetFileSize(
+      const std::string& fname) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(fname) == file_map_.end()) {
-      return Error(Error::Code::IOFault, fname, "File not found");
+      return std::unexpected(
+          Error(Error::Code::IOFault, fname, "File not found"));
     }
 
-    *file_size = file_map_[fname]->Size();
-    return Error(Error::Code::Ok);
+    return file_map_[fname]->Size();
   }
 
   Error RenameFile(const std::string& src, const std::string& target) override {

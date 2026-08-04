@@ -152,25 +152,31 @@ Error DumpTable(Env* env, const std::string& fname, WritableFile* dst) {
   uint64_t file_size;
   RandomAccessFile* file = nullptr;
   Table* table = nullptr;
-  Error e = env->GetFileSize(fname, &file_size);
-  if (e.ok()) {
-    if (auto ret = env->NewRandomAccessFile(fname)) {
-      file = ret.value();
+  Error err;
+
+  if (auto fs_ret = env->GetFileSize(fname)) {
+    file_size = fs_ret.value();
+    if (auto rf_ret = env->NewRandomAccessFile(fname)) {
+      file = rf_ret.value();
     } else {
-      e = std::move(ret.error());
+      err = std::move(rf_ret.error());
     }
+  } else {
+    err = std::move(fs_ret.error());
   }
-  if (e.ok()) {
+
+  if (err.ok()) {
     // We use the default comparator, which may or may not match the
     // comparator used in this database. However this should not cause
     // problems since we only use Table operations that do not require
     // any comparisons.  In particular, we do not call Seek or Prev.
-    e = Table::Open(Options(), file, file_size, &table);
+    err = Table::Open(Options(), file, file_size, &table);
   }
-  if (!e.ok()) {
+
+  if (!err.ok()) {
     delete table;
     delete file;
-    return e;
+    return err;
   }
 
   ReadOptions ro;
@@ -206,9 +212,9 @@ Error DumpTable(Env* env, const std::string& fname, WritableFile* dst) {
       dst->Append(r);
     }
   }
-  e = iter->error();
-  if (!e.ok()) {
-    dst->Append("iterator error: " + e.ToString() + "\n");
+  err = iter->error();
+  if (!err.ok()) {
+    dst->Append("iterator error: " + err.ToString() + "\n");
   }
 
   delete iter;

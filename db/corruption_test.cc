@@ -135,7 +135,9 @@ class CorruptionTest : public testing::Test {
     ASSERT_FALSE(fname.empty()) << filetype;
 
     uint64_t file_size;
-    ASSERT_LEVELDB_OK(env_.target()->GetFileSize(fname, &file_size));
+    auto fs_ret = env_.target()->GetFileSize(fname);
+    ASSERT_TRUE(fs_ret);
+    file_size = fs_ret.value();
 
     if (offset < 0) {
       // Relative to end of file; make it absolute

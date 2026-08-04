@@ -137,9 +137,9 @@ class RecoveryTest : public testing::Test {
   int NumTables() { return GetFiles(kTableFile).size(); }
 
   uint64_t FileSize(const std::string& fname) {
-    uint64_t result;
-    EXPECT_LEVELDB_OK(env_->GetFileSize(fname, &result)) << fname;
-    return result;
+    auto ret = env_->GetFileSize(fname);
+    EXPECT_TRUE(ret) << fname;
+    return ret.value();
   }
 
   void CompactMemTable() { dbfull()->TEST_CompactMemTable(); }

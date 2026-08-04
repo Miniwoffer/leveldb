@@ -546,8 +546,10 @@ class PosixEnv : public Env {
 
     uint64_t file_size;
     RandomAccessFile* result;
-    Error err = GetFileSize(filename, &file_size);
-    if (err.ok()) {
+    Error err;
+    auto ret = GetFileSize(filename);
+    if (ret) {
+      file_size = ret.value();
       void* mmap_base =
           ::mmap(/*addr=*/nullptr, file_size, PROT_READ, MAP_SHARED, fd, 0);
       if (mmap_base != MAP_FAILED) {
@@ -559,7 +561,7 @@ class PosixEnv : public Env {
       }
     }
     ::close(fd);
-    if (!err.ok()) {
+    if (!ret || !err.ok()) {
       mmap_limiter_.Release();
       return std::unexpected(err);
     }
@@ -629,14 +631,13 @@ class PosixEnv : public Env {
     return Error(Error::Code::Ok);
   }
 
-  Error GetFileSize(const std::string& filename, uint64_t* size) override {
+  std::expected<uint64_t, Error> GetFileSize(
+      const std::string& filename) override {
     struct ::stat file_stat;
     if (::stat(filename.c_str(), &file_stat) != 0) {
-      *size = 0;
-      return PosixError(filename, errno);
+      return std::unexpected(PosixError(filename, errno));
     }
-    *size = file_stat.st_size;
-    return Error(Error::Code::Ok);
+    return file_stat.st_size;
   }
 
   Error RenameFile(const std::string& from, const std::string& to) override {
