@@ -617,18 +617,18 @@ class PosixEnv : public Env {
     return {};
   }
 
-  Error CreateDir(const std::string& dirname) override {
+  std::optional<Error> CreateDir(const std::string& dirname) override {
     if (::mkdir(dirname.c_str(), 0755) != 0) {
       return PosixError(dirname, errno);
     }
-    return Error(Error::Code::Ok);
+    return {};
   }
 
-  Error RemoveDir(const std::string& dirname) override {
+  std::optional<Error> RemoveDir(const std::string& dirname) override {
     if (::rmdir(dirname.c_str()) != 0) {
       return PosixError(dirname, errno);
     }
-    return Error(Error::Code::Ok);
+    return {};
   }
 
   std::expected<uint64_t, Error> GetFileSize(

@@ -30,7 +30,7 @@ TEST_F(MemEnvTest, Basics) {
   WritableFile* writable_file;
   std::vector<std::string> children;
 
-  ASSERT_LEVELDB_OK(env_->CreateDir("/dir"));
+  ASSERT_FALSE(env_->CreateDir("/dir").has_value());
 
   // Check that the directory is empty.
   ASSERT_FALSE(env_->FileExists("/dir/non_existent"));
@@ -108,7 +108,7 @@ TEST_F(MemEnvTest, Basics) {
   ASSERT_TRUE(ch_ret);
   children = std::move(ch_ret.value());
   ASSERT_EQ(0, children.size());
-  ASSERT_LEVELDB_OK(env_->RemoveDir("/dir"));
+  ASSERT_FALSE(env_->RemoveDir("/dir").has_value());
 }
 
 TEST_F(MemEnvTest, ReadWrite) {
@@ -118,7 +118,7 @@ TEST_F(MemEnvTest, ReadWrite) {
   std::string_view result;
   char scratch[100];
 
-  ASSERT_LEVELDB_OK(env_->CreateDir("/dir"));
+  ASSERT_FALSE(env_->CreateDir("/dir").has_value());
 
   auto wr_ret = env_->NewWritableFile("/dir/f");
   ASSERT_TRUE(wr_ret);
