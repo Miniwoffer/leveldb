@@ -648,29 +648,27 @@ class PosixEnv : public Env {
     return {};
   }
 
-  Error LockFile(const std::string& filename, FileLock** lock) override {
-    *lock = nullptr;
-
+  std::expected<FileLock*, Error> LockFile(
+      const std::string& filename) override {
     int fd = ::open(filename.c_str(), O_RDWR | O_CREAT | kOpenBaseFlags, 0644);
     if (fd < 0) {
-      return PosixError(filename, errno);
+      return std::unexpected(PosixError(filename, errno));
     }
 
     if (!locks_.Insert(filename)) {
       ::close(fd);
-      return Error(Error::Code::IOFault, "lock " + filename,
-                   "already held by process");
+      return std::unexpected(Error(Error::Code::IOFault, "lock " + filename,
+                                   "already held by process"));
     }
 
     if (LockOrUnlock(fd, true) == -1) {
       int lock_errno = errno;
       ::close(fd);
       locks_.Remove(filename);
-      return PosixError("lock " + filename, lock_errno);
+      return std::unexpected(PosixError("lock " + filename, lock_errno));
     }
 
-    *lock = new PosixFileLock(fd, filename);
-    return Error(Error::Code::Ok);
+    return new PosixFileLock(fd, filename);
   }
 
   Error UnlockFile(FileLock* lock) override {

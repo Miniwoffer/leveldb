@@ -164,7 +164,9 @@ TEST_F(MemEnvTest, Locks) {
   FileLock* lock;
 
   // These are no-ops, but we test they return success.
-  ASSERT_LEVELDB_OK(env_->LockFile("some file", &lock));
+  auto ret = env_->LockFile("some file");
+  ASSERT_TRUE(ret);
+  lock = ret.value();
   ASSERT_LEVELDB_OK(env_->UnlockFile(lock));
 }
 

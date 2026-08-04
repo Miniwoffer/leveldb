@@ -315,7 +315,9 @@ TEST_F(EnvPosixTest, TestCloseOnExecLockFile) {
   ASSERT_LEVELDB_OK(WriteStringToFile(env_, "0123456789", file_path));
 
   leveldb::FileLock* lock = nullptr;
-  ASSERT_LEVELDB_OK(env_->LockFile(file_path, &lock));
+  auto ret = env_->LockFile(file_path);
+  ASSERT_TRUE(ret);
+  lock = ret.value();
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   ASSERT_LEVELDB_OK(env_->UnlockFile(lock));
 

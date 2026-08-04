@@ -358,9 +358,8 @@ class InMemoryEnv : public EnvWrapper {
     return {};
   }
 
-  Error LockFile(const std::string& fname, FileLock** lock) override {
-    *lock = new FileLock;
-    return Error(Error::Code::Ok);
+  std::expected<FileLock*, Error> LockFile(const std::string& fname) override {
+    return new FileLock;
   }
 
   Error UnlockFile(FileLock* lock) override {
