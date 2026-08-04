@@ -309,11 +309,14 @@ Error DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
   // may already exist from a previous failed creation attempt.
   env_->CreateDir(dbname_);
   assert(db_lock_ == nullptr);
-  Error e = env_->LockFile(LockFileName(dbname_), &db_lock_);
-  if (!e.ok()) {
-    return e;
+
+  if (auto ret = env_->LockFile(LockFileName(dbname_))) {
+    db_lock_ = ret.value();
+  } else {
+    return ret.error();
   }
 
+  Error e;
   if (!env_->FileExists(CurrentFileName(dbname_))) {
     if (options_.create_if_missing) {
       Log(options_.info_log, "Creating DB %s since it was missing.",
@@ -377,8 +380,8 @@ Error DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
   // Recover in the order in which the logs were generated
   std::sort(logs.begin(), logs.end());
   for (size_t i = 0; i < logs.size(); i++) {
-    e = RecoverLogFile(logs[i], (i == logs.size() - 1), save_manifest, edit,
-                       &max_sequence);
+    Error e = RecoverLogFile(logs[i], (i == logs.size() - 1), save_manifest,
+                             edit, &max_sequence);
     if (!e.ok()) {
       return e;
     }
@@ -1589,9 +1592,11 @@ Error DestroyDB(const std::string& dbname, const Options& options) {
   }
 
   FileLock* lock;
+  Error err;
   const std::string lockname = LockFileName(dbname);
-  Error err = env->LockFile(lockname, &lock);
-  if (err.ok()) {
+
+  if (auto ret = env->LockFile(lockname)) {
+    lock = ret.value();
     uint64_t number;
     FileType type;
     for (size_t i = 0; i < filenames.size(); i++) {
@@ -1606,6 +1611,8 @@ Error DestroyDB(const std::string& dbname, const Options& options) {
     env->UnlockFile(lock);  // Ignore error since state is already gone
     env->RemoveFile(lockname);
     env->RemoveDir(dbname);  // Ignore error in case dir contains other files
+  } else {
+    err = std::move(ret.error());
   }
   return err;
 }

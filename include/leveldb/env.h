@@ -185,7 +185,8 @@ class LEVELDB_EXPORT Env {
   // to go away.
   //
   // May create the named file if it does not already exist.
-  virtual Error LockFile(const std::string& fname, FileLock** lock) = 0;
+  virtual std::expected<FileLock*, Error> LockFile(
+      const std::string& fname) = 0;
 
   // Release the lock acquired by a previous successful call to LockFile.
   // REQUIRES: lock was returned by a successful LockFile() call
@@ -384,8 +385,8 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
                                   const std::string& t) override {
     return target_->RenameFile(s, t);
   }
-  Error LockFile(const std::string& f, FileLock** l) override {
-    return target_->LockFile(f, l);
+  std::expected<FileLock*, Error> LockFile(const std::string& f) override {
+    return target_->LockFile(f);
   }
   Error UnlockFile(FileLock* l) override { return target_->UnlockFile(l); }
   void Schedule(void (*f)(void*), void* a) override {

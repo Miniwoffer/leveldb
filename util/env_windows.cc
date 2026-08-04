@@ -579,21 +579,19 @@ class WindowsEnv : public Env {
     }
   }
 
-  Error LockFile(const std::string& filename, FileLock** lock) override {
-    *lock = nullptr;
-    Error result;
+  std::expected<FileLock*, Error> LockFile(
+      const std::string& filename) override {
     ScopedHandle handle = ::CreateFileA(
         filename.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ,
         /*lpSecurityAttributes=*/nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL,
         nullptr);
     if (!handle.is_valid()) {
-      result = WindowsError(filename, ::GetLastError());
+      return std::unexpected(WindowsError(filename, ::GetLastError()));
     } else if (!LockOrUnlock(handle.get(), true)) {
-      result = WindowsError("lock " + filename, ::GetLastError());
-    } else {
-      *lock = new WindowsFileLock(std::move(handle), filename);
+      return std::unexpected(
+          WindowsError("lock " + filename, ::GetLastError()));
     }
-    return result;
+    return new WindowsFileLock(std::move(handle), filename);
   }
 
   Error UnlockFile(FileLock* lock) override {
