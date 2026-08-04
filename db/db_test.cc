@@ -91,23 +91,26 @@ class TestEnv : public EnvWrapper {
 
   void SetIgnoreDotFiles(bool ignored) { ignore_dot_files_ = ignored; }
 
-  Error GetChildren(const std::string& dir,
-                    std::vector<std::string>* result) override {
-    Error e = target()->GetChildren(dir, result);
-    if (!e.ok() || !ignore_dot_files_) {
-      return e;
+  std::expected<std::vector<std::string>, Error> GetChildren(
+      const std::string& dir) override {
+    std::vector<std::string> result;
+    auto ret = target()->GetChildren(dir);
+    if (!ret || !ignore_dot_files_) {
+      return ret;
+    } else {
+      result = std::move(ret.value());
     }
 
-    std::vector<std::string>::iterator it = result->begin();
-    while (it != result->end()) {
+    auto it = result.begin();
+    while (it != result.end()) {
       if ((*it == ".") || (*it == "..")) {
-        it = result->erase(it);
+        it = result.erase(it);
       } else {
         ++it;
       }
     }
 
-    return e;
+    return result;
   }
 
  private:
@@ -479,9 +482,10 @@ class DBTest : public testing::Test {
   }
 
   int CountFiles() {
-    std::vector<std::string> files;
-    env_->GetChildren(dbname_, &files);
-    return static_cast<int>(files.size());
+    if (auto ret = env_->GetChildren(dbname_)) {
+      return static_cast<int>(ret.value().size());
+    }
+    return 0;
   }
 
   uint64_t Size(const std::string_view& start, const std::string_view& limit) {
@@ -541,7 +545,9 @@ class DBTest : public testing::Test {
 
   bool DeleteAnSSTFile() {
     std::vector<std::string> filenames;
-    EXPECT_LEVELDB_OK(env_->GetChildren(dbname_, &filenames));
+    auto ret = env_->GetChildren(dbname_);
+    EXPECT_TRUE(ret);
+    filenames = std::move(ret.value());
     uint64_t number;
     FileType type;
     for (size_t i = 0; i < filenames.size(); i++) {
@@ -556,7 +562,9 @@ class DBTest : public testing::Test {
   // Returns number of files renamed.
   int RenameLDBToSST() {
     std::vector<std::string> filenames;
-    EXPECT_LEVELDB_OK(env_->GetChildren(dbname_, &filenames));
+    auto ret = env_->GetChildren(dbname_);
+    EXPECT_TRUE(ret);
+    filenames = std::move(ret.value());
     uint64_t number;
     FileType type;
     int files_renamed = 0;
@@ -1724,7 +1732,9 @@ TEST_F(DBTest, DestroyEmptyDir) {
   ASSERT_LEVELDB_OK(env.CreateDir(dbname));
   ASSERT_TRUE(env.FileExists(dbname));
   std::vector<std::string> children;
-  ASSERT_LEVELDB_OK(env.GetChildren(dbname, &children));
+  auto ret = env.GetChildren(dbname);
+  EXPECT_TRUE(ret);
+  children = std::move(ret.value());
 #if defined(LEVELDB_PLATFORM_CHROMIUM)
   // TODO(https://crbug.com/1428746): Chromium's file system abstraction always
   // filters out '.' and '..'.
@@ -1740,7 +1750,9 @@ TEST_F(DBTest, DestroyEmptyDir) {
   env.SetIgnoreDotFiles(true);
   ASSERT_LEVELDB_OK(env.CreateDir(dbname));
   ASSERT_TRUE(env.FileExists(dbname));
-  ASSERT_LEVELDB_OK(env.GetChildren(dbname, &children));
+  ret = env.GetChildren(dbname);
+  EXPECT_TRUE(ret);
+  children = std::move(ret.value());
   ASSERT_EQ(0, children.size());
   ASSERT_LEVELDB_OK(DestroyDB(dbname, opts));
   ASSERT_FALSE(env.FileExists(dbname));

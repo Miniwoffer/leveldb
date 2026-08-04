@@ -302,7 +302,9 @@ class Benchmark {
     std::vector<std::string> files;
     std::string test_dir;
     Env::Default()->GetTestDirectory(&test_dir);
-    Env::Default()->GetChildren(test_dir.c_str(), &files);
+    if (auto ret = Env::Default()->GetChildren(test_dir.c_str())) {
+      files = std::move(ret.value());
+    }
     if (!FLAGS_use_existing_db) {
       for (int i = 0; i < files.size(); i++) {
         if (std::string_view(files[i]).starts_with("dbbench_polyDB")) {

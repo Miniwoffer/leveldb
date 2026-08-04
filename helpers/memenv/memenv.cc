@@ -290,21 +290,20 @@ class InMemoryEnv : public EnvWrapper {
     return file_map_.find(fname) != file_map_.end();
   }
 
-  Error GetChildren(const std::string& dir,
-                    std::vector<std::string>* result) override {
+  std::expected<std::vector<std::string>, Error> GetChildren(
+      const std::string& dir) override {
     MutexLock lock(&mutex_);
-    result->clear();
-
+    std::vector<std::string> result;
     for (const auto& kvp : file_map_) {
       const std::string& filename = kvp.first;
 
       if (filename.size() >= dir.size() + 1 && filename[dir.size()] == '/' &&
           std::string_view(filename).starts_with(std::string_view(dir))) {
-        result->push_back(filename.substr(dir.size() + 1));
+        result.push_back(filename.substr(dir.size() + 1));
       }
     }
 
-    return Error(Error::Code::Ok);
+    return result;
   }
 
   void RemoveFileInternal(const std::string& fname)

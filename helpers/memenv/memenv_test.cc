@@ -35,13 +35,15 @@ TEST_F(MemEnvTest, Basics) {
   // Check that the directory is empty.
   ASSERT_TRUE(!env_->FileExists("/dir/non_existent"));
   ASSERT_TRUE(!env_->GetFileSize("/dir/non_existent", &file_size).ok());
-  ASSERT_LEVELDB_OK(env_->GetChildren("/dir", &children));
+  auto ch_ret = env_->GetChildren("/dir");
+  ASSERT_TRUE(ch_ret);
+  children = std::move(ch_ret.value());
   ASSERT_EQ(0, children.size());
 
   // Create a file.
-  auto ret = env_->NewWritableFile("/dir/f");
-  ASSERT_TRUE(ret);
-  writable_file = ret.value();
+  auto wf_ret = env_->NewWritableFile("/dir/f");
+  ASSERT_TRUE(wf_ret);
+  writable_file = wf_ret.value();
   ASSERT_LEVELDB_OK(env_->GetFileSize("/dir/f", &file_size));
   ASSERT_EQ(0, file_size);
   delete writable_file;
@@ -50,21 +52,23 @@ TEST_F(MemEnvTest, Basics) {
   ASSERT_TRUE(env_->FileExists("/dir/f"));
   ASSERT_LEVELDB_OK(env_->GetFileSize("/dir/f", &file_size));
   ASSERT_EQ(0, file_size);
-  ASSERT_LEVELDB_OK(env_->GetChildren("/dir", &children));
+  ch_ret = env_->GetChildren("/dir");
+  ASSERT_TRUE(ch_ret);
+  children = std::move(ch_ret.value());
   ASSERT_EQ(1, children.size());
   ASSERT_EQ("f", children[0]);
 
   // Write to the file.
-  ret = env_->NewWritableFile("/dir/f");
-  ASSERT_TRUE(ret);
-  writable_file = ret.value();
+  wf_ret = env_->NewWritableFile("/dir/f");
+  ASSERT_TRUE(wf_ret);
+  writable_file = wf_ret.value();
   ASSERT_LEVELDB_OK(writable_file->Append("abc"));
   delete writable_file;
 
   // Check that append works.
-  ret = env_->NewAppendableFile("/dir/f");
-  ASSERT_TRUE(ret);
-  writable_file = ret.value();
+  auto af_ret = env_->NewAppendableFile("/dir/f");
+  ASSERT_TRUE(af_ret);
+  writable_file = af_ret.value();
   ASSERT_LEVELDB_OK(env_->GetFileSize("/dir/f", &file_size));
   ASSERT_EQ(3, file_size);
   ASSERT_LEVELDB_OK(writable_file->Append("hello"));
@@ -90,7 +94,9 @@ TEST_F(MemEnvTest, Basics) {
   ASSERT_TRUE(!env_->RemoveFile("/dir/non_existent").ok());
   ASSERT_LEVELDB_OK(env_->RemoveFile("/dir/g"));
   ASSERT_TRUE(!env_->FileExists("/dir/g"));
-  ASSERT_LEVELDB_OK(env_->GetChildren("/dir", &children));
+  ch_ret = env_->GetChildren("/dir");
+  ASSERT_TRUE(ch_ret);
+  children = std::move(ch_ret.value());
   ASSERT_EQ(0, children.size());
   ASSERT_LEVELDB_OK(env_->RemoveDir("/dir"));
 }

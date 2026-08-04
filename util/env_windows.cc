@@ -485,18 +485,19 @@ class WindowsEnv : public Env {
     return GetFileAttributesA(filename.c_str()) != INVALID_FILE_ATTRIBUTES;
   }
 
-  Error GetChildren(const std::string& directory_path,
-                    std::vector<std::string>* result) override {
+  std::expected<std::vector<std::string>, Error> GetChildren(
+      const std::string& directory_path) override {
     const std::string find_pattern = directory_path + "\\*";
     WIN32_FIND_DATAA find_data;
     HANDLE dir_handle = ::FindFirstFileA(find_pattern.c_str(), &find_data);
     if (dir_handle == INVALID_HANDLE_VALUE) {
       DWORD last_error = ::GetLastError();
       if (last_error == ERROR_FILE_NOT_FOUND) {
-        return Error(Error::Code::Ok);
+        return std::unexpected(Error(Error::Code::NotFound));
       }
-      return WindowsError(directory_path, last_error);
+      return std::unexpected(WindowsError(directory_path, last_error));
     }
+    std::vector<std::string> result;
     do {
       char base_name[_MAX_FNAME];
       char ext[_MAX_EXT];
@@ -509,9 +510,9 @@ class WindowsEnv : public Env {
     DWORD last_error = ::GetLastError();
     ::FindClose(dir_handle);
     if (last_error != ERROR_NO_MORE_FILES) {
-      return WindowsError(directory_path, last_error);
+      return std::unexpected(WindowsError(directory_path, last_error));
     }
-    return Error(Error::Code::Ok);
+    return result;
   }
 
   Error RemoveFile(const std::string& filename) override {

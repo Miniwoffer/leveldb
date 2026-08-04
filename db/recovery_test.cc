@@ -118,7 +118,9 @@ class RecoveryTest : public testing::Test {
 
   std::vector<uint64_t> GetFiles(FileType t) {
     std::vector<std::string> filenames;
-    EXPECT_LEVELDB_OK(env_->GetChildren(dbname_, &filenames));
+    auto ret = env_->GetChildren(dbname_);
+    EXPECT_TRUE(ret);
+    filenames = std::move(ret.value());
     std::vector<uint64_t> result;
     for (size_t i = 0; i < filenames.size(); i++) {
       uint64_t number;

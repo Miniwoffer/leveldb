@@ -118,7 +118,9 @@ class CorruptionTest : public testing::Test {
   void Corrupt(FileType filetype, int offset, int bytes_to_corrupt) {
     // Pick file to corrupt
     std::vector<std::string> filenames;
-    ASSERT_LEVELDB_OK(env_.target()->GetChildren(dbname_, &filenames));
+    auto ret = env_.target()->GetChildren(dbname_);
+    ASSERT_TRUE(ret);
+    filenames = std::move(ret.value());
     uint64_t number;
     FileType type;
     std::string fname;
