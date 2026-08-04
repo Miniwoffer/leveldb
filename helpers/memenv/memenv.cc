@@ -166,7 +166,7 @@ class SequentialFileImpl : public SequentialFile {
     return s;
   }
 
-  Error Skip(uint64_t n) override {
+  std::optional<Error> Skip(uint64_t n) override {
     if (pos_ > file_->Size()) {
       return Error(Error::Code::IOFault, "pos_ > file_->Size()");
     }
@@ -175,7 +175,7 @@ class SequentialFileImpl : public SequentialFile {
       n = available;
     }
     pos_ += n;
-    return Error(Error::Code::Ok);
+    return {};
   }
 
  private:

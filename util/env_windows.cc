@@ -185,13 +185,13 @@ class WindowsSequentialFile : public SequentialFile {
     return std::string_view(scratch, bytes_read);
   }
 
-  Error Skip(uint64_t n) override {
+  std::optional<Error> Skip(uint64_t n) override {
     LARGE_INTEGER distance;
     distance.QuadPart = n;
     if (!::SetFilePointerEx(handle_.get(), distance, nullptr, FILE_CURRENT)) {
       return WindowsError(filename_, ::GetLastError());
     }
-    return Error(Error::Code::Ok);
+    return {};
   }
 
  private:

@@ -45,9 +45,8 @@ bool Reader::SkipToInitialBlock() {
 
   // Skip to start of first block that can contain the initial record
   if (block_start_location > 0) {
-    Error skip_err = file_->Skip(block_start_location);
-    if (!skip_err.ok()) {
-      ReportDrop(block_start_location, skip_err);
+    if (auto ret = file_->Skip(block_start_location)) {
+      ReportDrop(block_start_location, ret.value());
       return false;
     }
   }
