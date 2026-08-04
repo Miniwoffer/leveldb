@@ -345,7 +345,8 @@ class InMemoryEnv : public EnvWrapper {
     return file_map_[fname]->Size();
   }
 
-  Error RenameFile(const std::string& src, const std::string& target) override {
+  std::optional<Error> RenameFile(const std::string& src,
+                                  const std::string& target) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(src) == file_map_.end()) {
       return Error(Error::Code::IOFault, src, "File not found");
@@ -354,7 +355,7 @@ class InMemoryEnv : public EnvWrapper {
     RemoveFileInternal(target);
     file_map_[target] = file_map_[src];
     file_map_.erase(src);
-    return Error(Error::Code::Ok);
+    return {};
   }
 
   Error LockFile(const std::string& fname, FileLock** lock) override {

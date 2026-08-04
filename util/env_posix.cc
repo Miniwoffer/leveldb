@@ -640,11 +640,12 @@ class PosixEnv : public Env {
     return file_stat.st_size;
   }
 
-  Error RenameFile(const std::string& from, const std::string& to) override {
+  std::optional<Error> RenameFile(const std::string& from,
+                                  const std::string& to) override {
     if (std::rename(from.c_str(), to.c_str()) != 0) {
       return PosixError(from, errno);
     }
-    return Error(Error::Code::Ok);
+    return {};
   }
 
   Error LockFile(const std::string& filename, FileLock** lock) override {
