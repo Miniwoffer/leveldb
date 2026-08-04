@@ -573,7 +573,7 @@ class DBTest : public testing::Test {
       if (ParseFileName(filenames[i], &number, &type) && type == kTableFile) {
         const std::string from = TableFileName(dbname_, number);
         const std::string to = SSTTableFileName(dbname_, number);
-        EXPECT_LEVELDB_OK(env_->RenameFile(from, to));
+        EXPECT_FALSE(env_->RenameFile(from, to).has_value());
         files_renamed++;
       }
     }

@@ -76,7 +76,7 @@ Error Truncate(const std::string& filename, uint64_t length) {
       e = tmp_file->Append(result);
       delete tmp_file;
       if (e.ok()) {
-        e = env->RenameFile(tmp_name, filename);
+        e = std::move(env->RenameFile(tmp_name, filename).value_or(e));
       } else {
         env->RemoveFile(tmp_name);
       }
@@ -142,7 +142,8 @@ class FaultInjectionTestEnv : public EnvWrapper {
   std::expected<WritableFile*, Error> NewAppendableFile(
       const std::string& fname) override;
   std::optional<Error> RemoveFile(const std::string& f) override;
-  Error RenameFile(const std::string& s, const std::string& t) override;
+  std::optional<Error> RenameFile(const std::string& s,
+                                  const std::string& t) override;
 
   void WritableFileClosed(const FileState& state);
   Error DropUnsyncedFileData();
@@ -317,11 +318,9 @@ std::optional<Error> FaultInjectionTestEnv::RemoveFile(const std::string& f) {
   return ret;
 }
 
-Error FaultInjectionTestEnv::RenameFile(const std::string& s,
-                                        const std::string& t) {
-  Error ret = EnvWrapper::RenameFile(s, t);
-
-  if (ret.ok()) {
+std::optional<Error> FaultInjectionTestEnv::RenameFile(const std::string& s,
+                                                       const std::string& t) {
+  if (auto ret = EnvWrapper::RenameFile(s, t); !ret) {
     MutexLock l(&mutex_);
     if (db_file_state_.find(s) != db_file_state_.end()) {
       db_file_state_[t] = db_file_state_[s];

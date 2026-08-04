@@ -549,7 +549,8 @@ class WindowsEnv : public Env {
     return file_size.QuadPart;
   }
 
-  Error RenameFile(const std::string& from, const std::string& to) override {
+  std::optional<Error> RenameFile(const std::string& from,
+                                  const std::string& to) override {
     // Try a simple move first. It will only succeed when |to| doesn't already
     // exist.
     if (::MoveFileA(from.c_str(), to.c_str())) {
@@ -564,7 +565,7 @@ class WindowsEnv : public Env {
     if (::ReplaceFileA(to.c_str(), from.c_str(), /*lpBackupFileName=*/nullptr,
                        REPLACEFILE_IGNORE_MERGE_ERRORS,
                        /*lpExclude=*/nullptr, /*lpReserved=*/nullptr)) {
-      return Error(Error::Code::Ok);
+      return {};
     }
     DWORD replace_error = ::GetLastError();
     // In the case of FILE_ERROR_NOT_FOUND from ReplaceFile, it is likely that

@@ -87,8 +87,8 @@ TEST_F(MemEnvTest, Basics) {
   ASSERT_EQ(8, file_size);
 
   // Check that renaming works.
-  ASSERT_TRUE(!env_->RenameFile("/dir/non_existent", "/dir/g").ok());
-  ASSERT_LEVELDB_OK(env_->RenameFile("/dir/f", "/dir/g"));
+  ASSERT_TRUE(env_->RenameFile("/dir/non_existent", "/dir/g").has_value());
+  ASSERT_FALSE(env_->RenameFile("/dir/f", "/dir/g").has_value());
   ASSERT_TRUE(!env_->FileExists("/dir/f"));
   ASSERT_TRUE(env_->FileExists("/dir/g"));
   fs_ret = env_->GetFileSize("/dir/f");
