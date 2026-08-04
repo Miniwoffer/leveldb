@@ -326,12 +326,12 @@ class InMemoryEnv : public EnvWrapper {
     return {};
   }
 
-  Error CreateDir(const std::string& dirname) override {
-    return Error(Error::Code::Ok);
+  std::optional<Error> CreateDir(const std::string& dirname) override {
+    return {};
   }
 
-  Error RemoveDir(const std::string& dirname) override {
-    return Error(Error::Code::Ok);
+  std::optional<Error> RemoveDir(const std::string& dirname) override {
+    return {};
   }
 
   std::expected<uint64_t, Error> GetFileSize(

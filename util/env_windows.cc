@@ -522,18 +522,18 @@ class WindowsEnv : public Env {
     return {};
   }
 
-  Error CreateDir(const std::string& dirname) override {
+  std::optional<Error> CreateDir(const std::string& dirname) override {
     if (!::CreateDirectoryA(dirname.c_str(), nullptr)) {
       return WindowsError(dirname, ::GetLastError());
     }
-    return Error(Error::Code::Ok);
+    return {};
   }
 
-  Error RemoveDir(const std::string& dirname) override {
+  std::optionalError > RemoveDir(const std::string& dirname) override {
     if (!::RemoveDirectoryA(dirname.c_str())) {
       return WindowsError(dirname, ::GetLastError());
     }
-    return Error(Error::Code::Ok);
+    return {};
   }
 
   std::expected<uint64_t, Error> GetFileSize(
