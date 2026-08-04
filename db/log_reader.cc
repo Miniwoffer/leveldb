@@ -193,8 +193,14 @@ unsigned int Reader::ReadPhysicalRecord(std::string_view* result) {
     if (buffer_.size() < kHeaderSize) {
       if (!eof_) {
         // Last read was a full read, so this is a trailer to skip
+        Error err;
         buffer_ = {};
-        Error err = file_->Read(kBlockSize, &buffer_, backing_store_);
+        if (auto rd_ret = file_->Read(kBlockSize, backing_store_)) {
+          buffer_ = std::move(rd_ret.value());
+        } else {
+          err = std::move(rd_ret.error());
+        }
+
         end_of_buffer_offset_ += buffer_.size();
         if (!err.ok()) {
           buffer_ = {};

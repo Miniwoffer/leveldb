@@ -105,10 +105,13 @@ Error ReadFileToString(Env* env, const std::string& fname, std::string* data) {
   char* space = new char[kBufferSize];
   while (true) {
     std::string_view fragment;
-    e = file->Read(kBufferSize, &fragment, space);
-    if (!e.ok()) {
+
+    if (auto ret = file->Read(kBufferSize, space)) {
+      fragment = ret.value();
+    } else {
       break;
     }
+
     data->append(fragment.data(), fragment.size());
     if (fragment.empty()) {
       break;

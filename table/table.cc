@@ -49,12 +49,15 @@ Error Table::Open(const Options& options, RandomAccessFile* file, uint64_t size,
 
   char footer_space[Footer::kEncodedLength];
   std::string_view footer_input;
-  Error e = file->Read(size - Footer::kEncodedLength, Footer::kEncodedLength,
-                       &footer_input, footer_space);
-  if (!e.ok()) return e;
+  if (auto ret = file->Read(size - Footer::kEncodedLength,
+                            Footer::kEncodedLength, footer_space)) {
+    footer_input = std::move(ret.value());
+  } else {
+    return ret.error();
+  }
 
   Footer footer;
-  e = footer.DecodeFrom(&footer_input);
+  Error e = footer.DecodeFrom(&footer_input);
   if (!e.ok()) return e;
 
   // Read the index block

@@ -208,7 +208,9 @@ TEST_F(EnvPosixTest, TestOpenOnRead) {
   char scratch;
   std::string_view read_result;
   for (int i = 0; i < kNumFiles; i++) {
-    ASSERT_LEVELDB_OK(files[i]->Read(i, 1, &read_result, &scratch));
+    auto rd_ret = files[i]->Read(i, 1, &scratch);
+    ASSERT_TRUE(rd_ret);
+    read_result = std::move(rd_ret.value());
     ASSERT_EQ(kFileData[i], read_result[0]);
   }
   for (int i = 0; i < kNumFiles; i++) {

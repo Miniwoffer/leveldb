@@ -131,16 +131,23 @@ TEST_F(MemEnvTest, ReadWrite) {
   std::expected<SequentialFile*, Error> seq_ret;
   ASSERT_TRUE(seq_ret = env_->NewSequentialFile("/dir/f"));
   seq_file = seq_ret.value();
-  ASSERT_LEVELDB_OK(seq_file->Read(5, &result, scratch));  // Read "hello".
+  auto rd_ret = seq_file->Read(5, scratch);
+  ASSERT_TRUE(rd_ret);  // Read "hello".
+  result = std::move(rd_ret.value());
   ASSERT_EQ(0, result.compare("hello"));
   ASSERT_LEVELDB_OK(seq_file->Skip(1));
-  ASSERT_LEVELDB_OK(seq_file->Read(1000, &result, scratch));  // Read "world".
+  rd_ret = seq_file->Read(1000, scratch);
+  ASSERT_TRUE(rd_ret);  // Read "world".
+  result = std::move(rd_ret.value());
   ASSERT_EQ(0, result.compare("world"));
-  ASSERT_LEVELDB_OK(
-      seq_file->Read(1000, &result, scratch));  // Try reading past EOF.
+  rd_ret = seq_file->Read(1000, scratch);
+  ASSERT_TRUE(rd_ret);  // Try reading past EOF.
+  result = std::move(rd_ret.value());
   ASSERT_EQ(0, result.size());
   ASSERT_LEVELDB_OK(seq_file->Skip(100));  // Try to skip past end of file.
-  ASSERT_LEVELDB_OK(seq_file->Read(1000, &result, scratch));
+  rd_ret = seq_file->Read(1000, scratch);
+  ASSERT_TRUE(rd_ret);
+  result = std::move(rd_ret.value());
   ASSERT_EQ(0, result.size());
   delete seq_file;
 
@@ -148,15 +155,19 @@ TEST_F(MemEnvTest, ReadWrite) {
   std::expected<RandomAccessFile*, Error> rand_ret;
   ASSERT_TRUE(rand_ret = env_->NewRandomAccessFile("/dir/f"));
   rand_file = rand_ret.value();
-  ASSERT_LEVELDB_OK(rand_file->Read(6, 5, &result, scratch));  // Read "world".
+  rd_ret = rand_file->Read(6, 5, scratch);
+  ASSERT_TRUE(rd_ret);  // Read "world".
+  result = std::move(rd_ret.value());
   ASSERT_EQ(0, result.compare("world"));
-  ASSERT_LEVELDB_OK(rand_file->Read(0, 5, &result, scratch));  // Read "hello".
+  ASSERT_TRUE(rand_file->Read(0, 5, scratch));  // Read "hello".
+  result = std::move(rd_ret.value());
   ASSERT_EQ(0, result.compare("hello"));
-  ASSERT_LEVELDB_OK(rand_file->Read(10, 100, &result, scratch));  // Read "d".
+  ASSERT_TRUE(rand_file->Read(10, 100, scratch));  // Read "d".
+  result = std::move(rd_ret.value());
   ASSERT_EQ(0, result.compare("d"));
 
   // Too high offset.
-  ASSERT_TRUE(!rand_file->Read(1000, 5, &result, scratch).ok());
+  ASSERT_FALSE(rand_file->Read(1000, 5, scratch));
   delete rand_file;
 }
 
@@ -211,13 +222,17 @@ TEST_F(MemEnvTest, LargeWrite) {
   std::string_view result;
   ASSERT_TRUE(seq_ret = env_->NewSequentialFile("/dir/f"));
   seq_file = seq_ret.value();
-  ASSERT_LEVELDB_OK(seq_file->Read(3, &result, scratch));  // Read "foo".
+  auto rd_ret = seq_file->Read(3, scratch);
+  ASSERT_TRUE(rd_ret);  // Read "foo".
+  result = std::move(rd_ret.value());
   ASSERT_EQ(0, result.compare("foo"));
 
   size_t read = 0;
   std::string read_data;
   while (read < kWriteSize) {
-    ASSERT_LEVELDB_OK(seq_file->Read(kWriteSize - read, &result, scratch));
+    rd_ret = seq_file->Read(kWriteSize - read, scratch);
+    ASSERT_TRUE(rd_ret);
+    result = std::move(rd_ret.value());
     read_data.append(result.data(), result.size());
     read += result.size();
   }
@@ -245,7 +260,9 @@ TEST_F(MemEnvTest, OverwriteOpenFile) {
   // being read from files opened before the write.
   std::string_view result;
   char scratch[kFileDataLen];
-  ASSERT_LEVELDB_OK(rand_file->Read(0, kFileDataLen, &result, scratch));
+  auto rd_ret = rand_file->Read(0, kFileDataLen, scratch);
+  ASSERT_TRUE(rd_ret);
+  result = std::move(rd_ret.value());
   ASSERT_EQ(0, result.compare(kWrite2Data));
 
   delete rand_file;

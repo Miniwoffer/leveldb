@@ -138,21 +138,18 @@ class PosixSequentialFile final : public SequentialFile {
       : fd_(fd), filename_(std::move(filename)) {}
   ~PosixSequentialFile() override { close(fd_); }
 
-  Error Read(size_t n, std::string_view* result, char* scratch) override {
-    Error err;
+  std::expected<std::string_view, Error> Read(size_t n,
+                                              char* scratch) override {
     while (true) {
       ::ssize_t read_size = ::read(fd_, scratch, n);
       if (read_size < 0) {  // Read error.
         if (errno == EINTR) {
           continue;  // Retry
         }
-        err = PosixError(filename_, errno);
-        break;
+        return std::unexpected(PosixError(filename_, errno));
       }
-      *result = std::string_view(scratch, read_size);
-      break;
+      return std::string_view(scratch, read_size);
     }
-    return err;
   }
 
   Error Skip(uint64_t n) override {
@@ -195,13 +192,13 @@ class PosixRandomAccessFile final : public RandomAccessFile {
     }
   }
 
-  Error Read(uint64_t offset, size_t n, std::string_view* result,
-             char* scratch) const override {
+  std::expected<std::string_view, Error> Read(uint64_t offset, size_t n,
+                                              char* scratch) const override {
     int fd = fd_;
     if (!has_permanent_fd_) {
       fd = ::open(filename_.c_str(), O_RDONLY | kOpenBaseFlags);
       if (fd < 0) {
-        return PosixError(filename_, errno);
+        return std::unexpected(PosixError(filename_, errno));
       }
     }
 
@@ -209,17 +206,16 @@ class PosixRandomAccessFile final : public RandomAccessFile {
 
     Error err;
     ssize_t read_size = ::pread(fd, scratch, n, static_cast<off_t>(offset));
-    *result = std::string_view(scratch, (read_size < 0) ? 0 : read_size);
-    if (read_size < 0) {
-      // An error: return a non-ok err.
-      err = PosixError(filename_, errno);
-    }
     if (!has_permanent_fd_) {
       // Close the temporary file descriptor opened earlier.
       assert(fd != fd_);
       ::close(fd);
     }
-    return err;
+    if (read_size < 0) {
+      return std::unexpected(PosixError(filename_, errno));
+    }
+
+    return std::string_view(scratch, read_size);
   }
 
  private:
@@ -255,15 +251,13 @@ class PosixMmapReadableFile final : public RandomAccessFile {
     mmap_limiter_->Release();
   }
 
-  Error Read(uint64_t offset, size_t n, std::string_view* result,
-             char* scratch) const override {
+  std::expected<std::string_view, Error> Read(uint64_t offset, size_t n,
+                                              char* scratch) const override {
     if (offset + n > length_) {
-      *result = std::string_view();
-      return PosixError(filename_, EINVAL);
+      return std::unexpected(PosixError(filename_, EINVAL));
     }
 
-    *result = std::string_view(mmap_base_ + offset, n);
-    return Error(Error::Code::Ok);
+    return std::string_view(mmap_base_ + offset, n);
   }
 
  private:

@@ -170,7 +170,8 @@ class WindowsSequentialFile : public SequentialFile {
       : handle_(std::move(handle)), filename_(std::move(filename)) {}
   ~WindowsSequentialFile() override {}
 
-  Error Read(size_t n, std::string_view* result, char* scratch) override {
+  std::expected<std::string_view, Error> Read(size_t n,
+                                              char* scratch) override {
     DWORD bytes_read;
     // DWORD is 32-bit, but size_t could technically be larger. However leveldb
     // files are limited to leveldb::Options::max_file_size which is clamped to
@@ -178,11 +179,10 @@ class WindowsSequentialFile : public SequentialFile {
     assert(n <= std::numeric_limits<DWORD>::max());
     if (!::ReadFile(handle_.get(), scratch, static_cast<DWORD>(n), &bytes_read,
                     nullptr)) {
-      return WindowsError(filename_, ::GetLastError());
+      return std::unexpected(WindowsError(filename_, ::GetLastError()));
     }
 
-    *result = std::string_view(scratch, bytes_read);
-    return Error(Error::Code::Ok);
+    return std::string_view(scratch, bytes_read);
   }
 
   Error Skip(uint64_t n) override {
@@ -206,8 +206,8 @@ class WindowsRandomAccessFile : public RandomAccessFile {
 
   ~WindowsRandomAccessFile() override = default;
 
-  Error Read(uint64_t offset, size_t n, std::string_view* result,
-             char* scratch) const override {
+  std::expected<std::string_view, Error> Read(uint64_t offset, size_t n,
+                                              char* scratch) const override {
     DWORD bytes_read = 0;
     OVERLAPPED overlapped = {0};
 
@@ -217,14 +217,12 @@ class WindowsRandomAccessFile : public RandomAccessFile {
                     &overlapped)) {
       DWORD error_code = ::GetLastError();
       if (error_code != ERROR_HANDLE_EOF) {
-        *result = std::string_view(scratch, 0);
-        return Error(Error::Code::IOFault, filename_,
-                     GetWindowsErrorMessage(error_code));
+        return std::unexpected(Error(Error::Code::IOFault, filename_,
+                                     GetWindowsErrorMessage(error_code)));
       }
     }
 
-    *result = std::string_view(scratch, bytes_read);
-    return Error(Error::Code::Ok);
+    return std::string_view(scratch, bytes_read);
   }
 
  private:
@@ -247,15 +245,13 @@ class WindowsMmapReadableFile : public RandomAccessFile {
     mmap_limiter_->Release();
   }
 
-  Error Read(uint64_t offset, size_t n, std::string_view* result,
-             char* scratch) const override {
+  std::expected<std::string_view, Error> Read(uint64_t offset, size_t n,
+                                              char* scratch) const override {
     if (offset + n > length_) {
-      *result = std::string_view();
-      return WindowsError(filename_, ERROR_INVALID_PARAMETER);
+      return std::unexpected(WindowsError(filename_, ERROR_INVALID_PARAMETER));
     }
 
-    *result = std::string_view(mmap_base_ + offset, n);
-    return Error(Error::Code::Ok);
+    return std::string_view(mmap_base_ + offset, n);
   }
 
  private:

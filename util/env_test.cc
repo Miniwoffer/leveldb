@@ -65,7 +65,9 @@ TEST_F(EnvTest, ReadWrite) {
     int len = std::min<int>(rnd.Skewed(18), data.size() - read_result.size());
     scratch.resize(std::max(len, 1));  // at least 1 so &scratch[0] is legal
     std::string_view read;
-    ASSERT_LEVELDB_OK(sequential_file->Read(len, &read, &scratch[0]));
+    auto rd_ret = sequential_file->Read(len, &scratch[0]);
+    ASSERT_TRUE(rd_ret);
+    read = std::move(rd_ret.value());
     if (len > 0) {
       ASSERT_GT(read.size(), 0);
     }
