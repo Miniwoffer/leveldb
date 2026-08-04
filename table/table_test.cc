@@ -118,17 +118,17 @@ class StringSource : public RandomAccessFile {
 
   uint64_t Size() const { return contents_.size(); }
 
-  Error Read(uint64_t offset, size_t n, std::string_view* result,
-             char* scratch) const override {
+  std::expected<std::string_view, Error> Read(uint64_t offset, size_t n,
+                                              char* scratch) const override {
     if (offset >= contents_.size()) {
-      return Error(Error::Code::InvalidArgument, "invalid Read offset");
+      return std::unexpected(
+          Error(Error::Code::InvalidArgument, "invalid Read offset"));
     }
     if (offset + n > contents_.size()) {
       n = contents_.size() - offset;
     }
     std::memcpy(scratch, &contents_[offset], n);
-    *result = std::string_view(scratch, n);
-    return Error(Error::Code::Ok);
+    return std::string_view(scratch, n);
   }
 
  private:

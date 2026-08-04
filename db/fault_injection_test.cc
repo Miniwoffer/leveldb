@@ -57,7 +57,7 @@ Error Truncate(const std::string& filename, uint64_t length) {
   leveldb::Env* env = leveldb::Env::Default();
 
   SequentialFile* orig_file;
-  Error e;
+  Error err;
   if (auto ret = env->NewSequentialFile(filename)) {
     orig_file = ret.value();
   } else {
@@ -66,28 +66,33 @@ Error Truncate(const std::string& filename, uint64_t length) {
 
   char* scratch = new char[length];
   leveldb::std::string_view result;
-  e = orig_file->Read(length, &result, scratch);
+  if (auto ret = orig_file->Read(length, scratch)) {
+    result = std::move(ret.value());
+  } else {
+    err = std::move(ret.error());
+  }
+
   delete orig_file;
-  if (e.ok()) {
+  if (err.ok()) {
     std::string tmp_name = GetDirName(filename) + "/truncate.tmp";
     WritableFile* tmp_file;
     if (auto ret = env->NewWritableFile(tmp_name)) {
       tmp_file = ret.value();
-      e = tmp_file->Append(result);
+      err = tmp_file->Append(result);
       delete tmp_file;
-      if (e.ok()) {
-        e = std::move(env->RenameFile(tmp_name, filename).value_or(e));
+      if (err.ok()) {
+        err = std::move(env->RenameFile(tmp_name, filename).value_or(err));
       } else {
         env->RemoveFile(tmp_name);
       }
     } else {
-      e = std::move(ret.error());
+      err = std::move(ret.error());
     }
   }
 
   delete[] scratch;
 
-  return e;
+  return err;
 }
 
 struct FileState {

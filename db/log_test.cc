@@ -181,22 +181,23 @@ class LogTest : public testing::Test {
    public:
     StringSource() : force_error_(false), returned_partial_(false) {}
 
-    Error Read(size_t n, std::string_view* result, char* scratch) override {
+    std::expected<std::string_view, Error> Read(size_t n,
+                                                char* scratch) override {
       EXPECT_TRUE(!returned_partial_) << "must not Read() after eof/error";
 
       if (force_error_) {
         force_error_ = false;
         returned_partial_ = true;
-        return Error(Error::Code::Corruption, "read error");
+        return std::unexpected(Error(Error::Code::Corruption, "read error"));
       }
 
       if (contents_.size() < n) {
         n = contents_.size();
         returned_partial_ = true;
       }
-      *result = std::string_view(contents_.data(), n);
+      std::string_view result{contents_.data(), n};
       contents_.remove_prefix(n);
-      return Error(Error::Code::Ok);
+      return result;
     }
 
     Error Skip(uint64_t n) override {

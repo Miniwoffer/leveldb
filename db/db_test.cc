@@ -253,10 +253,10 @@ class SpecialEnv : public EnvWrapper {
       CountingFile(RandomAccessFile* target, AtomicCounter* counter)
           : target_(target), counter_(counter) {}
       ~CountingFile() override { delete target_; }
-      Error Read(uint64_t offset, size_t n, std::string_view* result,
-                 char* scratch) const override {
+      std::expected<std::string_view, Error> Read(
+          uint64_t offset, size_t n, char* scratch) const override {
         counter_->Increment();
-        return target_->Read(offset, n, result, scratch);
+        return target_->Read(offset, n, scratch);
       }
     };
 

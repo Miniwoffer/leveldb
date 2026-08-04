@@ -240,7 +240,8 @@ class LEVELDB_EXPORT SequentialFile {
   // If an error was encountered, returns a non-OK status.
   //
   // REQUIRES: External synchronization
-  virtual Error Read(size_t n, std::string_view* result, char* scratch) = 0;
+  virtual std::expected<std::string_view, Error> Read(size_t n,
+                                                      char* scratch) = 0;
 
   // Skip "n" bytes from the file. This is guaranteed to be no
   // slower that reading the same data, but may be faster.
@@ -271,8 +272,8 @@ class LEVELDB_EXPORT RandomAccessFile {
   // status.
   //
   // Safe for concurrent use by multiple threads.
-  virtual Error Read(uint64_t offset, size_t n, std::string_view* result,
-                     char* scratch) const = 0;
+  virtual std::expected<std::string_view, Error> Read(uint64_t offset, size_t n,
+                                                      char* scratch) const = 0;
 };
 
 // A file abstraction for sequential writing.  The implementation

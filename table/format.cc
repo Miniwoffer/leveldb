@@ -87,10 +87,12 @@ Error ReadBlock(RandomAccessFile* file, const ReadOptions& options,
   size_t n = static_cast<size_t>(handle.size());
   char* buf = new char[n + kBlockTrailerSize];
   std::string_view contents;
-  Error e = file->Read(handle.offset(), n + kBlockTrailerSize, &contents, buf);
-  if (!e.ok()) {
+
+  if (auto ret = file->Read(handle.offset(), n + kBlockTrailerSize, buf)) {
+    contents = ret.value();
+  } else {
     delete[] buf;
-    return e;
+    return ret.error();
   }
   if (contents.size() != n + kBlockTrailerSize) {
     delete[] buf;
@@ -105,8 +107,7 @@ Error ReadBlock(RandomAccessFile* file, const ReadOptions& options,
     const uint32_t actual = crc32c::Value(data, n + 1);
     if (actual != crc) {
       delete[] buf;
-      e = Error(Error::Code::Corruption, "block checksum mismatch");
-      return e;
+      return Error(Error::Code::Corruption, "block checksum mismatch");
     }
   }
 

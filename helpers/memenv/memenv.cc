@@ -68,19 +68,19 @@ class FileState {
     size_ = 0;
   }
 
-  Error Read(uint64_t offset, size_t n, std::string_view* result,
-             char* scratch) const {
+  std::expected<std::string_view, Error> Read(uint64_t offset, size_t n,
+                                              char* scratch) const {
     MutexLock lock(&blocks_mutex_);
     if (offset > size_) {
-      return Error(Error::Code::IOFault, "Offset greater than file size.");
+      return std::unexpected(
+          Error(Error::Code::IOFault, "Offset greater than file size."));
     }
     const uint64_t available = size_ - offset;
     if (n > available) {
       n = static_cast<size_t>(available);
     }
     if (n == 0) {
-      *result = std::string_view();
-      return Error(Error::Code::Ok);
+      return std::string_view();
     }
 
     assert(offset / kBlockSize <= std::numeric_limits<size_t>::max());
@@ -102,8 +102,7 @@ class FileState {
       block_offset = 0;
     }
 
-    *result = std::string_view(scratch, n);
-    return Error(Error::Code::Ok);
+    return std::string_view(scratch, n);
   }
 
   Error Append(const std::string_view& data) {
@@ -158,10 +157,11 @@ class SequentialFileImpl : public SequentialFile {
 
   ~SequentialFileImpl() override { file_->Unref(); }
 
-  Error Read(size_t n, std::string_view* result, char* scratch) override {
-    Error s = file_->Read(pos_, n, result, scratch);
-    if (s.ok()) {
-      pos_ += result->size();
+  std::expected<std::string_view, Error> Read(size_t n,
+                                              char* scratch) override {
+    auto s = file_->Read(pos_, n, scratch);
+    if (s) {
+      pos_ += s.value().size();
     }
     return s;
   }
@@ -189,9 +189,9 @@ class RandomAccessFileImpl : public RandomAccessFile {
 
   ~RandomAccessFileImpl() override { file_->Unref(); }
 
-  Error Read(uint64_t offset, size_t n, std::string_view* result,
-             char* scratch) const override {
-    return file_->Read(offset, n, result, scratch);
+  std::expected<std::string_view, Error> Read(uint64_t offset, size_t n,
+                                              char* scratch) const override {
+    return file_->Read(offset, n, scratch);
   }
 
  private:
