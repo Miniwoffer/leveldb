@@ -212,7 +212,7 @@ TEST_F(EnvPosixTest, TestOpenOnRead) {
   for (int i = 0; i < kNumFiles; i++) {
     delete files[i];
   }
-  ASSERT_LEVELDB_OK(env_->RemoveFile(test_file));
+  ASSERT_FALSE(env_->RemoveFile(test_file).has_value());
 }
 
 #if HAVE_O_CLOEXEC
@@ -233,7 +233,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecSequentialFile) {
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   delete file;
 
-  ASSERT_LEVELDB_OK(env_->RemoveFile(file_path));
+  ASSERT_FALSE(env_->RemoveFile(file_path).has_value());
 }
 
 TEST_F(EnvPosixTest, TestCloseOnExecRandomAccessFile) {
@@ -264,7 +264,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecRandomAccessFile) {
   for (int i = 0; i < kMMapLimit; i++) {
     delete mmapped_files[i];
   }
-  ASSERT_LEVELDB_OK(env_->RemoveFile(file_path));
+  ASSERT_FALSE(env_->RemoveFile(file_path).has_value());
 }
 
 TEST_F(EnvPosixTest, TestCloseOnExecWritableFile) {
@@ -283,7 +283,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecWritableFile) {
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   delete file;
 
-  ASSERT_LEVELDB_OK(env_->RemoveFile(file_path));
+  ASSERT_FALSE(env_->RemoveFile(file_path).has_value());
 }
 
 TEST_F(EnvPosixTest, TestCloseOnExecAppendableFile) {
@@ -302,7 +302,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecAppendableFile) {
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   delete file;
 
-  ASSERT_LEVELDB_OK(env_->RemoveFile(file_path));
+  ASSERT_FALSE(env_->RemoveFile(file_path).has_value());
 }
 
 TEST_F(EnvPosixTest, TestCloseOnExecLockFile) {
@@ -319,7 +319,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecLockFile) {
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   ASSERT_LEVELDB_OK(env_->UnlockFile(lock));
 
-  ASSERT_LEVELDB_OK(env_->RemoveFile(file_path));
+  ASSERT_FALSE(env_->RemoveFile(file_path).has_value());
 }
 
 TEST_F(EnvPosixTest, TestCloseOnExecLogger) {
@@ -336,7 +336,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecLogger) {
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   delete file;
 
-  ASSERT_LEVELDB_OK(env_->RemoveFile(file_path));
+  ASSERT_FALSE(env_->RemoveFile(file_path).has_value());
 }
 
 #endif  // HAVE_O_CLOEXEC

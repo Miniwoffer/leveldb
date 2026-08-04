@@ -515,11 +515,11 @@ class WindowsEnv : public Env {
     return result;
   }
 
-  Error RemoveFile(const std::string& filename) override {
+  std::optional<Error> RemoveFile(const std::string& filename) override {
     if (!::DeleteFileA(filename.c_str())) {
       return WindowsError(filename, ::GetLastError());
     }
-    return Error(Error::Code::Ok);
+    return {};
   }
 
   Error CreateDir(const std::string& dirname) override {

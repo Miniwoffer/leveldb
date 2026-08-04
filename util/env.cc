@@ -27,8 +27,12 @@ std::expected<WritableFile*, Error> Env::NewAppendableFile(
 Error Env::RemoveDir(const std::string& dirname) { return DeleteDir(dirname); }
 Error Env::DeleteDir(const std::string& dirname) { return RemoveDir(dirname); }
 
-Error Env::RemoveFile(const std::string& fname) { return DeleteFile(fname); }
-Error Env::DeleteFile(const std::string& fname) { return RemoveFile(fname); }
+std::optional<Error> Env::RemoveFile(const std::string& fname) {
+  return DeleteFile(fname);
+}
+std::optional<Error> Env::DeleteFile(const std::string& fname) {
+  return RemoveFile(fname);
+}
 
 SequentialFile::~SequentialFile() = default;
 

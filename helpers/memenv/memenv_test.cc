@@ -101,8 +101,8 @@ TEST_F(MemEnvTest, Basics) {
   ASSERT_FALSE(env_->NewRandomAccessFile("/dir/non_existent"));
 
   // Check that deleting works.
-  ASSERT_TRUE(!env_->RemoveFile("/dir/non_existent").ok());
-  ASSERT_LEVELDB_OK(env_->RemoveFile("/dir/g"));
+  ASSERT_TRUE(env_->RemoveFile("/dir/non_existent").has_value());
+  ASSERT_FALSE(env_->RemoveFile("/dir/g").has_value());
   ASSERT_TRUE(!env_->FileExists("/dir/g"));
   ch_ret = env_->GetChildren("/dir");
   ASSERT_TRUE(ch_ret);

@@ -316,14 +316,14 @@ class InMemoryEnv : public EnvWrapper {
     file_map_.erase(fname);
   }
 
-  Error RemoveFile(const std::string& fname) override {
+  std::optional<Error> RemoveFile(const std::string& fname) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(fname) == file_map_.end()) {
       return Error(Error::Code::IOFault, fname, "File not found");
     }
 
     RemoveFileInternal(fname);
-    return Error(Error::Code::Ok);
+    return {};
   }
 
   Error CreateDir(const std::string& dirname) override {
