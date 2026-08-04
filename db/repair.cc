@@ -238,15 +238,20 @@ class Repairer {
 
   void ScanTable(uint64_t number) {
     TableInfo t;
+    Error err;
     t.meta.number = number;
     std::string fname = TableFileName(dbname_, number);
-    Error err = env_->GetFileSize(fname, &t.meta.file_size);
-    if (!err.ok()) {
+
+    if (auto ret = env_->GetFileSize(fname)) {
+      t.meta.file_size = ret.value();
+    } else {
       // Try alternate file name.
       fname = SSTTableFileName(dbname_, number);
-      Error e2 = env_->GetFileSize(fname, &t.meta.file_size);
-      if (e2.ok()) {
+      if ((ret = env_->GetFileSize(fname))) {
+        t.meta.file_size = ret.value();
         err = Error(Error::Code::Ok);
+      } else {
+        err = std::move(ret.error());
       }
     }
     if (!err.ok()) {

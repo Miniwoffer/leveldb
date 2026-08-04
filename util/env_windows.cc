@@ -536,17 +536,17 @@ class WindowsEnv : public Env {
     return Error(Error::Code::Ok);
   }
 
-  Error GetFileSize(const std::string& filename, uint64_t* size) override {
+  std::expected<uint64_t, Error> GetFileSize(
+      const std::string& filename) override {
     WIN32_FILE_ATTRIBUTE_DATA file_attributes;
     if (!::GetFileAttributesExA(filename.c_str(), GetFileExInfoStandard,
                                 &file_attributes)) {
-      return WindowsError(filename, ::GetLastError());
+      return std::unexpected(WindowsError(filename, ::GetLastError()));
     }
     ULARGE_INTEGER file_size;
     file_size.HighPart = file_attributes.nFileSizeHigh;
     file_size.LowPart = file_attributes.nFileSizeLow;
-    *size = file_size.QuadPart;
-    return Error(Error::Code::Ok);
+    return file_size.QuadPart;
   }
 
   Error RenameFile(const std::string& from, const std::string& to) override {

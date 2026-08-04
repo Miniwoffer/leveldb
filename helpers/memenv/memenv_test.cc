@@ -33,8 +33,8 @@ TEST_F(MemEnvTest, Basics) {
   ASSERT_LEVELDB_OK(env_->CreateDir("/dir"));
 
   // Check that the directory is empty.
-  ASSERT_TRUE(!env_->FileExists("/dir/non_existent"));
-  ASSERT_TRUE(!env_->GetFileSize("/dir/non_existent", &file_size).ok());
+  ASSERT_FALSE(env_->FileExists("/dir/non_existent"));
+  ASSERT_FALSE(env_->GetFileSize("/dir/non_existent"));
   auto ch_ret = env_->GetChildren("/dir");
   ASSERT_TRUE(ch_ret);
   children = std::move(ch_ret.value());
@@ -44,13 +44,17 @@ TEST_F(MemEnvTest, Basics) {
   auto wf_ret = env_->NewWritableFile("/dir/f");
   ASSERT_TRUE(wf_ret);
   writable_file = wf_ret.value();
-  ASSERT_LEVELDB_OK(env_->GetFileSize("/dir/f", &file_size));
+  auto fs_ret = env_->GetFileSize("/dir/f");
+  ASSERT_TRUE(fs_ret);
+  file_size = fs_ret.value();
   ASSERT_EQ(0, file_size);
   delete writable_file;
 
   // Check that the file exists.
   ASSERT_TRUE(env_->FileExists("/dir/f"));
-  ASSERT_LEVELDB_OK(env_->GetFileSize("/dir/f", &file_size));
+  fs_ret = env_->GetFileSize("/dir/f");
+  ASSERT_TRUE(fs_ret);
+  file_size = fs_ret.value();
   ASSERT_EQ(0, file_size);
   ch_ret = env_->GetChildren("/dir");
   ASSERT_TRUE(ch_ret);
@@ -69,13 +73,17 @@ TEST_F(MemEnvTest, Basics) {
   auto af_ret = env_->NewAppendableFile("/dir/f");
   ASSERT_TRUE(af_ret);
   writable_file = af_ret.value();
-  ASSERT_LEVELDB_OK(env_->GetFileSize("/dir/f", &file_size));
+  fs_ret = env_->GetFileSize("/dir/f");
+  ASSERT_TRUE(fs_ret);
+  file_size = fs_ret.value();
   ASSERT_EQ(3, file_size);
   ASSERT_LEVELDB_OK(writable_file->Append("hello"));
   delete writable_file;
 
   // Check for expected size.
-  ASSERT_LEVELDB_OK(env_->GetFileSize("/dir/f", &file_size));
+  fs_ret = env_->GetFileSize("/dir/f");
+  ASSERT_TRUE(fs_ret);
+  file_size = fs_ret.value();
   ASSERT_EQ(8, file_size);
 
   // Check that renaming works.
@@ -83,7 +91,9 @@ TEST_F(MemEnvTest, Basics) {
   ASSERT_LEVELDB_OK(env_->RenameFile("/dir/f", "/dir/g"));
   ASSERT_TRUE(!env_->FileExists("/dir/f"));
   ASSERT_TRUE(env_->FileExists("/dir/g"));
-  ASSERT_LEVELDB_OK(env_->GetFileSize("/dir/g", &file_size));
+  fs_ret = env_->GetFileSize("/dir/f");
+  ASSERT_TRUE(fs_ret);
+  file_size = fs_ret.value();
   ASSERT_EQ(8, file_size);
 
   // Check that opening non-existent file fails.

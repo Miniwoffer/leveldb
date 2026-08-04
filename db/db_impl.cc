@@ -490,9 +490,10 @@ Error DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
     assert(log_ == nullptr);
     assert(mem_ == nullptr);
     uint64_t lfile_size;
-    if (env_->GetFileSize(fname, &lfile_size).ok()) {
-      if (auto ret = env_->NewAppendableFile(fname)) {
-        logfile_ = ret.value();
+    if (auto fs_ret = env_->GetFileSize(fname)) {
+      lfile_size = fs_ret.value();
+      if (auto af_ret = env_->NewAppendableFile(fname)) {
+        logfile_ = af_ret.value();
         Log(options_.info_log, "Reusing old log %s \n", fname.c_str());
         log_ = new log::Writer(logfile_, lfile_size);
         logfile_number_ = log_number;

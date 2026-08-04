@@ -163,7 +163,8 @@ class LEVELDB_EXPORT Env {
   virtual Error DeleteDir(const std::string& dirname);
 
   // Store the size of fname in *file_size.
-  virtual Error GetFileSize(const std::string& fname, uint64_t* file_size) = 0;
+  virtual std::expected<uint64_t, Error> GetFileSize(
+      const std::string& fname) = 0;
 
   // Rename file src to target.
   virtual Error RenameFile(const std::string& src,
@@ -375,8 +376,8 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
   Error RemoveDir(const std::string& d) override {
     return target_->RemoveDir(d);
   }
-  Error GetFileSize(const std::string& f, uint64_t* s) override {
-    return target_->GetFileSize(f, s);
+  std::expected<uint64_t, Error> GetFileSize(const std::string& f) override {
+    return target_->GetFileSize(f);
   }
   Error RenameFile(const std::string& s, const std::string& t) override {
     return target_->RenameFile(s, t);
