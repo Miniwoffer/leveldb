@@ -152,11 +152,11 @@ class PosixSequentialFile final : public SequentialFile {
     }
   }
 
-  Error Skip(uint64_t n) override {
+  std::optional<Error> Skip(uint64_t n) override {
     if (::lseek(fd_, n, SEEK_CUR) == static_cast<off_t>(-1)) {
       return PosixError(filename_, errno);
     }
-    return Error(Error::Code::Ok);
+    return {};
   }
 
  private:

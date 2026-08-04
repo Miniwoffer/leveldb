@@ -250,7 +250,7 @@ class LEVELDB_EXPORT SequentialFile {
   // file, and Skip will return OK.
   //
   // REQUIRES: External synchronization
-  virtual Error Skip(uint64_t n) = 0;
+  virtual std::optional<Error> Skip(uint64_t n) = 0;
 };
 
 // A file abstraction for randomly reading the contents of a file.
