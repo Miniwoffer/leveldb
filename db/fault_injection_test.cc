@@ -78,12 +78,13 @@ Error Truncate(const std::string& filename, uint64_t length) {
     WritableFile* tmp_file;
     if (auto ret = env->NewWritableFile(tmp_name)) {
       tmp_file = ret.value();
-      err = tmp_file->Append(result);
+      auto tmp_ret = tmp_file->Append(result);
       delete tmp_file;
-      if (err.ok()) {
+      if (!tmp_ret) {
         err = std::move(env->RenameFile(tmp_name, filename).value_or(err));
       } else {
         env->RemoveFile(tmp_name);
+        err = std::move(tmp_ret.value());
       }
     } else {
       err = std::move(ret.error());
@@ -123,7 +124,7 @@ class TestWritableFile : public WritableFile {
   TestWritableFile(const FileState& state, WritableFile* f,
                    FaultInjectionTestEnv* env);
   ~TestWritableFile() override;
-  Error Append(const std::string_view& data) override;
+  std::optional<Error> Append(const std::string_view& data) override;
   Error Close() override;
   Error Flush() override;
   Error Sync() override;
@@ -190,12 +191,12 @@ TestWritableFile::~TestWritableFile() {
   delete target_;
 }
 
-Error TestWritableFile::Append(const std::string_view& data) {
-  Error e = target_->Append(data);
-  if (e.ok() && env_->IsFilesystemActive()) {
+std::optional<Error> TestWritableFile::Append(const std::string_view& data) {
+  auto ret = target_->Append(data);
+  if (!ret && env_->IsFilesystemActive()) {
     state_.pos_ += data.size();
   }
-  return e;
+  return ret;
 }
 
 Error TestWritableFile::Close() {

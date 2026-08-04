@@ -203,7 +203,7 @@ TEST_F(RecoveryTest, LargeManifestCompacted) {
     ASSERT_TRUE(ret);
     file = ret.value();
     std::string zeroes(3 * 1048576 - static_cast<size_t>(len), 0);
-    ASSERT_LEVELDB_OK(file->Append(zeroes));
+    ASSERT_FALSE(file->Append(zeroes).has_value());
     ASSERT_LEVELDB_OK(file->Flush());
     delete file;
   }

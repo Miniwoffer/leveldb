@@ -98,15 +98,17 @@ Error Writer::EmitPhysicalRecord(RecordType t, const char* ptr, size_t length) {
   EncodeFixed<uint32_t>(std::span(buf, 8), crc);
 
   // Write the header and the payload
-  Error e = dest_->Append(std::string_view(buf, kHeaderSize));
-  if (e.ok()) {
-    e = dest_->Append(std::string_view(ptr, length));
-    if (e.ok()) {
-      e = dest_->Flush();
-    }
+
+  if (auto ret = dest_->Append(std::string_view(buf, kHeaderSize))) {
+    return ret.value();
   }
+
+  if (auto ret = dest_->Append(std::string_view(ptr, length))) {
+    return ret.value();
+  }
+
   block_offset_ += kHeaderSize + length;
-  return e;
+  return dest_->Flush();
 }
 
 }  // namespace log

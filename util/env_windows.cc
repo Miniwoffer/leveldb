@@ -268,7 +268,7 @@ class WindowsWritableFile : public WritableFile {
 
   ~WindowsWritableFile() override = default;
 
-  Error Append(const std::string_view& data) override {
+  std::optional<Error> Append(const std::string_view& data) override {
     size_t write_size = data.size();
     const char* write_data = data.data();
 
@@ -279,7 +279,7 @@ class WindowsWritableFile : public WritableFile {
     write_size -= copy_size;
     pos_ += copy_size;
     if (write_size == 0) {
-      return Error(Error::Code::Ok);
+      return {};
     }
 
     // Can't fit in buffer, so need to do at least one write.
@@ -292,7 +292,7 @@ class WindowsWritableFile : public WritableFile {
     if (write_size < kWritableFileBufferSize) {
       std::memcpy(buf_, write_data, write_size);
       pos_ = write_size;
-      return Error(Error::Code::Ok);
+      return {};
     }
     return WriteUnbuffered(write_data, write_size);
   }
