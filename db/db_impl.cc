@@ -247,8 +247,8 @@ void DBImpl::RemoveObsoleteFiles() {
   std::set<uint64_t> live = pending_outputs_;
   versions_->AddLiveFiles(&live);
 
-  std::vector<std::string> filenames;
-  env_->GetChildren(dbname_, &filenames);  // Ignoring errors on purpose
+  std::vector<std::string> filenames = std::move(
+      env_->GetChildren(dbname_).value());  // Ignoring errors on purpose
   uint64_t number;
   FileType type;
   std::vector<std::string> files_to_delete;
@@ -349,9 +349,10 @@ Error DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
   const uint64_t min_log = versions_->LogNumber();
   const uint64_t prev_log = versions_->PrevLogNumber();
   std::vector<std::string> filenames;
-  e = env_->GetChildren(dbname_, &filenames);
-  if (!e.ok()) {
-    return e;
+  if (auto ret = env_->GetChildren(dbname_)) {
+    filenames = std::move(ret.value());
+  } else {
+    return std::move(ret.error());
   }
   std::set<uint64_t> expected;
   versions_->AddLiveFiles(&expected);
@@ -1578,15 +1579,17 @@ Snapshot::~Snapshot() = default;
 Error DestroyDB(const std::string& dbname, const Options& options) {
   Env* env = options.env;
   std::vector<std::string> filenames;
-  Error result = env->GetChildren(dbname, &filenames);
-  if (!result.ok()) {
+
+  if (auto ret = env->GetChildren(dbname)) {
+    filenames = std::move(ret.value());
+  } else {
     // Ignore error in case directory does not exist
     return Error(Error::Code::Ok);
   }
 
   FileLock* lock;
   const std::string lockname = LockFileName(dbname);
-  result = env->LockFile(lockname, &lock);
+  Error result = env->LockFile(lockname, &lock);
   if (result.ok()) {
     uint64_t number;
     FileType type;

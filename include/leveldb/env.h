@@ -117,8 +117,8 @@ class LEVELDB_EXPORT Env {
   // Store in *result the names of the children of the specified directory.
   // The names are relative to "dir".
   // Original contents of *results are dropped.
-  virtual Error GetChildren(const std::string& dir,
-                            std::vector<std::string>* result) = 0;
+  virtual std::expected<std::vector<std::string>, Error> GetChildren(
+      const std::string& dir) = 0;
   // Delete the named file.
   //
   // The default implementation calls DeleteFile, to support legacy Env
@@ -353,18 +353,18 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
   }
   std::expected<WritableFile*, Error> NewWritableFile(
       const std::string& f) override {
-    return std::move(target_->NewWritableFile(f));
+    return target_->NewWritableFile(f);
   }
   std::expected<WritableFile*, Error> NewAppendableFile(
       const std::string& f) override {
-    return std::move(target_->NewAppendableFile(f));
+    return target_->NewAppendableFile(f);
   }
   bool FileExists(const std::string& f) override {
     return target_->FileExists(f);
   }
-  Error GetChildren(const std::string& dir,
-                    std::vector<std::string>* r) override {
-    return target_->GetChildren(dir, r);
+  std::expected<std::vector<std::string>, Error> GetChildren(
+      const std::string& dir) override {
+    return target_->GetChildren(dir);
   }
   Error RemoveFile(const std::string& f) override {
     return target_->RemoveFile(f);

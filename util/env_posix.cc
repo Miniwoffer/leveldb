@@ -593,19 +593,19 @@ class PosixEnv : public Env {
     return ::access(filename.c_str(), F_OK) == 0;
   }
 
-  Error GetChildren(const std::string& directory_path,
-                    std::vector<std::string>* result) override {
-    result->clear();
+  std::expected<std::vector<std::string>, Error> GetChildren(
+      const std::string& directory_path) override {
+    std::vector<std::string> result;
     ::DIR* dir = ::opendir(directory_path.c_str());
     if (dir == nullptr) {
-      return PosixError(directory_path, errno);
+      return std::unexpected(PosixError(directory_path, errno));
     }
     struct ::dirent* entry;
     while ((entry = ::readdir(dir)) != nullptr) {
-      result->emplace_back(entry->d_name);
+      result.emplace_back(entry->d_name);
     }
     ::closedir(dir);
-    return Error(Error::Code::Ok);
+    return result;
   }
 
   Error RemoveFile(const std::string& filename) override {

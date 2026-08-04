@@ -537,7 +537,10 @@ class Benchmark {
         count_comparator_(BytewiseComparator()),
         total_thread_count_(0) {
     std::vector<std::string> files;
-    g_env->GetChildren(FLAGS_db, &files);
+    if (auto ret = g_env->GetChildren(FLAGS_db)) {
+      files = std::move(ret.value());
+    }
+
     for (size_t i = 0; i < files.size(); i++) {
       if (std::string_view(files[i]).starts_with("heap-")) {
         g_env->RemoveFile(std::string(FLAGS_db) + "/" + files[i]);

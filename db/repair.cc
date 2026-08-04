@@ -98,9 +98,10 @@ class Repairer {
 
   Error FindFiles() {
     std::vector<std::string> filenames;
-    Error err = env_->GetChildren(dbname_, &filenames);
-    if (!err.ok()) {
-      return err;
+    if (auto ret = env_->GetChildren(dbname_)) {
+      filenames = std::move(ret.value());
+    } else {
+      return ret.error();
     }
     if (filenames.empty()) {
       return Error(Error::Code::IOFault, dbname_, "repair found no files");
@@ -126,7 +127,7 @@ class Repairer {
         }
       }
     }
-    return err;
+    return Error(Error::Code::Ok);
   }
 
   void ConvertLogFilesToTables() {
