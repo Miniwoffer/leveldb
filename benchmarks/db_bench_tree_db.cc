@@ -300,8 +300,7 @@ class Benchmark {
         bytes_(0),
         rand_(301) {
     std::vector<std::string> files;
-    std::string test_dir;
-    Env::Default()->GetTestDirectory(&test_dir);
+    std::string test_dir = Env::Default()->GetTestDirectory().value();
     if (auto ret = Env::Default()->GetChildren(test_dir.c_str())) {
       files = std::move(ret.value());
     }
@@ -401,8 +400,8 @@ class Benchmark {
     db_ = new kyotocabinet::TreeDB();
     char file_name[100];
     db_num_++;
-    std::string test_dir;
-    Env::Default()->GetTestDirectory(&test_dir);
+    std::string test_dir =
+        std::move(Env::Default()->GetTestDirectory().value());
     std::snprintf(file_name, sizeof(file_name), "%s/dbbench_polyDB-%d.kct",
                   test_dir.c_str(), db_num_);
 
@@ -522,7 +521,8 @@ int main(int argc, char** argv) {
 
   // Choose a location for the test database if none given with --db=<path>
   if (FLAGS_db == nullptr) {
-    leveldb::Env::Default()->GetTestDirectory(&default_db_path);
+    default_db_path =
+        std::move(leveldb::Env::Default()->GetTestDirectory().value());
     default_db_path += "/dbbench";
     FLAGS_db = default_db_path.c_str();
   }

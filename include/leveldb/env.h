@@ -209,7 +209,7 @@ class LEVELDB_EXPORT Env {
   // or may not have just been created. The directory may or may not differ
   // between runs of the same process, but subsequent calls will return the
   // same directory.
-  virtual Error GetTestDirectory(std::string* path) = 0;
+  virtual std::expected<std::string, Error> GetTestDirectory() = 0;
 
   // Create and return a log file for storing informational messages.
   virtual Error NewLogger(const std::string& fname, Logger** result) = 0;
@@ -397,8 +397,8 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
   void StartThread(void (*f)(void*), void* a) override {
     return target_->StartThread(f, a);
   }
-  Error GetTestDirectory(std::string* path) override {
-    return target_->GetTestDirectory(path);
+  std::expected<std::string, Error> GetTestDirectory() override {
+    return target_->GetTestDirectory();
   }
   Error NewLogger(const std::string& fname, Logger** result) override {
     return target_->NewLogger(fname, result);

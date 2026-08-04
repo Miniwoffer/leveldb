@@ -565,7 +565,9 @@ void leveldb_env_destroy(leveldb_env_t* env) {
 
 char* leveldb_env_get_test_directory(leveldb_env_t* env) {
   std::string result;
-  if (!env->rep->GetTestDirectory(&result).ok()) {
+  if (auto ret = env->rep->GetTestDirectory()) {
+    result = std::move(ret.value());
+  } else {
     return nullptr;
   }
 

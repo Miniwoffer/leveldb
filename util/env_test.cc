@@ -27,7 +27,9 @@ TEST_F(EnvTest, ReadWrite) {
 
   // Get file to use for testing.
   std::string test_dir;
-  ASSERT_LEVELDB_OK(env_->GetTestDirectory(&test_dir));
+  auto ret = env_->GetTestDirectory();
+  ASSERT_TRUE(ret);
+  test_dir = std::move(ret.value());
   std::string test_file_name = test_dir + "/open_on_read.txt";
   WritableFile* writable_file;
   auto ret = env_->NewWritableFile(test_file_name, &writable_file);
@@ -178,7 +180,9 @@ TEST_F(EnvTest, StartThread) {
 TEST_F(EnvTest, TestOpenNonExistentFile) {
   // Write some test data to a single file that will be opened |n| times.
   std::string test_dir;
-  ASSERT_LEVELDB_OK(env_->GetTestDirectory(&test_dir));
+  auto td_ret = env_->GetTestDirectory();
+  ASSERT_TRUE(td_ret);
+  test_dir = std::move(td_ret.value());
 
   std::string non_existent_file = test_dir + "/non_existent_file";
   ASSERT_TRUE(!env_->FileExists(non_existent_file));
@@ -202,7 +206,9 @@ TEST_F(EnvTest, TestOpenNonExistentFile) {
 
 TEST_F(EnvTest, ReopenWritableFile) {
   std::string test_dir;
-  ASSERT_LEVELDB_OK(env_->GetTestDirectory(&test_dir));
+  auto td_ret = env_->GetTestDirectory();
+  ASSERT_TRUE(td_ret);
+  test_dir = std::move(td_ret.value());
   std::string test_file_name = test_dir + "/reopen_writable_file.txt";
   env_->RemoveFile(test_file_name);
 
@@ -230,7 +236,9 @@ TEST_F(EnvTest, ReopenWritableFile) {
 
 TEST_F(EnvTest, ReopenAppendableFile) {
   std::string test_dir;
-  ASSERT_LEVELDB_OK(env_->GetTestDirectory(&test_dir));
+  auto td_ret = env_->GetTestDirectory();
+  ASSERT_TRUE(td_ret);
+  test_dir = std::move(td_ret.value());
   std::string test_file_name = test_dir + "/reopen_appendable_file.txt";
   env_->RemoveFile(test_file_name);
 

@@ -323,8 +323,8 @@ class Benchmark {
         bytes_(0),
         rand_(301) {
     std::vector<std::string> files;
-    std::string test_dir;
-    Env::Default()->GetTestDirectory(&test_dir);
+    std::string test_dir =
+        std::move(Env::Default()->GetTestDirectory().value());
     Env::Default()->GetChildren(test_dir, &files);
     if (!FLAGS_use_existing_db) {
       for (int i = 0; i < files.size(); i++) {
@@ -427,8 +427,7 @@ class Benchmark {
     db_num_++;
 
     // Open database
-    std::string tmp_dir;
-    Env::Default()->GetTestDirectory(&tmp_dir);
+    std::string tmp_dir = std::move(Env::Default()->GetTestDirectory().value());
     std::snprintf(file_name, sizeof(file_name), "%s/dbbench_sqlite3-%d.db",
                   tmp_dir.c_str(), db_num_);
     status = sqlite3_open(file_name, &db_);
@@ -716,7 +715,8 @@ int main(int argc, char** argv) {
 
   // Choose a location for the test database if none given with --db=<path>
   if (FLAGS_db == nullptr) {
-    leveldb::Env::Default()->GetTestDirectory(&default_db_path);
+    default_db_path =
+        std::move(leveldb::Env::Default()->GetTestDirectory().value());
     default_db_path += "/dbbench";
     FLAGS_db = default_db_path.c_str();
   }

@@ -166,19 +166,21 @@ TEST_F(MemEnvTest, Locks) {
   // These are no-ops, but we test they return success.
   auto ret = env_->LockFile("some file");
   ASSERT_TRUE(ret);
-  lock = ret.value();
+  lock = std::move(ret.value());
   ASSERT_FALSE(env_->UnlockFile(lock).has_value());
 }
 
 TEST_F(MemEnvTest, Misc) {
   std::string test_dir;
-  ASSERT_LEVELDB_OK(env_->GetTestDirectory(&test_dir));
+  auto td_ret = env_->GetTestDirectory();
+  ASSERT_TRUE(td_ret);
+  test_dir = std::move(td_ret.value());
   ASSERT_TRUE(!test_dir.empty());
 
   WritableFile* writable_file;
   auto ret = env_->NewWritableFile("/a/b");
   ASSERT_TRUE(ret);
-  writable_file = ret.value();
+  writable_file = std::move(ret.value());
 
   // These are no-ops, but we test they return success.
   ASSERT_LEVELDB_OK(writable_file->Sync());
@@ -234,7 +236,7 @@ TEST_F(MemEnvTest, OverwriteOpenFile) {
   RandomAccessFile* rand_file;
   std::expected<RandomAccessFile*, Error> ret;
   ASSERT_TRUE(ret = env_->NewRandomAccessFile(kTestFileName));
-  rand_file = ret.value();
+  rand_file = std::move(ret.value());
 
   const char kWrite2Data[] = "Write #2 data";
   ASSERT_LEVELDB_OK(WriteStringToFile(env_, kWrite2Data, kTestFileName));
