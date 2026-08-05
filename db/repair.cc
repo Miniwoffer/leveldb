@@ -344,7 +344,7 @@ class Repairer {
 
     if (counter > 0 && e.ok()) {
       std::string orig = TableFileName(dbname_, t.meta.number);
-      e = std::move(env_->RenameFile(copy, orig).value_or(e));
+      e = std::move(env_->RenameFile(copy, orig).error_or(e));
       if (e.ok()) {
         Log(options_.info_log, "Table #%llu: %d entries repaired",
             (unsigned long long)t.meta.number, counter);
@@ -409,7 +409,7 @@ class Repairer {
 
       // Install new manifest
       err = std::move(
-          env_->RenameFile(tmp, DescriptorFileName(dbname_, 1)).value_or(err));
+          env_->RenameFile(tmp, DescriptorFileName(dbname_, 1)).error_or(err));
       if (err.ok()) {
         err = SetCurrentFile(env_, dbname_, 1);
       } else {
@@ -434,8 +434,7 @@ class Repairer {
     std::string new_file = new_dir;
     new_file.append("/");
     new_file.append((slash == nullptr) ? fname.c_str() : slash + 1);
-    Error e = std::move(
-        env_->RenameFile(fname, new_file).value_or(Error(Error::Code::Ok)));
+    Error e = std::move(env_->RenameFile(fname, new_file).error_or(Error()));
     Log(options_.info_log, "Archiving %s: %s\n", fname.c_str(),
         e.ToString().c_str());
   }

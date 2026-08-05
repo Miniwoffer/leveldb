@@ -551,12 +551,12 @@ class WindowsEnv : public Env {
     return file_size.QuadPart;
   }
 
-  std::optional<Error> RenameFile(const std::string& from,
-                                  const std::string& to) override {
+  std::expected<void, Error> RenameFile(const std::string& from,
+                                        const std::string& to) override {
     // Try a simple move first. It will only succeed when |to| doesn't already
     // exist.
     if (::MoveFileA(from.c_str(), to.c_str())) {
-      return Error(Error::Code::Ok);
+      return {};
     }
     DWORD move_error = ::GetLastError();
 
@@ -575,9 +575,9 @@ class WindowsEnv : public Env {
     // call to MoveFile.
     if (replace_error == ERROR_FILE_NOT_FOUND ||
         replace_error == ERROR_PATH_NOT_FOUND) {
-      return WindowsError(from, move_error);
+      return std::unexpected(WindowsError(from, move_error));
     } else {
-      return WindowsError(from, replace_error);
+      return std::unexpected(WindowsError(from, replace_error));
     }
   }
 

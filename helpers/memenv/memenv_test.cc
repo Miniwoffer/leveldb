@@ -87,7 +87,7 @@ TEST_F(MemEnvTest, Basics) {
   ASSERT_EQ(8, file_size);
 
   // Check that renaming works.
-  ASSERT_TRUE(env_->RenameFile("/dir/non_existent", "/dir/g").has_value());
+  ASSERT_FALSE(env_->RenameFile("/dir/non_existent", "/dir/g"));
   ASSERT_FALSE(env_->RenameFile("/dir/f", "/dir/g").has_value());
   ASSERT_TRUE(!env_->FileExists("/dir/f"));
   ASSERT_TRUE(env_->FileExists("/dir/g"));
@@ -135,7 +135,7 @@ TEST_F(MemEnvTest, ReadWrite) {
   ASSERT_TRUE(rd_ret);  // Read "hello".
   result = std::move(rd_ret.value());
   ASSERT_EQ(0, result.compare("hello"));
-  ASSERT_FALSE(seq_file->Skip(1).has_value());
+  ASSERT_TRUE(seq_file->Skip(1));
   rd_ret = seq_file->Read(1000, scratch);
   ASSERT_TRUE(rd_ret);  // Read "world".
   result = std::move(rd_ret.value());
