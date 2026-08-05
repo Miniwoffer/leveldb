@@ -216,9 +216,8 @@ TEST_F(EnvPosixTest, TestOpenOnRead) {
   for (int i = 0; i < kNumFiles; i++) {
     delete files[i];
   }
-  ASSERT_FALSE(env_->RemoveFile(test_file).has_value());
+  ASSERT_TRUE(env_->RemoveFile(test_file));
 }
-
 #if HAVE_O_CLOEXEC
 
 TEST_F(EnvPosixTest, TestCloseOnExecSequentialFile) {
@@ -239,7 +238,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecSequentialFile) {
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   delete file;
 
-  ASSERT_FALSE(env_->RemoveFile(file_path).has_value());
+  ASSERT_TRUE(env_->RemoveFile(file_path));
 }
 
 TEST_F(EnvPosixTest, TestCloseOnExecRandomAccessFile) {
@@ -272,7 +271,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecRandomAccessFile) {
   for (int i = 0; i < kMMapLimit; i++) {
     delete mmapped_files[i];
   }
-  ASSERT_FALSE(env_->RemoveFile(file_path).has_value());
+  ASSERT_TRUE(env_->RemoveFile(file_path));
 }
 
 TEST_F(EnvPosixTest, TestCloseOnExecWritableFile) {
@@ -293,7 +292,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecWritableFile) {
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   delete file;
 
-  ASSERT_FALSE(env_->RemoveFile(file_path).has_value());
+  ASSERT_TRUE(env_->RemoveFile(file_path));
 }
 
 TEST_F(EnvPosixTest, TestCloseOnExecAppendableFile) {
@@ -314,7 +313,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecAppendableFile) {
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   delete file;
 
-  ASSERT_FALSE(env_->RemoveFile(file_path).has_value());
+  ASSERT_TRUE(env_->RemoveFile(file_path));
 }
 
 TEST_F(EnvPosixTest, TestCloseOnExecLockFile) {
@@ -334,7 +333,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecLockFile) {
   lock = std::move(lf_ret.value());
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   ASSERT_FALSE(env_->UnlockFile(lock).has_value());
-  ASSERT_FALSE(env_->RemoveFile(file_path).has_value());
+  ASSERT_TRUE(env_->RemoveFile(file_path));
 }
 
 TEST_F(EnvPosixTest, TestCloseOnExecLogger) {
@@ -355,7 +354,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecLogger) {
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   delete file;
 
-  ASSERT_FALSE(env_->RemoveFile(file_path).has_value());
+  ASSERT_TRUE(env_->RemoveFile(file_path));
 }
 
 #endif  // HAVE_O_CLOEXEC

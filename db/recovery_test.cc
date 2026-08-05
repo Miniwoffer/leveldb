@@ -105,14 +105,13 @@ class RecoveryTest : public testing::Test {
     Close();
     std::vector<uint64_t> logs = GetFiles(kLogFile);
     for (size_t i = 0; i < logs.size(); i++) {
-      EXPECT_FALSE(env_->RemoveFile(LogName(logs[i])).has_value())
-          << LogName(logs[i]);
+      EXPECT_TRUE(env_->RemoveFile(LogName(logs[i])));
     }
     return logs.size();
   }
 
   void RemoveManifestFile() {
-    ASSERT_FALSE(env_->RemoveFile(ManifestFileName()).has_value());
+    ASSERT_TRUE(env_->RemoveFile(ManifestFileName()));
   }
 
   uint64_t FirstLogFile() { return GetFiles(kLogFile)[0]; }

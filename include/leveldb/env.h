@@ -129,7 +129,7 @@ class LEVELDB_EXPORT Env {
   //
   // A future release will remove DeleteDir and the default implementation of
   // RemoveDir.
-  virtual std::optional<Error> RemoveFile(const std::string& fname);
+  virtual std::expected<void, Error> RemoveFile(const std::string& fname);
 
   // DEPRECATED: Modern Env implementations should override RemoveFile instead.
   //
@@ -138,7 +138,7 @@ class LEVELDB_EXPORT Env {
   // code should call RemoveFile.
   //
   // A future release will remove this method.
-  virtual std::optional<Error> DeleteFile(const std::string& fname);
+  virtual std::expected<void, Error> DeleteFile(const std::string& fname);
 
   // Create the specified directory.
   virtual std::optional<Error> CreateDir(const std::string& dirname) = 0;
@@ -370,7 +370,7 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
       const std::string& dir) override {
     return target_->GetChildren(dir);
   }
-  std::optional<Error> RemoveFile(const std::string& f) override {
+  std::expected<void, Error> RemoveFile(const std::string& f) override {
     return target_->RemoveFile(f);
   }
   std::optional<Error> CreateDir(const std::string& d) override {

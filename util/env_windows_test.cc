@@ -60,7 +60,7 @@ TEST_F(EnvWindowsTest, TestOpenOnRead) {
   for (int i = 0; i < kNumFiles; i++) {
     delete files[i];
   }
-  ASSERT_FALSE(env_->RemoveFile(test_file).has_value());
+  ASSERT_TRUE(env_->RemoveFile(test_file));
 }
 
 }  // namespace leveldb

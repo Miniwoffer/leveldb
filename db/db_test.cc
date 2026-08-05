@@ -556,7 +556,7 @@ class DBTest : public testing::Test {
     FileType type;
     for (size_t i = 0; i < filenames.size(); i++) {
       if (ParseFileName(filenames[i], &number, &type) && type == kTableFile) {
-        EXPECT_FALSE(env_->RemoveFile(TableFileName(dbname_, number)));
+        EXPECT_TRUE(env_->RemoveFile(TableFileName(dbname_, number)));
         return true;
       }
     }

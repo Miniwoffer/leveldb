@@ -1605,8 +1605,8 @@ Error DestroyDB(const std::string& dbname, const Options& options) {
       if (ParseFileName(filenames[i], &number, &type) &&
           type != kDBLockFile) {  // Lock file will be deleted at end
         auto del = env->RemoveFile(dbname + "/" + filenames[i]);
-        if (err.ok() && del.has_value()) {
-          err = std::move(del.value());
+        if (err.ok() && !del) {
+          err = std::move(del.error());
         }
       }
     }
