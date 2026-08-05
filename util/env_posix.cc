@@ -328,7 +328,12 @@ class PosixWritableFile final : public WritableFile {
     return {};
   }
 
-  Error Flush() override { return FlushBuffer(); }
+  std::expected<void, Error> Flush() override {
+    if (Error err = FlushBuffer(); !err.ok()) {
+      return std::unexpected(err);
+    }
+    return {};
+  }
 
   Error Sync() override {
     // Ensure new files referred to by the manifest are in the filesystem.

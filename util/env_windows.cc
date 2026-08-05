@@ -311,7 +311,7 @@ class WindowsWritableFile : public WritableFile {
     return {};
   }
 
-  Error Flush() override { return FlushBuffer(); }
+  std::expected<void, Error> Flush() override { return FlushBuffer(); }
 
   Error Sync() override {
     // On Windows no need to sync parent directory. Its metadata will be updated

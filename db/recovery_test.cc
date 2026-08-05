@@ -158,7 +158,7 @@ class RecoveryTest : public testing::Test {
     batch.Put(key, val);
     WriteBatchInternal::SetSequence(&batch, seq);
     ASSERT_LEVELDB_OK(writer.AddRecord(WriteBatchInternal::Contents(&batch)));
-    ASSERT_LEVELDB_OK(file->Flush());
+    ASSERT_TRUE(file->Flush());
     delete file;
   }
 
@@ -204,7 +204,7 @@ TEST_F(RecoveryTest, LargeManifestCompacted) {
     file = ret.value();
     std::string zeroes(3 * 1048576 - static_cast<size_t>(len), 0);
     ASSERT_TRUE(file->Append(zeroes));
-    ASSERT_LEVELDB_OK(file->Flush());
+    ASSERT_TRUE(file->Flush());
     delete file;
   }
 
