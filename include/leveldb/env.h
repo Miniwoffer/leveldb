@@ -168,8 +168,8 @@ class LEVELDB_EXPORT Env {
       const std::string& fname) = 0;
 
   // Rename file src to target.
-  virtual std::optional<Error> RenameFile(const std::string& src,
-                                          const std::string& target) = 0;
+  virtual std::expected<void, Error> RenameFile(const std::string& src,
+                                                const std::string& target) = 0;
 
   // Lock the specified file.  Used to prevent concurrent access to
   // the same db by multiple processes.  On failure, stores nullptr in
@@ -382,8 +382,8 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
   std::expected<uint64_t, Error> GetFileSize(const std::string& f) override {
     return target_->GetFileSize(f);
   }
-  std::optional<Error> RenameFile(const std::string& s,
-                                  const std::string& t) override {
+  std::expected<void, Error> RenameFile(const std::string& s,
+                                        const std::string& t) override {
     return target_->RenameFile(s, t);
   }
   std::expected<FileLock*, Error> LockFile(const std::string& f) override {
