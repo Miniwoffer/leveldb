@@ -66,7 +66,7 @@ TEST_F(MemEnvTest, Basics) {
   wf_ret = env_->NewWritableFile("/dir/f");
   ASSERT_TRUE(wf_ret);
   writable_file = wf_ret.value();
-  ASSERT_FALSE(writable_file->Append("abc").has_value());
+  ASSERT_TRUE(writable_file->Append("abc"));
   delete writable_file;
 
   // Check that append works.
@@ -77,7 +77,7 @@ TEST_F(MemEnvTest, Basics) {
   ASSERT_TRUE(fs_ret);
   file_size = fs_ret.value();
   ASSERT_EQ(3, file_size);
-  ASSERT_FALSE(writable_file->Append("hello").has_value());
+  ASSERT_TRUE(writable_file->Append("hello"));
   delete writable_file;
 
   // Check for expected size.
@@ -123,8 +123,8 @@ TEST_F(MemEnvTest, ReadWrite) {
   auto wr_ret = env_->NewWritableFile("/dir/f");
   ASSERT_TRUE(wr_ret);
   writable_file = wr_ret.value();
-  ASSERT_FALSE(writable_file->Append("hello ").has_value());
-  ASSERT_FALSE(writable_file->Append("world").has_value());
+  ASSERT_TRUE(writable_file->Append("hello "));
+  ASSERT_TRUE(writable_file->Append("world"));
   delete writable_file;
 
   // Read sequentially.
@@ -214,8 +214,8 @@ TEST_F(MemEnvTest, LargeWrite) {
   auto wr_ret = env_->NewWritableFile("/dir/f");
   ASSERT_TRUE(wr_ret);
   writable_file = wr_ret.value();
-  ASSERT_FALSE(writable_file->Append("foo").has_value());
-  ASSERT_FALSE(writable_file->Append(write_data).has_value());
+  ASSERT_TRUE(writable_file->Append("foo"));
+  ASSERT_TRUE(writable_file->Append(write_data));
   delete writable_file;
 
   std::expected<SequentialFile*, Error> seq_ret;

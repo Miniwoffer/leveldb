@@ -199,7 +199,7 @@ void TableBuilder::WriteRawBlock(const std::string_view& block_contents,
   Rep* r = rep_;
   handle->set_offset(r->offset);
   handle->set_size(block_contents.size());
-  r->err = r->file->Append(block_contents).value_or(Error(Error::Code::Ok));
+  r->err = r->file->Append(block_contents).error_or(Error());
   if (r->err.ok()) {
     std::array<char, kBlockTrailerSize> trailer;
     trailer[0] = type;
@@ -208,8 +208,7 @@ void TableBuilder::WriteRawBlock(const std::string_view& block_contents,
                          1);  // Extend crc to cover block type
     EncodeFixed<uint32_t>(std::span<char>(trailer.begin() + 1, trailer.end()),
                           crc32c::Mask(crc));
-    r->err = r->file->Append(std::string_view(trailer))
-                 .value_or(Error(Error::Code::Ok));
+    r->err = r->file->Append(std::string_view(trailer)).error_or(Error());
     if (r->err.ok()) {
       r->offset += block_contents.size() + kBlockTrailerSize;
     }
@@ -267,7 +266,7 @@ Error TableBuilder::Finish() {
     footer.set_index_handle(index_block_handle);
     std::string footer_encoding;
     footer.EncodeTo(&footer_encoding);
-    r->err = r->file->Append(footer_encoding).value_or(Error(Error::Code::Ok));
+    r->err = r->file->Append(footer_encoding).error_or(Error());
     if (r->err.ok()) {
       r->offset += footer_encoding.size();
     }

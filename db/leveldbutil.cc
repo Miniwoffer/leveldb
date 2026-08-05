@@ -12,7 +12,7 @@ namespace {
 
 class StdoutPrinter : public WritableFile {
  public:
-  std::optional<Error> Append(const std::string_view& data) override {
+  std::expected<void, Error> Append(const std::string_view& data) override {
     fwrite(data.data(), 1, data.size(), stdout);
     return {};
   }

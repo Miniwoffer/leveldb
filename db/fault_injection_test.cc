@@ -80,11 +80,11 @@ Error Truncate(const std::string& filename, uint64_t length) {
       tmp_file = ret.value();
       auto tmp_ret = tmp_file->Append(result);
       delete tmp_file;
-      if (!tmp_ret) {
+      if (tmp_ret) {
         err = std::move(env->RenameFile(tmp_name, filename).value_or(err));
       } else {
         env->RemoveFile(tmp_name);
-        err = std::move(tmp_ret.value());
+        err = std::move(tmp_ret.error());
       }
     } else {
       err = std::move(ret.error());
@@ -124,7 +124,7 @@ class TestWritableFile : public WritableFile {
   TestWritableFile(const FileState& state, WritableFile* f,
                    FaultInjectionTestEnv* env);
   ~TestWritableFile() override;
-  std::optional<Error> Append(const std::string_view& data) override;
+  std::expected<void, Error> Append(const std::string_view& data) override;
   std::expected<void, Error> Close() override;
   Error Flush() override;
   Error Sync() override;
@@ -191,9 +191,10 @@ TestWritableFile::~TestWritableFile() {
   delete target_;
 }
 
-std::optional<Error> TestWritableFile::Append(const std::string_view& data) {
+std::expected<void, Error> TestWritableFile::Append(
+    const std::string_view& data) {
   auto ret = target_->Append(data);
-  if (!ret && env_->IsFilesystemActive()) {
+  if (ret && env_->IsFilesystemActive()) {
     state_.pos_ += data.size();
   }
   return ret;

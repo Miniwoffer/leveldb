@@ -169,7 +169,7 @@ class LogTest : public testing::Test {
     std::expected<void, Error> Close() override { return {}; }
     Error Flush() override { return Error(Error::Code::Ok); }
     Error Sync() override { return Error(Error::Code::Ok); }
-    std::optional<Error> Append(const std::string_view& slice) override {
+    std::expected<void, Error> Append(const std::string_view& slice) override {
       contents_.append(slice.data(), slice.size());
       return {};
     }

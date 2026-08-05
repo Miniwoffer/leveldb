@@ -171,7 +171,7 @@ class SpecialEnv : public EnvWrapper {
           : env_(env), base_(base), fname_(fname) {}
 
       ~DataFile() { delete base_; }
-      std::optional<Error> Append(const std::string_view& data) {
+      std::expected<void, Error> Append(const std::string_view& data) {
         if (env_->no_space_.load(std::memory_order_acquire)) {
           // Drop writes on the floor
           return {};
@@ -207,9 +207,10 @@ class SpecialEnv : public EnvWrapper {
      public:
       ManifestFile(SpecialEnv* env, WritableFile* b) : env_(env), base_(b) {}
       ~ManifestFile() { delete base_; }
-      std::optional<Error> Append(const std::string_view& data) {
+      std::expected<void, Error> Append(const std::string_view& data) {
         if (env_->manifest_write_error_.load(std::memory_order_acquire)) {
-          return Error(Error::Code::IOFault, "simulated writer error");
+          return std::unexpected(
+              Error(Error::Code::IOFault, "simulated writer error"));
         } else {
           return base_->Append(data);
         }
