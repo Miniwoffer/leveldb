@@ -108,7 +108,7 @@ TEST_F(MemEnvTest, Basics) {
   ASSERT_TRUE(ch_ret);
   children = std::move(ch_ret.value());
   ASSERT_EQ(0, children.size());
-  ASSERT_FALSE(env_->RemoveDir("/dir").has_value());
+  ASSERT_TRUE(env_->RemoveDir("/dir"));
 }
 
 TEST_F(MemEnvTest, ReadWrite) {
