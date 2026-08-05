@@ -332,7 +332,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecLockFile) {
   ASSERT_TRUE(lf_ret);
   lock = std::move(lf_ret.value());
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
-  ASSERT_FALSE(env_->UnlockFile(lock).has_value());
+  ASSERT_TRUE(env_->UnlockFile(lock));
   ASSERT_TRUE(env_->RemoveFile(file_path));
 }
 

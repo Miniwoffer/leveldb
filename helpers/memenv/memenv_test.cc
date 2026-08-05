@@ -179,7 +179,7 @@ TEST_F(MemEnvTest, Locks) {
   auto ret = env_->LockFile("some file");
   ASSERT_TRUE(ret);
   lock = std::move(ret.value());
-  ASSERT_FALSE(env_->UnlockFile(lock).has_value());
+  ASSERT_TRUE(env_->UnlockFile(lock));
 }
 
 TEST_F(MemEnvTest, Misc) {

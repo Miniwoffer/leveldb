@@ -364,7 +364,7 @@ class InMemoryEnv : public EnvWrapper {
     return new FileLock;
   }
 
-  std::optional<Error> UnlockFile(FileLock* lock) override {
+  std::expected<void, Error> UnlockFile(FileLock* lock) override {
     delete lock;
     return {};
   }
