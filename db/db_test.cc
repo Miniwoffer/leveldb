@@ -181,7 +181,7 @@ class SpecialEnv : public EnvWrapper {
       }
       std::expected<void, Error> Close() {
         auto ret = base_->Close();
-        if (!ret && IsLogFile(fname_) &&
+        if (ret && IsLogFile(fname_) &&
             env_->log_file_close_.load(std::memory_order_acquire)) {
           ret = std::unexpected(
               Error(Error::Code::IOFault, "simulated log file Close error"));
