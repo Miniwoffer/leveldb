@@ -327,7 +327,7 @@ class InMemoryEnv : public EnvWrapper {
     return {};
   }
 
-  std::optional<Error> CreateDir(const std::string& dirname) override {
+  std::expected<void, Error> CreateDir(const std::string& dirname) override {
     return {};
   }
 

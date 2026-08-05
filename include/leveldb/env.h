@@ -141,7 +141,7 @@ class LEVELDB_EXPORT Env {
   virtual std::expected<void, Error> DeleteFile(const std::string& fname);
 
   // Create the specified directory.
-  virtual std::optional<Error> CreateDir(const std::string& dirname) = 0;
+  virtual std::expected<void, Error> CreateDir(const std::string& dirname) = 0;
 
   // Delete the specified directory.
   //
@@ -373,7 +373,7 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
   std::expected<void, Error> RemoveFile(const std::string& f) override {
     return target_->RemoveFile(f);
   }
-  std::optional<Error> CreateDir(const std::string& d) override {
+  std::expected<void, Error> CreateDir(const std::string& d) override {
     return target_->CreateDir(d);
   }
   std::optional<Error> RemoveDir(const std::string& d) override {
