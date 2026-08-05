@@ -13,6 +13,7 @@
 #include <expected>
 #include <memory>
 #include <string>
+#include <variant>
 
 #include "leveldb/cache.h"
 #include "leveldb/env.h"
@@ -2127,7 +2128,7 @@ TEST_F(DBTest, MultiThreaded) {
 }
 
 namespace {
-typedef std::map<std::string, std::string> KVMap;
+typedef std::map<std::string, std::string, std::less<>> KVMap;
 }
 
 class ModelDB : public DB {
@@ -2174,24 +2175,20 @@ class ModelDB : public DB {
 
   std::expected<void, Error> Write(const WriteOptions& options,
                                    WriteBatch* batch) override {
-    class Handler : public WriteBatch::Handler {
-     public:
-      KVMap* map_;
-      void Put(const std::string_view key,
-               const std::string_view value) override {
-        (*map_)[std::string(key)] = std::string(value);
-      }
-      void Delete(const std::string_view key) override {
-        map_->erase(std::string(key));
-      }
-    };
-    Handler handler;
-    handler.map_ = &map_;
-    Error e = batch->Iterate(&handler);
-    if (!e.ok()) {
-      return std::unexpected(std::move(e));
+    auto map = &map_;
+    std::expected<void, Error> result = {};
+    for (auto entry : WriteBatch::Range(*batch, result)) {
+      std::visit(overloaded{
+                     [map](WriteBatch::PutEntry& e) {
+                       (*map)[std::string(e.key)] = e.value;
+                     },
+                     [map](WriteBatch::DeleteEntry& e) {
+                       map->erase(std::string(e.key));
+                     },
+                 },
+                 entry);
     }
-    return {};
+    return result;
   }
 
   std::optional<std::string> GetProperty(
@@ -2267,7 +2264,7 @@ static bool CompareIterators(int step, DB* model, std::shared_ptr<DB> db,
                    "step %d: Value mismatch for key '%s': '%s' vs. '%s'\n",
                    step, EscapeString(miter->key()).c_str(),
                    EscapeString(miter->value()).c_str(),
-                   EscapeString(miter->value()).c_str());
+                   EscapeString(dbiter->value()).c_str());
       ok = false;
       break;
     }

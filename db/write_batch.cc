@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The LevelDB Authors. All rights reserved.
+// Copyright(c) 2011 The LevelDB Authors.All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 //
@@ -19,6 +19,7 @@
 #include "db/memtable.h"
 #include "db/write_batch_internal.h"
 #include <span>
+#include <string_view>
 
 #include "leveldb/db.h"
 
@@ -29,11 +30,33 @@ namespace leveldb {
 // WriteBatch header has an 8-byte sequence number followed by a 4-byte count.
 static const size_t kHeader = 12;
 
+template <>
+WriteBatch::Range<WriteBatch::UnsafePolicy>::Iterator
+WriteBatch::Range<WriteBatch::UnsafePolicy>::begin() const {
+  return Iterator(std::string_view(rep_).substr(kHeader));
+}
+
+template <>
+WriteBatch::Range<WriteBatch::UnsafePolicy>::Iterator
+WriteBatch::Range<WriteBatch::UnsafePolicy>::end() const {
+  return Iterator(std::string_view(rep_.end(), rep_.end()));
+}
+
+template <>
+WriteBatch::Range<WriteBatch::SafePolicy>::Iterator
+WriteBatch::Range<WriteBatch::SafePolicy>::begin() const {
+  return Iterator(std::string_view(rep_).substr(kHeader), state_);
+}
+
+template <>
+WriteBatch::Range<WriteBatch::SafePolicy>::Iterator
+WriteBatch::Range<WriteBatch::SafePolicy>::end() const {
+  return Iterator(std::string_view(rep_.end(), rep_.end()), state_);
+}
+
 WriteBatch::WriteBatch() { Clear(); }
 
 WriteBatch::~WriteBatch() = default;
-
-WriteBatch::Handler::~Handler() = default;
 
 void WriteBatch::Clear() {
   rep_.clear();
@@ -41,51 +64,6 @@ void WriteBatch::Clear() {
 }
 
 size_t WriteBatch::ApproximateSize() const { return rep_.size(); }
-
-Error WriteBatch::Iterate(Handler* handler) const {
-  std::string_view input(rep_);
-  if (input.size() < kHeader) {
-    return Error(Error::Code::Corruption, "malformed WriteBatch (too small)");
-  }
-
-  input.remove_prefix(kHeader);
-  int found = 0;
-  while (!input.empty()) {
-    found++;
-    char tag = input[0];
-    input.remove_prefix(1);
-    switch (tag) {
-      case kTypeValue: {
-        auto key = GetLengthPrefixedBlob<uint32_t>(input);
-        if (!key) {
-          return Error(Error::Code::Corruption, "bad WriteBatch Put");
-        }
-        input = key->remaining_input;
-        auto value = GetLengthPrefixedBlob<uint64_t>(input);
-        if (!value) {
-          return Error(Error::Code::Corruption, "bad WriteBatch Put");
-        }
-        input = value->remaining_input;
-        handler->Put(key->value, value->value);
-      } break;
-      case kTypeDeletion: {
-        auto key = GetLengthPrefixedBlob<uint32_t>(input);
-        if (!key) {
-          return Error(Error::Code::Corruption, "bad WriteBatch Delete");
-        }
-        input = key->remaining_input;
-        handler->Delete(key->value);
-      } break;
-      default:
-        return Error(Error::Code::Corruption, "unknown WriteBatch tag");
-    }
-  }
-  if (found != WriteBatchInternal::Count(this)) {
-    return Error(Error::Code::Corruption, "WriteBatch has wrong count");
-  } else {
-    return Error(Error::Code::Ok);
-  }
-}
 
 int WriteBatchInternal::Count(const WriteBatch* b) {
   return DecodeFixed<uint32_t>(std::string_view(b->rep_).substr(8));
@@ -120,28 +98,21 @@ void WriteBatch::Append(const WriteBatch& source) {
   WriteBatchInternal::Append(this, &source);
 }
 
-namespace {
-class MemTableInserter : public WriteBatch::Handler {
- public:
-  SequenceNumber sequence_;
-  MemTable* mem_;
-
-  void Put(const std::string_view key, const std::string_view value) override {
-    mem_->Add(sequence_, kTypeValue, key, value);
-    sequence_++;
+std::expected<void, Error> WriteBatchInternal::InsertInto(const WriteBatch* b,
+                                                          MemTable* memtable) {
+  auto seq = WriteBatchInternal::Sequence(b);
+  std::expected<void, Error> status = {};
+  for (auto entry : WriteBatch::Range(*b, status)) {
+    std::visit(overloaded{[memtable, &seq](WriteBatch::PutEntry& e) {
+                            memtable->Add(seq++, kTypeValue, e.key, e.value);
+                          },
+                          [memtable, &seq](WriteBatch::DeleteEntry& e) {
+                            memtable->Add(seq++, kTypeDeletion, e.key,
+                                          std::string_view());
+                          }},
+               entry);
   }
-  void Delete(const std::string_view key) override {
-    mem_->Add(sequence_, kTypeDeletion, key, std::string_view());
-    sequence_++;
-  }
-};
-}  // namespace
-
-Error WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable) {
-  MemTableInserter inserter;
-  inserter.sequence_ = WriteBatchInternal::Sequence(b);
-  inserter.mem_ = memtable;
-  return b->Iterate(&inserter);
+  return status;
 }
 
 void WriteBatchInternal::SetContents(WriteBatch* b,
@@ -154,6 +125,93 @@ void WriteBatchInternal::Append(WriteBatch* dst, const WriteBatch* src) {
   SetCount(dst, Count(dst) + Count(src));
   assert(src->rep_.size() >= kHeader);
   dst->rep_.append(src->rep_.data() + kHeader, src->rep_.size() - kHeader);
+}
+
+template <>
+void WriteBatch::Range<WriteBatch::SafePolicy>::Iterator::ParseEntry() {
+  // Check if current has been parsed
+  if (next.data() > current.data()) {
+    return;
+  }
+  if (!next.empty()) {
+    char tag = next[0];
+    next.remove_prefix(1);
+    switch (tag) {
+      case kTypeValue: {
+        auto key = GetLengthPrefixedBlob<uint32_t>(next);
+        if (!key) {
+          state_.status_ptr = std::unexpected(
+              Error(Error::Code::Corruption, "bad WriteBatch Put"));
+          current = next = "";
+          return;
+        }
+
+        next = key->remaining_input;
+
+        auto value = GetLengthPrefixedBlob<uint64_t>(next);
+        if (!value) {
+          state_.status_ptr = std::unexpected(
+              Error(Error::Code::Corruption, "bad WriteBatch Put"));
+          current = next = "";
+          return;
+        }
+        next = value->remaining_input;
+
+        entry = PutEntry{key->value, value->value};
+      } break;
+      case kTypeDeletion: {
+        auto key = GetLengthPrefixedBlob<uint32_t>(next);
+        if (!key) {
+          state_.status_ptr = std::unexpected(
+              Error(Error::Code::Corruption, "bad WriteBatch Put"));
+          current = next = "";
+          return;
+        }
+
+        next = key->remaining_input;
+        entry = DeleteEntry{key->value};
+      } break;
+      default:
+        state_.status_ptr = std::unexpected(
+            Error(Error::Code::Corruption, "bad WriteBatch Put"));
+        current = next = "";
+        return;
+    }
+  }
+}
+
+template <>
+void WriteBatch::Range<WriteBatch::UnsafePolicy>::Iterator::ParseEntry() {
+  // Check if current has been parsed
+  if (next.data() > current.data()) {
+    return;
+  }
+  if (!next.empty()) {
+    char tag = next[0];
+    next.remove_prefix(1);
+    switch (tag) {
+      case kTypeValue: {
+        auto key = GetLengthPrefixedBlob<uint32_t>(next);
+        assert(key);
+        next = key->remaining_input;
+
+        auto value = GetLengthPrefixedBlob<uint64_t>(next);
+        assert(value);
+        next = value->remaining_input;
+
+        entry = PutEntry{key->value, value->value};
+      } break;
+      case kTypeDeletion: {
+        auto key = GetLengthPrefixedBlob<uint32_t>(next);
+        assert(key);
+
+        next = key->remaining_input;
+        entry = DeleteEntry{key->value};
+      } break;
+      default:
+        assert(false);
+    }
+  }
 }
 
 }  // namespace leveldb

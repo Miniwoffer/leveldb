@@ -9,6 +9,7 @@
 #include <cstring>
 #include <iterator>
 #include <string_view>
+#include <variant>
 
 #include "leveldb/cache.h"
 #include "leveldb/comparator.h"
@@ -42,7 +43,6 @@ using leveldb::Snapshot;
 using leveldb::WritableFile;
 using leveldb::WriteBatch;
 using leveldb::WriteOptions;
-
 extern "C" {
 
 struct leveldb_t {
@@ -359,24 +359,18 @@ void leveldb_writebatch_iterate(const leveldb_writebatch_t* b, void* state,
                                             const char* v, size_t vlen),
                                 void (*deleted)(void*, const char* k,
                                                 size_t klen)) {
-  class H : public WriteBatch::Handler {
-   public:
-    void* state_;
-    void (*put_)(void*, const char* k, size_t klen, const char* v, size_t vlen);
-    void (*deleted_)(void*, const char* k, size_t klen);
-    void Put(const std::string_view key,
-             const std::string_view value) override {
-      (*put_)(state_, key.data(), key.size(), value.data(), value.size());
-    }
-    void Delete(const std::string_view key) override {
-      (*deleted_)(state_, key.data(), key.size());
-    }
-  };
-  H handler;
-  handler.state_ = state;
-  handler.put_ = put;
-  handler.deleted_ = deleted;
-  b->rep.Iterate(&handler);
+  for (auto entry : WriteBatch::Range(b->rep)) {
+    std::visit(leveldb::overloaded{
+                   [state, put](WriteBatch::PutEntry& e) {
+                     (*put)(state, e.key.data(), e.key.length(), e.value.data(),
+                            e.value.length());
+                   },
+                   [state, deleted](WriteBatch::DeleteEntry& e) {
+                     (*deleted)(state, e.key.data(), e.key.length());
+                   },
+               },
+               entry);
+  }
 }
 
 void leveldb_writebatch_append(leveldb_writebatch_t* destination,

@@ -733,7 +733,7 @@ TEST(MemTableTest, Simple) {
   batch.Put(std::string_view("k2"), std::string("v2"));
   batch.Put(std::string_view("k3"), std::string("v3"));
   batch.Put(std::string_view("largekey"), std::string("vlarge"));
-  ASSERT_TRUE(WriteBatchInternal::InsertInto(&batch, memtable).ok());
+  ASSERT_TRUE(WriteBatchInternal::InsertInto(&batch, memtable));
 
   Iterator* iter = memtable->NewIterator();
   iter->SeekToFirst();
