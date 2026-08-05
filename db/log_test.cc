@@ -200,10 +200,11 @@ class LogTest : public testing::Test {
       return result;
     }
 
-    std::optional<Error> Skip(uint64_t n) override {
+    std::expected<void, Error> Skip(uint64_t n) override {
       if (n > contents_.size()) {
         contents_ = {};
-        return Error(Error::Code::NotFound, "in-memory file skipped past end");
+        return std::unexpected(
+            Error(Error::Code::NotFound, "in-memory file skipped past end"));
       }
 
       contents_.remove_prefix(n);

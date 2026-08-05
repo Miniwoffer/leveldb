@@ -185,11 +185,11 @@ class WindowsSequentialFile : public SequentialFile {
     return std::string_view(scratch, bytes_read);
   }
 
-  std::optional<Error> Skip(uint64_t n) override {
+  std::expected<void, Error> Skip(uint64_t n) override {
     LARGE_INTEGER distance;
     distance.QuadPart = n;
     if (!::SetFilePointerEx(handle_.get(), distance, nullptr, FILE_CURRENT)) {
-      return WindowsError(filename_, ::GetLastError());
+      return std::unexpected(WindowsError(filename_, ::GetLastError()));
     }
     return {};
   }
