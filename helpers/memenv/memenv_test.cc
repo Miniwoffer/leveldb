@@ -195,7 +195,7 @@ TEST_F(MemEnvTest, Misc) {
   writable_file = std::move(ret.value());
 
   // These are no-ops, but we test they return success.
-  ASSERT_LEVELDB_OK(writable_file->Sync());
+  ASSERT_TRUE(writable_file->Sync());
   ASSERT_TRUE(writable_file->Flush());
   ASSERT_TRUE(writable_file->Close());
   delete writable_file;

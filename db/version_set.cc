@@ -780,7 +780,7 @@ Error VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
       edit->EncodeTo(&record);
       e = descriptor_log_->AddRecord(record);
       if (e.ok()) {
-        e = descriptor_file_->Sync();
+        e = descriptor_file_->Sync().error_or(e);
       }
       if (!e.ok()) {
         Log(options_->info_log, "MANIFEST write: %s\n", e.ToString().c_str());

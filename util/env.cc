@@ -66,18 +66,18 @@ static Error DoWriteStringToFile(Env* env, const std::string_view& data,
     return std::move(ret.error());
   }
 
-  Error err = file->Append(data).error_or(Error());
-  if (err.ok() && should_sync) {
-    err = file->Sync();
+  auto ret = file->Append(data);
+  if (ret && should_sync) {
+    ret = file->Sync();
   }
-  if (err.ok()) {
-    err = file->Close().error_or(Error());
+  if (ret) {
+    ret = file->Close();
   }
   delete file;  // Will auto-close if we did not close above
-  if (!err.ok()) {
+  if (!ret) {
     env->RemoveFile(fname);
   }
-  return err;
+  return ret.error_or(Error());
 }
 
 Error WriteStringToFile(Env* env, const std::string_view& data,

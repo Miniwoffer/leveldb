@@ -127,7 +127,7 @@ class TestWritableFile : public WritableFile {
   std::expected<void, Error> Append(const std::string_view& data) override;
   std::expected<void, Error> Close() override;
   std::expected<void, Error> Flush() override;
-  Error Sync() override;
+  std::expected<void, Error> Sync() override;
 
  private:
   FileState state_;
@@ -225,22 +225,22 @@ Error TestWritableFile::SyncParent() {
   return e;
 }
 
-Error TestWritableFile::Sync() {
+std::expected<void, Error> TestWritableFile::Sync() {
   if (!env_->IsFilesystemActive()) {
-    return Error(Error::Code::Ok);
+    return std::unexpected(Error(Error::Code::Ok));
   }
   // Ensure new files referred to by the manifest are in the filesystem.
-  Error e = target_->Sync();
-  if (e.ok()) {
+  auto ret = target_->Sync();
+  if (ret) {
     state_.pos_at_last_sync_ = state_.pos_;
   }
   if (env_->IsFileCreatedSinceLastDirSync(state_.filename_)) {
     Error ps = SyncParent();
-    if (e.ok() && !ps.ok()) {
-      e = ps;
+    if (ret && !ps.ok()) {
+      return std::unexpected(ps);
     }
   }
-  return e;
+  return ret;
 }
 
 std::expected<WritableFile*, Error> FaultInjectionTestEnv::NewWritableFile(

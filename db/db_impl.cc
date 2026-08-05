@@ -211,10 +211,10 @@ Error DBImpl::NewDB() {
     new_db.EncodeTo(&record);
     e = log.AddRecord(record);
     if (e.ok()) {
-      e = file->Sync();
+      e = file->Sync().error_or(e);
     }
     if (e.ok()) {
-      e = file->Close().error_or(Error());
+      e = file->Close().error_or(e);
     }
   }
   delete file;
@@ -885,10 +885,10 @@ Error DBImpl::FinishCompactionOutputFile(CompactionState* compact,
 
   // Finish and check for file errors
   if (e.ok()) {
-    e = compact->outfile->Sync();
+    e = compact->outfile->Sync().error_or(e);
   }
   if (e.ok()) {
-    e = compact->outfile->Close().error_or(Error());
+    e = compact->outfile->Close().error_or(e);
   }
   delete compact->outfile;
   compact->outfile = nullptr;
@@ -1274,7 +1274,7 @@ std::expected<void, Error> DBImpl::Write(const WriteOptions& options,
       err = log_->AddRecord(WriteBatchInternal::Contents(write_batch));
       bool sync_error = false;
       if (err.ok() && options.sync) {
-        err = logfile_->Sync();
+        err = logfile_->Sync().error_or(err);
         if (!err.ok()) {
           sync_error = true;
         }

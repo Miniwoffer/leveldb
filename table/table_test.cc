@@ -98,7 +98,7 @@ class StringSink : public WritableFile {
 
   std::expected<void, Error> Close() override { return {}; }
   std::expected<void, Error> Flush() override { return {}; }
-  Error Sync() override { return Error(Error::Code::Ok); }
+  std::expected<void, Error> Sync() override { return {}; }
 
   std::expected<void, Error> Append(const std::string_view& data) override {
     contents_.append(data.data(), data.size());
