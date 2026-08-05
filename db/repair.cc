@@ -191,12 +191,12 @@ class Repairer {
         continue;
       }
       WriteBatchInternal::SetContents(&batch, record);
-      err = WriteBatchInternal::InsertInto(&batch, mem);
-      if (err.ok()) {
+
+      if (auto status = WriteBatchInternal::InsertInto(&batch, mem); status) {
         counter += WriteBatchInternal::Count(&batch);
       } else {
         Log(options_.info_log, "Log #%llu: ignoring %s",
-            (unsigned long long)log, err.ToString().c_str());
+            (unsigned long long)log, status.error().ToString().c_str());
         err = Error(Error::Code::Ok);  // Keep going with rest of file
       }
     }

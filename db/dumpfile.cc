@@ -10,6 +10,8 @@
 #include "db/version_edit.h"
 #include "db/write_batch_internal.h"
 #include <cstdio>
+#include <format>
+#include <variant>
 
 #include "leveldb/env.h"
 #include "leveldb/iterator.h"
@@ -73,27 +75,6 @@ Error PrintLogContents(Env* env, const std::string& fname,
   return Error(Error::Code::Ok);
 }
 
-// Called on every item found in a WriteBatch.
-class WriteBatchItemPrinter : public WriteBatch::Handler {
- public:
-  void Put(const std::string_view key, const std::string_view value) override {
-    std::string r = "  put '";
-    AppendEscapedStringTo(&r, key);
-    r += "' '";
-    AppendEscapedStringTo(&r, value);
-    r += "'\n";
-    dst_->Append(r);
-  }
-  void Delete(const std::string_view key) override {
-    std::string r = "  del '";
-    AppendEscapedStringTo(&r, key);
-    r += "'\n";
-    dst_->Append(r);
-  }
-
-  WritableFile* dst_;
-};
-
 // Called on every log record (each one of which is a WriteBatch)
 // found in a kLogFile.
 static void WriteBatchPrinter(uint64_t pos, std::string_view record,
@@ -114,11 +95,22 @@ static void WriteBatchPrinter(uint64_t pos, std::string_view record,
   AppendNumberTo(&r, WriteBatchInternal::Sequence(&batch));
   r.push_back('\n');
   dst->Append(r);
-  WriteBatchItemPrinter batch_item_printer;
-  batch_item_printer.dst_ = dst;
-  Error e = batch.Iterate(&batch_item_printer);
-  if (!e.ok()) {
-    dst->Append("  error: " + e.ToString() + "\n");
+
+  std::expected<void, Error> status = {};
+  for (auto entry : WriteBatch::Range(batch, status)) {
+    std::visit(
+        overloaded{
+            [dst](WriteBatch::PutEntry& e) {
+              dst->Append(std::format("  put '{}' '{}'\n", e.key, e.value));
+            },
+            [dst](WriteBatch::DeleteEntry& e) {
+              dst->Append(std::format("  del '{}'\n", e.key));
+            },
+        },
+        entry);
+  }
+  if (!status) {
+    dst->Append("  error: " + status.error().ToString() + "\n");
   }
 }
 

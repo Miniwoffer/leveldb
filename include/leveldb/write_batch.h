@@ -21,24 +21,24 @@
 #ifndef STORAGE_LEVELDB_INCLUDE_WRITE_BATCH_H_
 #define STORAGE_LEVELDB_INCLUDE_WRITE_BATCH_H_
 
+#include <cmath>
+#include <cstddef>
+#include <expected>
+#include <iterator>
 #include <string>
 #include <string_view>
+#include <variant>
 
 #include "leveldb/error.h"
 #include "leveldb/export.h"
 
 namespace leveldb {
-
+template <class... Ts>
+struct overloaded : Ts... {
+  using Ts::operator()...;
+};
 class LEVELDB_EXPORT WriteBatch {
  public:
-  class LEVELDB_EXPORT Handler {
-   public:
-    virtual ~Handler();
-    virtual void Put(const std::string_view key,
-                     const std::string_view value) = 0;
-    virtual void Delete(const std::string_view key) = 0;
-  };
-
   WriteBatch();
 
   // Intentionally copyable.
@@ -69,15 +69,108 @@ class LEVELDB_EXPORT WriteBatch {
   // the operations into this batch.
   void Append(const WriteBatch& source);
 
-  // Support for iterating over the contents of a batch.
-  Error Iterate(Handler* handler) const;
+  struct DeleteEntry {
+    std::string_view key;
+  };
+  struct PutEntry {
+    std::string_view key;
+    std::string_view value;
+  };
+  typedef std::variant<DeleteEntry, PutEntry> Entry;
+  struct UnsafePolicy {
+    static constexpr bool is_safe = false;
+    struct State {};
+  };
+
+  struct SafePolicy {
+    static constexpr bool is_safe = true;
+    struct State {
+      std::expected<void, Error>& status_ptr;
+      State(std::expected<void, Error>& status_ptr) : status_ptr(status_ptr) {};
+    };
+  };
+
+  template <typename Policy>
+  class Range {
+    std::string_view rep_;
+    [[no_unique_address]] typename Policy::State state_;
+
+   public:
+    class Iterator {
+      [[no_unique_address]] typename Policy::State state_;
+
+     public:
+      using iterator_category = std::input_iterator_tag;
+      using difference_type = std::ptrdiff_t;
+      using value_type = Entry;
+      using pointer = Entry*;
+      using reference = Entry&;
+
+      Iterator() = default;
+      Iterator(std::string_view view)
+        requires(!Policy::is_safe)
+          : current(view), next(view) {
+        ParseEntry();
+      };
+      Iterator(std::string_view view, Policy::State state)
+        requires(Policy::is_safe)
+          : current(view), next(view), state_(state) {
+        ParseEntry();
+      };
+
+      reference operator*() const { return entry; };
+      pointer operator->() const { return &entry; };
+
+      Iterator operator++(int) {
+        auto tmp = *this;
+        current = next;
+        ParseEntry();
+        return tmp;
+      }
+      // prefix ++
+      Iterator& operator++() {
+        current = next;
+        ParseEntry();
+        return *this;
+      };  // postfix ++
+
+      bool operator==(const Iterator& b) const { return current == b.current; }
+      bool operator!=(const Iterator& b) const { return current != b.current; }
+
+     private:
+      void ParseEntry();
+      mutable std::string_view current;
+      mutable std::string_view next;
+      mutable value_type entry;
+    };
+
+    Range(const std::string_view rep_, std::expected<void, Error>& status)
+      requires(Policy::is_safe)
+        : rep_(rep_), state_(status) {
+      state_.status_ptr = status;
+    };
+    Range(const WriteBatch& wb, std::expected<void, Error>& status)
+      requires(Policy::is_safe)
+        : rep_(wb.rep_), state_(status) {};
+
+    Range(const std::string_view rep_)
+      requires(!Policy::is_safe)
+        : rep_(rep_) {};
+    Range(const WriteBatch& wb)
+      requires(!Policy::is_safe)
+        : rep_(wb.rep_) {};
+
+    Iterator begin() const;
+    Iterator end() const;
+  };
+  Range(const WriteBatch) -> Range<UnsafePolicy>;
+  Range(const WriteBatch, std::expected<void, Error>&) -> Range<SafePolicy>;
 
  private:
   friend class WriteBatchInternal;
 
   std::string rep_;  // See comment in write_batch.cc for the format of rep_
 };
-
 }  // namespace leveldb
 
 #endif  // STORAGE_LEVELDB_INCLUDE_WRITE_BATCH_H_
