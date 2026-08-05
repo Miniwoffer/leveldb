@@ -147,7 +147,7 @@ class FaultInjectionTestEnv : public EnvWrapper {
       const std::string& fname) override;
   std::expected<WritableFile*, Error> NewAppendableFile(
       const std::string& fname) override;
-  std::optional<Error> RemoveFile(const std::string& f) override;
+  std::expected<void, Error> RemoveFile(const std::string& f) override;
   std::optional<Error> RenameFile(const std::string& s,
                                   const std::string& t) override;
 
@@ -316,10 +316,11 @@ void FaultInjectionTestEnv::UntrackFile(const std::string& f) {
   new_files_since_last_dir_sync_.erase(f);
 }
 
-std::optional<Error> FaultInjectionTestEnv::RemoveFile(const std::string& f) {
+std::expected<void, Error> FaultInjectionTestEnv::RemoveFile(
+    const std::string& f) {
   auto ret = EnvWrapper::RemoveFile(f);
-  EXPECT_FALSE(ret.has_value());
-  if (!ret.has_value()) {
+  EXPECT_TRUE(ret);
+  if (ret) {
     UntrackFile(f);
   }
   return ret;
@@ -360,8 +361,8 @@ Error FaultInjectionTestEnv::RemoveFilesCreatedAfterLastDirSync() {
   Error err;
   for (const auto& new_file : new_files) {
     auto ret = RemoveFile(new_file);
-    if (ret.has_value() && err.ok()) {
-      err = std::move(ret.value());
+    if (!ret && err.ok()) {
+      err = std::move(ret.error());
     }
   }
   return err;

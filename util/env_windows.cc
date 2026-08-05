@@ -517,9 +517,9 @@ class WindowsEnv : public Env {
     return result;
   }
 
-  std::optional<Error> RemoveFile(const std::string& filename) override {
+  std::expected<void, Error> RemoveFile(const std::string& filename) override {
     if (!::DeleteFileA(filename.c_str())) {
-      return WindowsError(filename, ::GetLastError());
+      return std::unexpected(WindowsError(filename, ::GetLastError()));
     }
     return {};
   }

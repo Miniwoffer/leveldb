@@ -316,10 +316,11 @@ class InMemoryEnv : public EnvWrapper {
     file_map_.erase(fname);
   }
 
-  std::optional<Error> RemoveFile(const std::string& fname) override {
+  std::expected<void, Error> RemoveFile(const std::string& fname) override {
     MutexLock lock(&mutex_);
     if (file_map_.find(fname) == file_map_.end()) {
-      return Error(Error::Code::IOFault, fname, "File not found");
+      return std::unexpected(
+          Error(Error::Code::IOFault, fname, "File not found"));
     }
 
     RemoveFileInternal(fname);

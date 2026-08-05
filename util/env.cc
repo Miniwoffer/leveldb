@@ -31,10 +31,10 @@ std::optional<Error> Env::DeleteDir(const std::string& dirname) {
   return RemoveDir(dirname);
 }
 
-std::optional<Error> Env::RemoveFile(const std::string& fname) {
+std::expected<void, Error> Env::RemoveFile(const std::string& fname) {
   return DeleteFile(fname);
 }
-std::optional<Error> Env::DeleteFile(const std::string& fname) {
+std::expected<void, Error> Env::DeleteFile(const std::string& fname) {
   return RemoveFile(fname);
 }
 
