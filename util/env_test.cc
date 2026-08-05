@@ -49,7 +49,7 @@ TEST_F(EnvTest, ReadWrite) {
       ASSERT_TRUE(writable_file->Flush());
     }
   }
-  ASSERT_LEVELDB_OK(writable_file->Sync());
+  ASSERT_TRUE(writable_file->Sync());
   ASSERT_TRUE(writable_file->Close());
   delete writable_file;
 

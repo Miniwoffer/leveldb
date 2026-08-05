@@ -51,10 +51,10 @@ Error BuildTable(const std::string& dbname, Env* env, const Options& options,
 
     // Finish and check for file errors
     if (e.ok()) {
-      e = file->Sync();
+      e = file->Sync().error_or(e);
     }
     if (e.ok()) {
-      e = file->Close().error_or(Error());
+      e = file->Close().error_or(e);
     }
     delete file;
     file = nullptr;

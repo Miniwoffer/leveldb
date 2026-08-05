@@ -18,7 +18,7 @@ class StdoutPrinter : public WritableFile {
   }
   std::expected<void, Error> Close() override { return {}; }
   std::expected<void, Error> Flush() override { return {}; }
-  Error Sync() override { return Error(Error::Code::Ok); }
+  std::expected<void, Error> Sync() override { return {}; }
 };
 
 bool HandleDumpCommand(Env* env, char** files, int num) {

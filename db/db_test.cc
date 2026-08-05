@@ -189,9 +189,10 @@ class SpecialEnv : public EnvWrapper {
         return ret;
       }
       std::expected<void, Error> Flush() { return base_->Flush(); }
-      Error Sync() {
+      std::expected<void, Error> Sync() {
         if (env_->data_sync_error_.load(std::memory_order_acquire)) {
-          return Error(Error::Code::IOFault, "simulated data sync error");
+          return std::unexpected(
+              Error(Error::Code::IOFault, "simulated data sync error"));
         }
         while (env_->delay_data_sync_.load(std::memory_order_acquire)) {
           DelayMilliseconds(100);
@@ -217,9 +218,10 @@ class SpecialEnv : public EnvWrapper {
       }
       std::expected<void, Error> Close() { return base_->Close(); }
       std::expected<void, Error> Flush() { return base_->Flush(); }
-      Error Sync() {
+      std::expected<void, Error> Sync() {
         if (env_->manifest_sync_error_.load(std::memory_order_acquire)) {
-          return Error(Error::Code::IOFault, "simulated sync error");
+          return std::unexpected(
+              Error(Error::Code::IOFault, "simulated sync error"));
         } else {
           return base_->Sync();
         }

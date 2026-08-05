@@ -335,7 +335,7 @@ class PosixWritableFile final : public WritableFile {
     return {};
   }
 
-  Error Sync() override {
+  std::expected<void, Error> Sync() override {
     // Ensure new files referred to by the manifest are in the filesystem.
     //
     // This needs to happen before the manifest file is flushed to disk, to
@@ -343,15 +343,20 @@ class PosixWritableFile final : public WritableFile {
     // yet on disk.
     Error err = SyncDirIfManifest();
     if (!err.ok()) {
-      return err;
+      return std::unexpected(err);
     }
 
     err = FlushBuffer();
     if (!err.ok()) {
-      return err;
+      return std::unexpected(err);
     }
 
-    return SyncFd(fd_, filename_);
+    err = SyncFd(fd_, filename_);
+    if (!err.ok()) {
+      return std::unexpected(err);
+    }
+
+    return {};
   }
 
  private:

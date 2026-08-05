@@ -313,20 +313,20 @@ class WindowsWritableFile : public WritableFile {
 
   std::expected<void, Error> Flush() override { return FlushBuffer(); }
 
-  Error Sync() override {
+  std::expected<void, Error> Sync() override {
     // On Windows no need to sync parent directory. Its metadata will be updated
     // via the creation of the new file, without an explicit sync.
 
     Error err = FlushBuffer();
     if (!err.ok()) {
-      return err;
+      return std::unexpected(err);
     }
 
     if (!::FlushFileBuffers(handle_.get())) {
-      return Error(Error::Code::IOFault, filename_,
-                   GetWindowsErrorMessage(::GetLastError()));
+      return std::unexpected(Error(Error::Code::IOFault, filename_,
+                                   GetWindowsErrorMessage(::GetLastError())));
     }
-    return Error(Error::Code::Ok);
+    return {};
   }
 
  private:
