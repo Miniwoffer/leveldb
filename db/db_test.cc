@@ -179,13 +179,14 @@ class SpecialEnv : public EnvWrapper {
           return base_->Append(data);
         }
       }
-      Error Close() {
-        Error e = base_->Close();
-        if (e.ok() && IsLogFile(fname_) &&
+      std::expected<void, Error> Close() {
+        auto ret = base_->Close();
+        if (!ret && IsLogFile(fname_) &&
             env_->log_file_close_.load(std::memory_order_acquire)) {
-          e = Error(Error::Code::IOFault, "simulated log file Close error");
+          ret = std::unexpected(
+              Error(Error::Code::IOFault, "simulated log file Close error"));
         }
-        return e;
+        return ret;
       }
       Error Flush() { return base_->Flush(); }
       Error Sync() {
@@ -213,7 +214,7 @@ class SpecialEnv : public EnvWrapper {
           return base_->Append(data);
         }
       }
-      Error Close() { return base_->Close(); }
+      std::expected<void, Error> Close() { return base_->Close(); }
       Error Flush() { return base_->Flush(); }
       Error Sync() {
         if (env_->manifest_sync_error_.load(std::memory_order_acquire)) {

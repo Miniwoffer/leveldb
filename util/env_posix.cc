@@ -312,14 +312,17 @@ class PosixWritableFile final : public WritableFile {
     return WriteUnbuffered(write_data, write_size);
   }
 
-  Error Close() override {
+  std::expected<void, Error> Close() override {
     Error err = FlushBuffer();
     const int close_result = ::close(fd_);
     if (close_result < 0 && err.ok()) {
       err = PosixError(filename_, errno);
     }
     fd_ = -1;
-    return err;
+    if (!err.ok()) {
+      return std::unexpected(err);
+    }
+    return {};
   }
 
   Error Flush() override { return FlushBuffer(); }

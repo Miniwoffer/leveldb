@@ -289,7 +289,7 @@ class LEVELDB_EXPORT WritableFile {
   virtual ~WritableFile();
 
   virtual std::optional<Error> Append(const std::string_view& data) = 0;
-  virtual Error Close() = 0;
+  virtual std::expected<void, Error> Close() = 0;
   virtual Error Flush() = 0;
   virtual Error Sync() = 0;
 };

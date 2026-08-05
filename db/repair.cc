@@ -337,7 +337,7 @@ class Repairer {
     builder = nullptr;
 
     if (e.ok()) {
-      e = file->Close();
+      e = file->Close().error_or(Error());
     }
     delete file;
     file = nullptr;
@@ -394,7 +394,7 @@ class Repairer {
       err = log.AddRecord(record);
     }
     if (err.ok()) {
-      err = file->Close();
+      err = file->Close().error_or(Error());
     }
     delete file;
     file = nullptr;

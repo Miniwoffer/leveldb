@@ -297,12 +297,15 @@ class WindowsWritableFile : public WritableFile {
     return WriteUnbuffered(write_data, write_size);
   }
 
-  Error Close() override {
+  std::expected<void, Error> Close() override {
     Error err = FlushBuffer();
     if (!handle_.Close() && err.ok()) {
       err = WindowsError(filename_, ::GetLastError());
     }
-    return err;
+    if (!err.ok()) {
+      return std::unexpected(err);
+    }
+    return {};
   }
 
   Error Flush() override { return FlushBuffer(); }

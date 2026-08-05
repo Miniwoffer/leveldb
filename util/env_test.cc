@@ -50,7 +50,7 @@ TEST_F(EnvTest, ReadWrite) {
     }
   }
   ASSERT_LEVELDB_OK(writable_file->Sync());
-  ASSERT_LEVELDB_OK(writable_file->Close());
+  ASSERT_TRUE(writable_file->Close());
   delete writable_file;
 
   // Read all data using a sequence of randomly sized reads.
@@ -220,7 +220,7 @@ TEST_F(EnvTest, ReopenWritableFile) {
   writable_file = ret.value();
   std::string data("hello world!");
   ASSERT_FALSE(writable_file->Append(data).has_value());
-  ASSERT_LEVELDB_OK(writable_file->Close());
+  ASSERT_TRUE(writable_file->Close());
   delete writable_file;
 
   ret = env_->NewWritableFile(test_file_name, &writable_file);
@@ -228,7 +228,7 @@ TEST_F(EnvTest, ReopenWritableFile) {
   writable_file = ret.value();
   data = "42";
   ASSERT_FALSE(writable_file->Append(data).has_value());
-  ASSERT_LEVELDB_OK(writable_file->Close());
+  ASSERT_TRUE(writable_file->Close());
   delete writable_file;
 
   ASSERT_LEVELDB_OK(ReadFileToString(env_, test_file_name, &data));
@@ -250,7 +250,7 @@ TEST_F(EnvTest, ReopenAppendableFile) {
   appendable_file = ret.value();
   std::string data("hello world!");
   ASSERT_FALSE(appendable_file->Append(data).has_value());
-  ASSERT_LEVELDB_OK(appendable_file->Close());
+  ASSERT_TRUE(appendable_file->Close());
   delete appendable_file;
 
   ret = env_->NewAppendableFile(test_file_name);
@@ -258,7 +258,7 @@ TEST_F(EnvTest, ReopenAppendableFile) {
   appendable_file = ret.value();
   data = "42";
   ASSERT_FALSE(appendable_file->Append(data).has_value());
-  ASSERT_LEVELDB_OK(appendable_file->Close());
+  ASSERT_TRUE(appendable_file->Close());
   delete appendable_file;
 
   ASSERT_LEVELDB_OK(ReadFileToString(env_, test_file_name, &data));

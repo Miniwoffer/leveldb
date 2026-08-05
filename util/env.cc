@@ -72,7 +72,7 @@ static Error DoWriteStringToFile(Env* env, const std::string_view& data,
     err = file->Sync();
   }
   if (!ret) {
-    err = file->Close();
+    err = file->Close().error_or(Error());
   }
   delete file;  // Will auto-close if we did not close above
   if (ret) {

@@ -208,7 +208,7 @@ class WritableFileImpl : public WritableFile {
     return file_->Append(data);
   }
 
-  Error Close() override { return Error(Error::Code::Ok); }
+  std::expected<void, Error> Close() override { return {}; }
   Error Flush() override { return Error(Error::Code::Ok); }
   Error Sync() override { return Error(Error::Code::Ok); }
 
