@@ -1733,7 +1733,7 @@ TEST_F(DBTest, DestroyEmptyDir) {
   Options opts;
   opts.env = &env;
 
-  ASSERT_FALSE(env.CreateDir(dbname).has_value());
+  ASSERT_TRUE(env.CreateDir(dbname));
   ASSERT_TRUE(env.FileExists(dbname));
   std::vector<std::string> children;
   auto ret = env.GetChildren(dbname);
@@ -1752,7 +1752,7 @@ TEST_F(DBTest, DestroyEmptyDir) {
 
   // Should also be destroyed if Env is filtering out dot files.
   env.SetIgnoreDotFiles(true);
-  ASSERT_FALSE(env.CreateDir(dbname).has_value());
+  ASSERT_TRUE(env.CreateDir(dbname));
   ASSERT_TRUE(env.FileExists(dbname));
   ret = env.GetChildren(dbname);
   EXPECT_TRUE(ret);

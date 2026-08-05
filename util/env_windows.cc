@@ -524,9 +524,9 @@ class WindowsEnv : public Env {
     return {};
   }
 
-  std::optional<Error> CreateDir(const std::string& dirname) override {
+  std::expected<void, Error> CreateDir(const std::string& dirname) override {
     if (!::CreateDirectoryA(dirname.c_str(), nullptr)) {
-      return WindowsError(dirname, ::GetLastError());
+      return std::unexpected(WindowsError(dirname, ::GetLastError()));
     }
     return {};
   }
