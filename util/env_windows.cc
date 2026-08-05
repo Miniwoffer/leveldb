@@ -596,12 +596,12 @@ class WindowsEnv : public Env {
     return new WindowsFileLock(std::move(handle), filename);
   }
 
-  std::optional<Error> UnlockFile(FileLock* lock) override {
+  std::expected<void, Error> UnlockFile(FileLock* lock) override {
     WindowsFileLock* windows_file_lock =
         reinterpret_cast<WindowsFileLock*>(lock);
     if (!LockOrUnlock(windows_file_lock->handle().get(), false)) {
-      return WindowsError("unlock " + windows_file_lock->filename(),
-                          ::GetLastError());
+      return std::unexpected(WindowsError(
+          "unlock " + windows_file_lock->filename(), ::GetLastError()));
     }
     delete windows_file_lock;
     return {};

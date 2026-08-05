@@ -681,10 +681,11 @@ class PosixEnv : public Env {
     return new PosixFileLock(fd, filename);
   }
 
-  std::optional<Error> UnlockFile(FileLock* lock) override {
+  std::expected<void, Error> UnlockFile(FileLock* lock) override {
     PosixFileLock* posix_file_lock = static_cast<PosixFileLock*>(lock);
     if (LockOrUnlock(posix_file_lock->fd(), false) == -1) {
-      return PosixError("unlock " + posix_file_lock->filename(), errno);
+      return std::unexpected(
+          PosixError("unlock " + posix_file_lock->filename(), errno));
     }
     locks_.Remove(posix_file_lock->filename());
     ::close(posix_file_lock->fd());

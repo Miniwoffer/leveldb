@@ -191,7 +191,7 @@ class LEVELDB_EXPORT Env {
   // Release the lock acquired by a previous successful call to LockFile.
   // REQUIRES: lock was returned by a successful LockFile() call
   // REQUIRES: lock has not already been unlocked.
-  virtual std::optional<Error> UnlockFile(FileLock* lock) = 0;
+  virtual std::expected<void, Error> UnlockFile(FileLock* lock) = 0;
 
   // Arrange to run "(*function)(arg)" once in a background thread.
   //
@@ -389,7 +389,7 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
   std::expected<FileLock*, Error> LockFile(const std::string& f) override {
     return target_->LockFile(f);
   }
-  std::optional<Error> UnlockFile(FileLock* l) override {
+  std::expected<void, Error> UnlockFile(FileLock* l) override {
     return target_->UnlockFile(l);
   }
   void Schedule(void (*f)(void*), void* a) override {
