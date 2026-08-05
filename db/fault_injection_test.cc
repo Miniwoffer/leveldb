@@ -126,7 +126,7 @@ class TestWritableFile : public WritableFile {
   ~TestWritableFile() override;
   std::expected<void, Error> Append(const std::string_view& data) override;
   std::expected<void, Error> Close() override;
-  Error Flush() override;
+  std::expected<void, Error> Flush() override;
   Error Sync() override;
 
  private:
@@ -209,12 +209,12 @@ std::expected<void, Error> TestWritableFile::Close() {
   return ret;
 }
 
-Error TestWritableFile::Flush() {
-  Error e = target_->Flush();
-  if (e.ok() && env_->IsFilesystemActive()) {
+std::expected<void, Error> TestWritableFile::Flush() {
+  auto ret = target_->Flush();
+  if (ret && env_->IsFilesystemActive()) {
     state_.pos_at_last_flush_ = state_.pos_;
   }
-  return e;
+  return ret;
 }
 
 Error TestWritableFile::SyncParent() {

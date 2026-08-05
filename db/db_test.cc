@@ -188,7 +188,7 @@ class SpecialEnv : public EnvWrapper {
         }
         return ret;
       }
-      Error Flush() { return base_->Flush(); }
+      std::expected<void, Error> Flush() { return base_->Flush(); }
       Error Sync() {
         if (env_->data_sync_error_.load(std::memory_order_acquire)) {
           return Error(Error::Code::IOFault, "simulated data sync error");
@@ -216,7 +216,7 @@ class SpecialEnv : public EnvWrapper {
         }
       }
       std::expected<void, Error> Close() { return base_->Close(); }
-      Error Flush() { return base_->Flush(); }
+      std::expected<void, Error> Flush() { return base_->Flush(); }
       Error Sync() {
         if (env_->manifest_sync_error_.load(std::memory_order_acquire)) {
           return Error(Error::Code::IOFault, "simulated sync error");
@@ -554,8 +554,7 @@ class DBTest : public testing::Test {
     FileType type;
     for (size_t i = 0; i < filenames.size(); i++) {
       if (ParseFileName(filenames[i], &number, &type) && type == kTableFile) {
-        EXPECT_FALSE(
-            env_->RemoveFile(TableFileName(dbname_, number)).has_value());
+        EXPECT_FALSE(env_->RemoveFile(TableFileName(dbname_, number)));
         return true;
       }
     }

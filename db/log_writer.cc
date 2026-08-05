@@ -108,7 +108,7 @@ Error Writer::EmitPhysicalRecord(RecordType t, const char* ptr, size_t length) {
   }
 
   block_offset_ += kHeaderSize + length;
-  return dest_->Flush();
+  return dest_->Flush().error_or(Error());
 }
 
 }  // namespace log

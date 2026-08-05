@@ -167,7 +167,7 @@ class LogTest : public testing::Test {
   class StringDest : public WritableFile {
    public:
     std::expected<void, Error> Close() override { return {}; }
-    Error Flush() override { return Error(Error::Code::Ok); }
+    std::expected<void, Error> Flush() override { return {}; }
     Error Sync() override { return Error(Error::Code::Ok); }
     std::expected<void, Error> Append(const std::string_view& slice) override {
       contents_.append(slice.data(), slice.size());

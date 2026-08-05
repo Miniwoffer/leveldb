@@ -46,7 +46,7 @@ TEST_F(EnvTest, ReadWrite) {
     ASSERT_TRUE(writable_file->Append(r));
     data += r;
     if (rnd.OneIn(10)) {
-      ASSERT_LEVELDB_OK(writable_file->Flush());
+      ASSERT_TRUE(writable_file->Flush());
     }
   }
   ASSERT_LEVELDB_OK(writable_file->Sync());
