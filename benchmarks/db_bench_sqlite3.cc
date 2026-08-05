@@ -325,7 +325,7 @@ class Benchmark {
     std::vector<std::string> files;
     std::string test_dir =
         std::move(Env::Default()->GetTestDirectory().value());
-    Env::Default()->GetChildren(test_dir, &files);
+    files = Env::Default()->GetChildren(test_dir).value();
     if (!FLAGS_use_existing_db) {
       for (int i = 0; i < files.size(); i++) {
         if (std::string_view(files[i]).starts_with("dbbench_sqlite3")) {

@@ -135,7 +135,7 @@ TEST_F(MemEnvTest, ReadWrite) {
   ASSERT_TRUE(rd_ret);  // Read "hello".
   result = std::move(rd_ret.value());
   ASSERT_EQ(0, result.compare("hello"));
-  ASSERT_TRUE(seq_file->Skip(1));
+  ASSERT_FALSE(seq_file->Skip(1));
   rd_ret = seq_file->Read(1000, scratch);
   ASSERT_TRUE(rd_ret);  // Read "world".
   result = std::move(rd_ret.value());
@@ -144,8 +144,7 @@ TEST_F(MemEnvTest, ReadWrite) {
   ASSERT_TRUE(rd_ret);  // Try reading past EOF.
   result = std::move(rd_ret.value());
   ASSERT_EQ(0, result.size());
-  ASSERT_FALSE(
-      seq_file->Skip(100).has_value());  // Try to skip past end of file.
+  ASSERT_TRUE(seq_file->Skip(100));  // Try to skip past end of file.
   rd_ret = seq_file->Read(1000, scratch);
   ASSERT_TRUE(rd_ret);
   result = std::move(rd_ret.value());

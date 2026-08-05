@@ -16,7 +16,6 @@
 #include <cstdarg>
 #include <cstdint>
 #include <expected>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -250,7 +249,7 @@ class LEVELDB_EXPORT SequentialFile {
   // file, and Skip will return OK.
   //
   // REQUIRES: External synchronization
-  virtual std::optional<Error> Skip(uint64_t n) = 0;
+  virtual std::expected<void, Error> Skip(uint64_t n) = 0;
 };
 
 // A file abstraction for randomly reading the contents of a file.
