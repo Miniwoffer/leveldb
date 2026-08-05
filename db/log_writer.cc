@@ -99,12 +99,12 @@ Error Writer::EmitPhysicalRecord(RecordType t, const char* ptr, size_t length) {
 
   // Write the header and the payload
 
-  if (auto ret = dest_->Append(std::string_view(buf, kHeaderSize))) {
-    return ret.value();
+  if (auto ret = dest_->Append(std::string_view(buf, kHeaderSize)); !ret) {
+    return ret.error();
   }
 
-  if (auto ret = dest_->Append(std::string_view(ptr, length))) {
-    return ret.value();
+  if (auto ret = dest_->Append(std::string_view(ptr, length)); !ret) {
+    return ret.error();
   }
 
   block_offset_ += kHeaderSize + length;

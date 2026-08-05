@@ -43,7 +43,7 @@ TEST_F(EnvTest, ReadWrite) {
     int len = rnd.Skewed(18);  // Up to 2^18 - 1, but typically much smaller
     std::string r;
     test::RandomString(&rnd, len, &r);
-    ASSERT_FALSE(writable_file->Append(r).has_value());
+    ASSERT_TRUE(writable_file->Append(r));
     data += r;
     if (rnd.OneIn(10)) {
       ASSERT_LEVELDB_OK(writable_file->Flush());
@@ -219,7 +219,7 @@ TEST_F(EnvTest, ReopenWritableFile) {
   ASSERT_TRUE(ret);
   writable_file = ret.value();
   std::string data("hello world!");
-  ASSERT_FALSE(writable_file->Append(data).has_value());
+  ASSERT_TRUE(writable_file->Append(data));
   ASSERT_TRUE(writable_file->Close());
   delete writable_file;
 
@@ -227,7 +227,7 @@ TEST_F(EnvTest, ReopenWritableFile) {
   ASSERT_TRUE(ret);
   writable_file = ret.value();
   data = "42";
-  ASSERT_FALSE(writable_file->Append(data).has_value());
+  ASSERT_TRUE(writable_file->Append(data));
   ASSERT_TRUE(writable_file->Close());
   delete writable_file;
 
@@ -249,7 +249,7 @@ TEST_F(EnvTest, ReopenAppendableFile) {
   ASSERT_TRUE(ret);
   appendable_file = ret.value();
   std::string data("hello world!");
-  ASSERT_FALSE(appendable_file->Append(data).has_value());
+  ASSERT_TRUE(appendable_file->Append(data));
   ASSERT_TRUE(appendable_file->Close());
   delete appendable_file;
 
@@ -257,7 +257,7 @@ TEST_F(EnvTest, ReopenAppendableFile) {
   ASSERT_TRUE(ret);
   appendable_file = ret.value();
   data = "42";
-  ASSERT_FALSE(appendable_file->Append(data).has_value());
+  ASSERT_TRUE(appendable_file->Append(data));
   ASSERT_TRUE(appendable_file->Close());
   delete appendable_file;
 

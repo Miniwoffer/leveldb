@@ -268,7 +268,7 @@ class WindowsWritableFile : public WritableFile {
 
   ~WindowsWritableFile() override = default;
 
-  std::optional<Error> Append(const std::string_view& data) override {
+  std::expected<void, Error> Append(const std::string_view& data) override {
     size_t write_size = data.size();
     const char* write_data = data.data();
 
@@ -285,7 +285,7 @@ class WindowsWritableFile : public WritableFile {
     // Can't fit in buffer, so need to do at least one write.
     Error err = FlushBuffer();
     if (!err.ok()) {
-      return err;
+      return std::unexpected(err);
     }
 
     // Small writes go to buffer, large writes are written directly.
@@ -294,7 +294,10 @@ class WindowsWritableFile : public WritableFile {
       pos_ = write_size;
       return {};
     }
-    return WriteUnbuffered(write_data, write_size);
+    if (auto ret = WriteUnbuffered(write_data, write_size); !ret.ok()) {
+      return std::unexpected(ret.error());
+    }
+    return {};
   }
 
   std::expected<void, Error> Close() override {

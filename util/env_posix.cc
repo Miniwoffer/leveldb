@@ -283,7 +283,7 @@ class PosixWritableFile final : public WritableFile {
     }
   }
 
-  std::optional<Error> Append(const std::string_view& data) override {
+  std::expected<void, Error> Append(const std::string_view& data) override {
     size_t write_size = data.size();
     const char* write_data = data.data();
 
@@ -300,7 +300,7 @@ class PosixWritableFile final : public WritableFile {
     // Can't fit in buffer, so need to do at least one write.
     Error err = FlushBuffer();
     if (!err.ok()) {
-      return err;
+      return std::unexpected(err);
     }
 
     // Small writes go to buffer, large writes are written directly.
@@ -309,7 +309,10 @@ class PosixWritableFile final : public WritableFile {
       pos_ = write_size;
       return {};
     }
-    return WriteUnbuffered(write_data, write_size);
+    if (err = WriteUnbuffered(write_data, write_size); !err.ok()) {
+      return std::unexpected(err);
+    }
+    return {};
   }
 
   std::expected<void, Error> Close() override {
