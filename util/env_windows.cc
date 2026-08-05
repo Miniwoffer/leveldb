@@ -531,9 +531,9 @@ class WindowsEnv : public Env {
     return {};
   }
 
-  std::optionalError > RemoveDir(const std::string& dirname) override {
+  std::expected<void, Error> RemoveDir(const std::string& dirname) override {
     if (!::RemoveDirectoryA(dirname.c_str())) {
-      return WindowsError(dirname, ::GetLastError());
+      return std::unexpected(WindowsError(dirname, ::GetLastError()));
     }
     return {};
   }

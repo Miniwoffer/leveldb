@@ -331,7 +331,7 @@ class InMemoryEnv : public EnvWrapper {
     return {};
   }
 
-  std::optional<Error> RemoveDir(const std::string& dirname) override {
+  std::expected<void, Error> RemoveDir(const std::string& dirname) override {
     return {};
   }
 

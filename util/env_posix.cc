@@ -634,9 +634,9 @@ class PosixEnv : public Env {
     return {};
   }
 
-  std::optional<Error> RemoveDir(const std::string& dirname) override {
+  std::expected<void, Error> RemoveDir(const std::string& dirname) override {
     if (::rmdir(dirname.c_str()) != 0) {
-      return PosixError(dirname, errno);
+      return std::unexpected(PosixError(dirname, errno));
     }
     return {};
   }

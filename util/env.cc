@@ -24,10 +24,10 @@ std::expected<WritableFile*, Error> Env::NewAppendableFile(
       Error(Error::Code::NotSupported, "NewAppendableFile", fname));
 }
 
-std::optional<Error> Env::RemoveDir(const std::string& dirname) {
+std::expected<void, Error> Env::RemoveDir(const std::string& dirname) {
   return DeleteDir(dirname);
 }
-std::optional<Error> Env::DeleteDir(const std::string& dirname) {
+std::expected<void, Error> Env::DeleteDir(const std::string& dirname) {
   return RemoveDir(dirname);
 }
 
