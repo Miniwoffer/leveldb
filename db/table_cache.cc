@@ -60,7 +60,8 @@ std::expected<Cache::Handle*, Error> TableCache::FindTable(uint64_t file_number,
     std::string old_fname = SSTTableFileName(dbname_, file_number);
     if ((ret = env_->NewRandomAccessFile(old_fname))) {
       file = ret.value();
-      e = Error(Error::Code::Ok);
+    } else {
+      e = std::move(ret.error());
     }
   }
 
