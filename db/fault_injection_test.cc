@@ -125,7 +125,7 @@ class TestWritableFile : public WritableFile {
                    FaultInjectionTestEnv* env);
   ~TestWritableFile() override;
   std::optional<Error> Append(const std::string_view& data) override;
-  Error Close() override;
+  std::expected<void, Error> Close() override;
   Error Flush() override;
   Error Sync() override;
 
@@ -199,13 +199,13 @@ std::optional<Error> TestWritableFile::Append(const std::string_view& data) {
   return ret;
 }
 
-Error TestWritableFile::Close() {
+std::expected<void, Error> TestWritableFile::Close() {
   writable_file_opened_ = false;
-  Error e = target_->Close();
-  if (e.ok()) {
+  auto ret = target_->Close();
+  if (!ret) {
     env_->WritableFileClosed(state_);
   }
-  return e;
+  return ret;
 }
 
 Error TestWritableFile::Flush() {

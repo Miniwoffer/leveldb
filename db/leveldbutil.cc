@@ -16,7 +16,7 @@ class StdoutPrinter : public WritableFile {
     fwrite(data.data(), 1, data.size(), stdout);
     return {};
   }
-  Error Close() override { return Error(Error::Code::Ok); }
+  std::expected<void, Error> Close() override { return {}; }
   Error Flush() override { return Error(Error::Code::Ok); }
   Error Sync() override { return Error(Error::Code::Ok); }
 };

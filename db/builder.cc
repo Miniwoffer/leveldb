@@ -54,7 +54,7 @@ Error BuildTable(const std::string& dbname, Env* env, const Options& options,
       e = file->Sync();
     }
     if (e.ok()) {
-      e = file->Close();
+      e = file->Close().error_or(Error());
     }
     delete file;
     file = nullptr;

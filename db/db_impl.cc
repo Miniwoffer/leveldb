@@ -214,7 +214,7 @@ Error DBImpl::NewDB() {
       e = file->Sync();
     }
     if (e.ok()) {
-      e = file->Close();
+      e = file->Close().error_or(Error());
     }
   }
   delete file;
@@ -888,7 +888,7 @@ Error DBImpl::FinishCompactionOutputFile(CompactionState* compact,
     e = compact->outfile->Sync();
   }
   if (e.ok()) {
-    e = compact->outfile->Close();
+    e = compact->outfile->Close().error_or(Error());
   }
   delete compact->outfile;
   compact->outfile = nullptr;
@@ -1418,7 +1418,7 @@ Error DBImpl::MakeRoomForWrite(bool force) {
 
       delete log_;
 
-      e = logfile_->Close();
+      e = logfile_->Close().error_or(Error());
       if (!e.ok()) {
         // We may have lost some data written to the previous log file.
         // Switch to the new log file anyway, but record as a background
