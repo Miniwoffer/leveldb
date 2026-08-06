@@ -359,8 +359,8 @@ class DBConstructor : public Constructor {
 
     Options options;
     options.comparator = comparator_;
-    Error err = DestroyDB(name, options);
-    ASSERT_TRUE(err.ok()) << err.ToString();
+    auto ret = DestroyDB(name, options);
+    ASSERT_TRUE(ret) << ret.error_or(Error()).ToString();
 
     options.create_if_missing = true;
     options.error_if_exists = true;

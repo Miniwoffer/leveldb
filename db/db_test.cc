@@ -1748,7 +1748,7 @@ TEST_F(DBTest, DestroyEmptyDir) {
   // The stock Env's do not filter out '.' and '..' special files.
   ASSERT_EQ(2, children.size());
 #endif  // defined(LEVELDB_PLATFORM_CHROMIUM)
-  ASSERT_LEVELDB_OK(DestroyDB(dbname, opts));
+  ASSERT_TRUE(DestroyDB(dbname, opts));
   ASSERT_FALSE(env.FileExists(dbname));
 
   // Should also be destroyed if Env is filtering out dot files.
@@ -1759,14 +1759,14 @@ TEST_F(DBTest, DestroyEmptyDir) {
   EXPECT_TRUE(ret);
   children = std::move(ret.value());
   ASSERT_EQ(0, children.size());
-  ASSERT_LEVELDB_OK(DestroyDB(dbname, opts));
+  ASSERT_TRUE(DestroyDB(dbname, opts));
   ASSERT_FALSE(env.FileExists(dbname));
 }
 
 TEST_F(DBTest, DestroyOpenDB) {
   std::string dbname = testing::TempDir() + "open_db_dir";
 
-  ASSERT_LEVELDB_OK(DestroyDB(dbname, Options()));
+  ASSERT_TRUE(DestroyDB(dbname, Options()));
 
   ASSERT_FALSE(env_->FileExists(dbname));
 
@@ -1780,13 +1780,13 @@ TEST_F(DBTest, DestroyOpenDB) {
 
   // Must fail to destroy an open db.
   ASSERT_TRUE(env_->FileExists(dbname));
-  ASSERT_FALSE(DestroyDB(dbname, Options()).ok());
+  ASSERT_FALSE(DestroyDB(dbname, Options()));
   ASSERT_TRUE(env_->FileExists(dbname));
 
   db = nullptr;
 
   // Should succeed destroying a closed db.
-  ASSERT_LEVELDB_OK(DestroyDB(dbname, Options()));
+  ASSERT_TRUE(DestroyDB(dbname, Options()));
   ASSERT_FALSE(env_->FileExists(dbname));
 }
 
