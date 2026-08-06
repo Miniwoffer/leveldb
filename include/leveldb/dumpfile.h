@@ -20,8 +20,9 @@ namespace leveldb {
 //
 // Returns a non-OK result if fname does not name a leveldb storage
 // file, or if the file cannot be read.
-LEVELDB_EXPORT Error DumpFile(Env* env, const std::string& fname,
-                              WritableFile* dst);
+LEVELDB_EXPORT std::expected<void, Error> DumpFile(Env* env,
+                                                   const std::string& fname,
+                                                   WritableFile* dst);
 
 }  // namespace leveldb
 

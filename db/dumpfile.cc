@@ -217,23 +217,30 @@ Error DumpTable(Env* env, const std::string& fname, WritableFile* dst) {
 
 }  // namespace
 
-Error DumpFile(Env* env, const std::string& fname, WritableFile* dst) {
+std::expected<void, Error> DumpFile(Env* env, const std::string& fname,
+                                    WritableFile* dst) {
   FileType ftype;
   if (!GuessType(fname, &ftype)) {
-    return Error(Error::Code::InvalidArgument, fname + ": unknown file type");
+    return std::unexpected(
+        Error(Error::Code::InvalidArgument, fname + ": unknown file type"));
   }
+  Error err;
   switch (ftype) {
     case kLogFile:
-      return DumpLog(env, fname, dst);
+      err = DumpLog(env, fname, dst);
+      break;
     case kDescriptorFile:
-      return DumpDescriptor(env, fname, dst);
+      err = DumpDescriptor(env, fname, dst);
+      break;
     case kTableFile:
-      return DumpTable(env, fname, dst);
+      err = DumpTable(env, fname, dst);
+      break;
     default:
+      err = Error(Error::Code::InvalidArgument,
+                  fname + ": not a dump-able file type");
       break;
   }
-  return Error(Error::Code::InvalidArgument,
-               fname + ": not a dump-able file type");
+  return std::unexpected(err);
 }
 
 }  // namespace leveldb
