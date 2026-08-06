@@ -217,7 +217,7 @@ void TableBuilder::WriteRawBlock(const std::string_view& block_contents,
 
 Error TableBuilder::error() const { return rep_->err; }
 
-Error TableBuilder::Finish() {
+std::expected<void, Error> TableBuilder::Finish() {
   Rep* r = rep_;
   Flush();
   assert(!r->closed);
@@ -272,7 +272,11 @@ Error TableBuilder::Finish() {
     }
   }
 
-  return r->err;
+  if (!ok()) {
+    return std::unexpected(r->err);
+  }
+
+  return {};
 }
 
 void TableBuilder::Abandon() {

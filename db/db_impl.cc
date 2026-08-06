@@ -875,7 +875,7 @@ Error DBImpl::FinishCompactionOutputFile(CompactionState* compact,
   Error e = input->error();
   const uint64_t current_entries = compact->builder->NumEntries();
   if (e.ok()) {
-    e = compact->builder->Finish();
+    e = compact->builder->Finish().error_or(Error());
   } else {
     compact->builder->Abandon();
   }
