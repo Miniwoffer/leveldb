@@ -203,14 +203,14 @@ TEST_F(EnvPosixTest, TestOpenOnRead) {
   std::expected<RandomAccessFile*, Error> raf_ret;
   for (int i = 0; i < kNumFiles; i++) {
     ASSERT_TRUE(raf_ret = env_->NewRandomAccessFile(test_file));
-    files[i] = std::move(raf_ret.value());
+    files[i] = raf_ret.value();
   }
   char scratch;
   std::string_view read_result;
   for (int i = 0; i < kNumFiles; i++) {
     auto rd_ret = files[i]->Read(i, 1, &scratch);
     ASSERT_TRUE(rd_ret);
-    read_result = std::move(rd_ret.value());
+    read_result = rd_ret.value();
     ASSERT_EQ(kFileData[i], read_result[0]);
   }
   for (int i = 0; i < kNumFiles; i++) {
@@ -234,7 +234,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecSequentialFile) {
   leveldb::SequentialFile* file = nullptr;
   std::expected<SequentialFile*, Error> sf_ret;
   ASSERT_TRUE(sf_ret = env_->NewSequentialFile(file_path));
-  file = std::move(sf_ret.value());
+  file = sf_ret.value();
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   delete file;
 
@@ -259,12 +259,12 @@ TEST_F(EnvPosixTest, TestCloseOnExecRandomAccessFile) {
   std::expected<RandomAccessFile*, Error> raf_ret;
   for (int i = 0; i < kMMapLimit; i++) {
     ASSERT_TRUE(raf_ret = env_->NewRandomAccessFile(file_path));
-    mmapped_files[i] = std::move(raf_ret.value());
+    mmapped_files[i] = raf_ret.value();
   }
 
   leveldb::RandomAccessFile* file = nullptr;
   ASSERT_TRUE(raf_ret = env_->NewRandomAccessFile(file_path));
-  file = std::move(raf_ret.value());
+  file = raf_ret.value();
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   delete file;
 
@@ -288,7 +288,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecWritableFile) {
   leveldb::WritableFile* file = nullptr;
   auto wf_ret = env_->NewWritableFile(file_path);
   ASSERT_TRUE(wf_ret);
-  file = std::move(wf_ret.value());
+  file = wf_ret.value();
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   delete file;
 
@@ -309,7 +309,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecAppendableFile) {
   leveldb::WritableFile* file = nullptr;
   auto af_ret = env_->NewAppendableFile(file_path);
   ASSERT_TRUE(af_ret);
-  file = std::move(af_ret.value());
+  file = af_ret.value();
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   delete file;
 
@@ -330,7 +330,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecLockFile) {
   leveldb::FileLock* lock = nullptr;
   auto lf_ret = env_->LockFile(file_path);
   ASSERT_TRUE(lf_ret);
-  lock = std::move(lf_ret.value());
+  lock = lf_ret.value();
   CheckCloseOnExecDoesNotLeakFDs(open_fds);
   ASSERT_TRUE(env_->UnlockFile(lock));
   ASSERT_TRUE(env_->RemoveFile(file_path));

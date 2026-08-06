@@ -242,7 +242,7 @@ class SpecialEnv : public EnvWrapper {
       }
       return r;
     } else {
-      return std::move(ret);
+      return ret;
     }
   }
 

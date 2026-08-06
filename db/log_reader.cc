@@ -195,7 +195,7 @@ unsigned int Reader::ReadPhysicalRecord(std::string_view* result) {
         Error err;
         buffer_ = {};
         if (auto rd_ret = file_->Read(kBlockSize, backing_store_)) {
-          buffer_ = std::move(rd_ret.value());
+          buffer_ = rd_ret.value();
         } else {
           err = std::move(rd_ret.error());
         }

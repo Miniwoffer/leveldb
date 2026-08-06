@@ -27,7 +27,7 @@ Error BuildTable(const std::string& dbname, Env* env, const Options& options,
     if (auto ret = env->NewWritableFile(fname)) {
       file = ret.value();
     } else {
-      return std::move(ret.error());
+      return ret.error();
     }
 
     TableBuilder* builder = new TableBuilder(options, file);

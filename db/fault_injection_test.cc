@@ -61,13 +61,13 @@ Error Truncate(const std::string& filename, uint64_t length) {
   if (auto ret = env->NewSequentialFile(filename)) {
     orig_file = ret.value();
   } else {
-    return std::move(ret.error());
+    return ret.error();
   }
 
   char* scratch = new char[length];
-  leveldb::std::string_view result;
+  std::string_view result;
   if (auto ret = orig_file->Read(length, scratch)) {
-    result = std::move(ret.value());
+    result = ret.value();
   } else {
     err = std::move(ret.error());
   }
@@ -81,7 +81,7 @@ Error Truncate(const std::string& filename, uint64_t length) {
       auto tmp_ret = tmp_file->Append(result);
       delete tmp_file;
       if (tmp_ret) {
-        err = std::move(env->RenameFile(tmp_name, filename).error_or(err));
+        err = env->RenameFile(tmp_name, filename).error_or(err);
       } else {
         env->RemoveFile(tmp_name);
         err = std::move(tmp_ret.error());
@@ -259,7 +259,7 @@ std::expected<WritableFile*, Error> FaultInjectionTestEnv::NewWritableFile(
     new_files_since_last_dir_sync_.insert(fname);
     return result;
   } else {
-    return std::move(ret);
+    return ret;
   }
 }
 
