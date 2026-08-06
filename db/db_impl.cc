@@ -1409,9 +1409,10 @@ Error DBImpl::MakeRoomForWrite(bool force) {
       WritableFile* lfile = nullptr;
       if (auto ret =
               env_->NewWritableFile(LogFileName(dbname_, new_log_number))) {
-        lfile = ret.value();
+        lfile = std::move(ret.value());
       } else {
         // Avoid chewing through file number space in a tight loop.
+        e = std::move(ret.error());
         versions_->ReuseFileNumber(new_log_number);
         break;
       }
