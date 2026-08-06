@@ -15,8 +15,10 @@
 
 namespace leveldb {
 
-Error BuildTable(const std::string& dbname, Env* env, const Options& options,
-                 TableCache* table_cache, Iterator* iter, FileMetaData* meta) {
+std::expected<void, Error> BuildTable(const std::string& dbname, Env* env,
+                                      const Options& options,
+                                      TableCache* table_cache, Iterator* iter,
+                                      FileMetaData* meta) {
   Error e;
   meta->file_size = 0;
   iter->SeekToFirst();
@@ -27,7 +29,7 @@ Error BuildTable(const std::string& dbname, Env* env, const Options& options,
     if (auto ret = env->NewWritableFile(fname)) {
       file = ret.value();
     } else {
-      return ret.error();
+      return std::unexpected(ret.error());
     }
 
     TableBuilder* builder = new TableBuilder(options, file);
@@ -78,7 +80,10 @@ Error BuildTable(const std::string& dbname, Env* env, const Options& options,
   } else {
     env->RemoveFile(fname);
   }
-  return e;
+  if (!e.ok()) {
+    return std::unexpected(e);
+  }
+  return {};
 }
 
 }  // namespace leveldb
