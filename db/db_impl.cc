@@ -305,7 +305,8 @@ void DBImpl::RemoveObsoleteFiles() {
   mutex_.Lock();
 }
 
-Error DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
+std::expected<void, Error> DBImpl::Recover(VersionEdit* edit,
+                                           bool* save_manifest) {
   mutex_.AssertHeld();
 
   // Ignore error from CreateDir since the creation of the DB is
@@ -317,7 +318,7 @@ Error DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
   if (auto ret = env_->LockFile(LockFileName(dbname_))) {
     db_lock_ = ret.value();
   } else {
-    return ret.error();
+    return std::unexpected(ret.error());
   }
 
   Error e;
@@ -325,24 +326,25 @@ Error DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
     if (options_.create_if_missing) {
       Log(options_.info_log, "Creating DB %s since it was missing.",
           dbname_.c_str());
-      e = NewDB();
+      e = NewDB().error_or(Error());
       if (!e.ok()) {
-        return e;
+        return std::unexpected(e);
       }
     } else {
-      return Error(Error::Code::InvalidArgument, dbname_,
-                   "does not exist (create_if_missing is false)");
+      return std::unexpected(
+          Error(Error::Code::InvalidArgument, dbname_,
+                "does not exist (create_if_missing is false)"));
     }
   } else {
     if (options_.error_if_exists) {
-      return Error(Error::Code::InvalidArgument, dbname_,
-                   "exists (error_if_exists is true)");
+      return std::unexpected(Error(Error::Code::InvalidArgument, dbname_,
+                                   "exists (error_if_exists is true)"));
     }
   }
 
   e = versions_->Recover(save_manifest);
   if (!e.ok()) {
-    return e;
+    return std::unexpected(e);
   }
   SequenceNumber max_sequence(0);
 
@@ -359,7 +361,7 @@ Error DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
   if (auto ret = env_->GetChildren(dbname_)) {
     filenames = std::move(ret.value());
   } else {
-    return ret.error();
+    return std::unexpected(ret.error());
   }
   std::set<uint64_t> expected;
   versions_->AddLiveFiles(&expected);
@@ -377,17 +379,17 @@ Error DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
     char buf[50];
     std::snprintf(buf, sizeof(buf), "%d missing files; e.g.",
                   static_cast<int>(expected.size()));
-    return Error(Error::Code::Corruption, buf,
-                 TableFileName(dbname_, *(expected.begin())));
+    return std::unexpected(Error(Error::Code::Corruption, buf,
+                                 TableFileName(dbname_, *(expected.begin()))));
   }
 
   // Recover in the order in which the logs were generated
   std::sort(logs.begin(), logs.end());
   for (size_t i = 0; i < logs.size(); i++) {
-    Error e = RecoverLogFile(logs[i], (i == logs.size() - 1), save_manifest,
-                             edit, &max_sequence);
-    if (!e.ok()) {
-      return e;
+    if (auto ret = RecoverLogFile(logs[i], (i == logs.size() - 1),
+                                  save_manifest, edit, &max_sequence);
+        !ret) {
+      return ret;
     }
 
     // The previous incarnation may not have written any MANIFEST
@@ -400,12 +402,12 @@ Error DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
     versions_->SetLastSequence(max_sequence);
   }
 
-  return Error(Error::Code::Ok);
+  return {};
 }
 
-Error DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
-                             bool* save_manifest, VersionEdit* edit,
-                             SequenceNumber* max_sequence) {
+std::expected<void, Error> DBImpl::RecoverLogFile(
+    uint64_t log_number, bool last_log, bool* save_manifest, VersionEdit* edit,
+    SequenceNumber* max_sequence) {
   struct LogReporter : public log::Reader::Reporter {
     Env* env;
     Logger* info_log;
@@ -429,7 +431,7 @@ Error DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
     file = ret.value();
   } else {
     MaybeIgnoreError(&ret.error());
-    return ret.error();
+    return std::unexpected(ret.error());
   }
 
   // Create the log reader.
@@ -525,7 +527,10 @@ Error DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
     mem->Unref();
   }
 
-  return err;
+  if (!err.ok()) {
+    return std::unexpected(err);
+  }
+  return {};
 }
 
 Error DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
@@ -1550,7 +1555,7 @@ std::expected<std::shared_ptr<DB>, Error> DB::Open(
   VersionEdit edit;
   // Recover handles create_if_missing, error_if_exists
   bool save_manifest = false;
-  Error e = impl->Recover(&edit, &save_manifest);
+  Error e = impl->Recover(&edit, &save_manifest).error_or(Error());
   if (e.ok() && impl->mem_ == nullptr) {
     // Create new log and a corresponding memtable.
     uint64_t new_log_number = impl->versions_->NewFileNumber();
