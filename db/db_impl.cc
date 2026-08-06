@@ -462,9 +462,7 @@ Error DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
       mem = new MemTable(internal_comparator_);
       mem->Ref();
     }
-    if (auto status = WriteBatchInternal::InsertInto(&batch, mem); !status) {
-      err = status.error();
-    }
+    err = WriteBatchInternal::InsertInto(&batch, mem).error_or(Error());
     MaybeIgnoreError(&err);
     if (!err.ok()) {
       break;
@@ -1282,10 +1280,8 @@ std::expected<void, Error> DBImpl::Write(const WriteOptions& options,
         }
       }
       if (err.ok()) {
-        if (auto status = WriteBatchInternal::InsertInto(write_batch, mem_);
-            !status) {
-          err = status.error();
-        }
+        err =
+            WriteBatchInternal::InsertInto(write_batch, mem_).error_or(Error());
       }
       mutex_.Lock();
       if (sync_error) {
