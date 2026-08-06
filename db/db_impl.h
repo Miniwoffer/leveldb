@@ -130,7 +130,7 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
                                 SequenceNumber* latest_snapshot,
                                 uint32_t* seed);
 
-  Error NewDB();
+  std::expected<void, Error> NewDB();
 
   // Recover the descriptor from persistent storage.  May do a significant
   // amount of work to recover recently logged updates.  Any changes to
