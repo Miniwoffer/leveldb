@@ -135,7 +135,7 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
   // Recover the descriptor from persistent storage.  May do a significant
   // amount of work to recover recently logged updates.  Any changes to
   // be made to the descriptor are added to *edit.
-  Error Recover(VersionEdit* edit, bool* save_manifest)
+  std::expected<void, Error> Recover(VersionEdit* edit, bool* save_manifest)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   void MaybeIgnoreError(Error* s) const;
@@ -148,8 +148,10 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
   // Errors are recorded in bg_error_.
   void CompactMemTable() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  Error RecoverLogFile(uint64_t log_number, bool last_log, bool* save_manifest,
-                       VersionEdit* edit, SequenceNumber* max_sequence)
+  std::expected<void, Error> RecoverLogFile(uint64_t log_number, bool last_log,
+                                            bool* save_manifest,
+                                            VersionEdit* edit,
+                                            SequenceNumber* max_sequence)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   Error WriteLevel0Table(MemTable* mem, VersionEdit* edit, Version* base)
