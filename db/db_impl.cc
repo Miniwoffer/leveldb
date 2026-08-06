@@ -1588,7 +1588,8 @@ std::expected<std::shared_ptr<DB>, Error> DB::Open(
 
 Snapshot::~Snapshot() = default;
 
-Error DestroyDB(const std::string& dbname, const Options& options) {
+std::expected<void, Error> DestroyDB(const std::string& dbname,
+                                     const Options& options) {
   Env* env = options.env;
   std::vector<std::string> filenames;
 
@@ -1596,22 +1597,20 @@ Error DestroyDB(const std::string& dbname, const Options& options) {
     filenames = std::move(ret.value());
   } else {
     // Ignore error in case directory does not exist
-    return Error(Error::Code::Ok);
+    return {};
   }
 
   FileLock* lock;
   Error err;
   const std::string lockname = LockFileName(dbname);
-
   if (auto ret = env->LockFile(lockname)) {
     lock = ret.value();
     uint64_t number;
     FileType type;
     for (size_t i = 0; i < filenames.size(); i++) {
-      if (ParseFileName(filenames[i], &number, &type) &&
-          type != kDBLockFile) {  // Lock file will be deleted at end
-        auto del = env->RemoveFile(dbname + "/" + filenames[i]);
-        if (err.ok() && !del) {
+      // Lock file will be deleted at end
+      if (ParseFileName(filenames[i], &number, &type) && type != kDBLockFile) {
+        if (auto del = env->RemoveFile(dbname + "/" + filenames[i]); !del) {
           err = std::move(del.error());
         }
       }
@@ -1622,7 +1621,10 @@ Error DestroyDB(const std::string& dbname, const Options& options) {
   } else {
     err = std::move(ret.error());
   }
-  return err;
+  if (!err.ok()) {
+    return std::unexpected(err);
+  }
+  return {};
 }
 
 }  // namespace leveldb

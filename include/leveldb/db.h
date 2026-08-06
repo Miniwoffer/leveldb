@@ -162,7 +162,8 @@ class LEVELDB_EXPORT DB {
 // Note: For backwards compatibility, if DestroyDB is unable to list the
 // database files, Error(Error::Code::Ok) will still be returned masking this
 // failure.
-LEVELDB_EXPORT Error DestroyDB(const std::string& name, const Options& options);
+LEVELDB_EXPORT std::expected<void, Error> DestroyDB(const std::string& name,
+                                                    const Options& options);
 
 // If a DB cannot be opened, you may attempt to call this method to
 // resurrect as much of the contents of the database as possible.
