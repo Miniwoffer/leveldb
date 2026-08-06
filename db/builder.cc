@@ -42,7 +42,7 @@ Error BuildTable(const std::string& dbname, Env* env, const Options& options,
     }
 
     // Finish and check for builder errors
-    e = builder->Finish();
+    e = builder->Finish().error_or(Error());
     if (e.ok()) {
       meta->file_size = builder->FileSize();
       assert(meta->file_size > 0);
