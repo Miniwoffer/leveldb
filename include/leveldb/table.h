@@ -42,8 +42,9 @@ class LEVELDB_EXPORT Table {
   // for the duration of the returned table's lifetime.
   //
   // *file must remain live while this Table is in use.
-  static Error Open(const Options& options, RandomAccessFile* file,
-                    uint64_t file_size, Table** table);
+  static std::expected<void, Error> Open(const Options& options,
+                                         RandomAccessFile* file,
+                                         uint64_t file_size, Table** table);
 
   Table(const Table&) = delete;
   Table& operator=(const Table&) = delete;

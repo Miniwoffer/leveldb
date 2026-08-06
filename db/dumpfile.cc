@@ -162,7 +162,7 @@ Error DumpTable(Env* env, const std::string& fname, WritableFile* dst) {
     // comparator used in this database. However this should not cause
     // problems since we only use Table operations that do not require
     // any comparisons.  In particular, we do not call Seek or Prev.
-    err = Table::Open(Options(), file, file_size, &table);
+    err = Table::Open(Options(), file, file_size, &table).error_or(Error());
   }
 
   if (!err.ok()) {
