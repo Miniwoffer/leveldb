@@ -66,7 +66,7 @@ std::expected<Cache::Handle*, Error> TableCache::FindTable(uint64_t file_number,
   }
 
   if (file) {
-    e = Table::Open(options_, file, file_size, &table);
+    e = Table::Open(options_, file, file_size, &table).error_or(Error());
   }
 
   if (!e.ok()) {

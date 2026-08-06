@@ -40,11 +40,13 @@ struct Table::Rep {
   Block* index_block;
 };
 
-Error Table::Open(const Options& options, RandomAccessFile* file, uint64_t size,
-                  Table** table) {
+std::expected<void, Error> Table::Open(const Options& options,
+                                       RandomAccessFile* file, uint64_t size,
+                                       Table** table) {
   *table = nullptr;
   if (size < Footer::kEncodedLength) {
-    return Error(Error::Code::Corruption, "file is too short to be an sstable");
+    return std::unexpected(
+        Error(Error::Code::Corruption, "file is too short to be an sstable"));
   }
 
   char footer_space[Footer::kEncodedLength];
@@ -53,12 +55,12 @@ Error Table::Open(const Options& options, RandomAccessFile* file, uint64_t size,
                             Footer::kEncodedLength, footer_space)) {
     footer_input = std::move(ret.value());
   } else {
-    return ret.error();
+    return std::unexpected(ret.error());
   }
 
   Footer footer;
   Error e = footer.DecodeFrom(&footer_input);
-  if (!e.ok()) return e;
+  if (!e.ok()) return std::unexpected(e);
 
   // Read the index block
   BlockContents index_block_contents;
@@ -82,9 +84,10 @@ Error Table::Open(const Options& options, RandomAccessFile* file, uint64_t size,
     rep->filter = nullptr;
     *table = new Table(rep);
     (*table)->ReadMeta(footer);
+    return {};
+  } else {
+    return std::unexpected(e);
   }
-
-  return e;
 }
 
 void Table::ReadMeta(const Footer& footer) {
