@@ -190,8 +190,8 @@ DBImpl::~DBImpl() {
   }
 }
 
-Error DBImpl::NewDB() {
-  Error e;
+std::expected<void, Error> DBImpl::NewDB() {
+  std::expected<void, Error> ret;
   VersionEdit new_db;
   new_db.SetComparatorName(user_comparator()->Name());
   new_db.SetLogNumber(0);
@@ -203,28 +203,30 @@ Error DBImpl::NewDB() {
   if (auto ret = env_->NewWritableFile(manifest)) {
     file = ret.value();
   } else {
-    return ret.error();
+    return std::unexpected(ret.error());
   }
   {
     log::Writer log(file);
     std::string record;
     new_db.EncodeTo(&record);
-    e = log.AddRecord(record);
+    Error e = log.AddRecord(record);
     if (e.ok()) {
-      e = file->Sync().error_or(e);
-    }
-    if (e.ok()) {
-      e = file->Close().error_or(e);
+      if ((ret = file->Sync())) {
+        ret = file->Close();
+      }
+    } else {
+      ret = std::unexpected(e);
     }
   }
   delete file;
-  if (e.ok()) {
+  if (ret) {
     // Make "CURRENT" file that points to the new manifest file.
-    e = SetCurrentFile(env_, dbname_, 1);
+    Error e = SetCurrentFile(env_, dbname_, 1);
+    ret = e.ok() ? ret : std::unexpected(e);
   } else {
     env_->RemoveFile(manifest);
   }
-  return e;
+  return ret;
 }
 
 void DBImpl::MaybeIgnoreError(Error* s) const {
