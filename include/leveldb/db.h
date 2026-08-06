@@ -169,8 +169,8 @@ LEVELDB_EXPORT std::expected<void, Error> DestroyDB(const std::string& name,
 // resurrect as much of the contents of the database as possible.
 // Some data may be lost, so be careful when calling this function
 // on a database that contains important information.
-LEVELDB_EXPORT Error RepairDB(const std::string& dbname,
-                              const Options& options);
+LEVELDB_EXPORT std::expected<void, Error> RepairDB(const std::string& dbname,
+                                                   const Options& options);
 
 }  // namespace leveldb
 

@@ -68,26 +68,26 @@ class Repairer {
     }
   }
 
-  Error Run() {
-    Error err = FindFiles();
-    if (err.ok()) {
+  std::expected<void, Error> Run() {
+    std::expected<void, Error> ret{};
+    if ((ret = FindFiles())) {
       ConvertLogFilesToTables();
       ExtractMetaData();
-      err = WriteDescriptor();
-    }
-    if (err.ok()) {
-      unsigned long long bytes = 0;
-      for (size_t i = 0; i < tables_.size(); i++) {
-        bytes += tables_[i].meta.file_size;
+
+      if ((ret = WriteDescriptor())) {
+        unsigned long long bytes = 0;
+        for (size_t i = 0; i < tables_.size(); i++) {
+          bytes += tables_[i].meta.file_size;
+        }
+        Log(options_.info_log,
+            "**** Repaired leveldb %s; "
+            "recovered %d files; %llu bytes. "
+            "Some data may have been lost. "
+            "****",
+            dbname_.c_str(), static_cast<int>(tables_.size()), bytes);
       }
-      Log(options_.info_log,
-          "**** Repaired leveldb %s; "
-          "recovered %d files; %llu bytes. "
-          "Some data may have been lost. "
-          "****",
-          dbname_.c_str(), static_cast<int>(tables_.size()), bytes);
     }
-    return err;
+    return ret;
   }
 
  private:
@@ -96,15 +96,16 @@ class Repairer {
     SequenceNumber max_sequence;
   };
 
-  Error FindFiles() {
+  std::expected<void, Error> FindFiles() {
     std::vector<std::string> filenames;
     if (auto ret = env_->GetChildren(dbname_)) {
       filenames = std::move(ret.value());
     } else {
-      return ret.error();
+      return std::unexpected(ret.error());
     }
     if (filenames.empty()) {
-      return Error(Error::Code::IOFault, dbname_, "repair found no files");
+      return std::unexpected(
+          Error(Error::Code::IOFault, dbname_, "repair found no files"));
     }
 
     uint64_t number;
@@ -127,7 +128,7 @@ class Repairer {
         }
       }
     }
-    return Error(Error::Code::Ok);
+    return {};
   }
 
   void ConvertLogFilesToTables() {
@@ -356,14 +357,14 @@ class Repairer {
     }
   }
 
-  Error WriteDescriptor() {
+  std::expected<void, Error> WriteDescriptor() {
     std::string tmp = TempFileName(dbname_, 1);
     WritableFile* file;
-    Error err;
-    if (auto ret = env_->NewWritableFile(tmp)) {
-      file = ret.value();
+    std::expected<void, Error> ret{};
+    if (auto wf_ret = env_->NewWritableFile(tmp)) {
+      file = wf_ret.value();
     } else {
-      return ret.error();
+      return std::unexpected(wf_ret.error());
     }
 
     SequenceNumber max_sequence = 0;
@@ -391,15 +392,16 @@ class Repairer {
       log::Writer log(file);
       std::string record;
       edit_.EncodeTo(&record);
-      err = log.AddRecord(record);
+      Error e = log.AddRecord(record);
+      ret = e.ok() ? ret : std::unexpected(std::move(e));
     }
-    if (err.ok()) {
-      err = file->Close().error_or(Error());
+    if (ret) {
+      ret = file->Close();
     }
     delete file;
     file = nullptr;
 
-    if (!err.ok()) {
+    if (!ret) {
       env_->RemoveFile(tmp);
     } else {
       // Discard older manifests
@@ -408,15 +410,15 @@ class Repairer {
       }
 
       // Install new manifest
-      err = env_->RenameFile(tmp, DescriptorFileName(dbname_, 1))
-                .error_or(Error());
-      if (err.ok()) {
-        err = SetCurrentFile(env_, dbname_, 1);
+      ret = env_->RenameFile(tmp, DescriptorFileName(dbname_, 1));
+      if (ret) {
+        Error e = SetCurrentFile(env_, dbname_, 1);
+        ret = e.ok() ? ret : std::unexpected(std::move(e));
       } else {
         env_->RemoveFile(tmp);
       }
     }
-    return err;
+    return ret;
   }
 
   void ArchiveFile(const std::string& fname) {
@@ -457,7 +459,8 @@ class Repairer {
 };
 }  // namespace
 
-Error RepairDB(const std::string& dbname, const Options& options) {
+std::expected<void, Error> RepairDB(const std::string& dbname,
+                                    const Options& options) {
   Repairer repairer(dbname, options);
   return repairer.Run();
 }
