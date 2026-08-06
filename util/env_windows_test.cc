@@ -54,7 +54,7 @@ TEST_F(EnvWindowsTest, TestOpenOnRead) {
   for (int i = 0; i < kNumFiles; i++) {
     auto rd_ret = files[i]->Read(i, 1, &scratch);
     ASSERT_TRUE(rd_ret);
-    read_result = std::move(rd_ret.value());
+    read_result = rd_ret.value();
     ASSERT_EQ(kFileData[i], read_result[0]);
   }
   for (int i = 0; i < kNumFiles; i++) {

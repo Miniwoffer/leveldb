@@ -63,7 +63,7 @@ static Error DoWriteStringToFile(Env* env, const std::string_view& data,
   if (auto ret = env->NewWritableFile(fname)) {
     file = ret.value();
   } else {
-    return std::move(ret.error());
+    return ret.error();
   }
 
   auto ret = file->Append(data);
@@ -98,7 +98,7 @@ Error ReadFileToString(Env* env, const std::string& fname, std::string* data) {
   if (auto ret = env->NewSequentialFile(fname)) {
     file = ret.value();
   } else {
-    return std::move(ret.error());
+    return ret.error();
   }
 
   static const int kBufferSize = 8192;

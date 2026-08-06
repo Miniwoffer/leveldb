@@ -131,7 +131,7 @@ Error SetCurrentFile(Env* env, const std::string& dbname,
   std::string tmp = TempFileName(dbname, descriptor_number);
   Error e = WriteStringToFileSync(env, std::string(contents) + "\n", tmp);
   if (e.ok()) {
-    e = std::move(env->RenameFile(tmp, CurrentFileName(dbname)).error_or(e));
+    e = env->RenameFile(tmp, CurrentFileName(dbname)).error_or(e);
   }
   if (!e.ok()) {
     env->RemoveFile(tmp);

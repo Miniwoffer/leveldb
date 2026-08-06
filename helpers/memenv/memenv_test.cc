@@ -133,21 +133,21 @@ TEST_F(MemEnvTest, ReadWrite) {
   seq_file = seq_ret.value();
   auto rd_ret = seq_file->Read(5, scratch);
   ASSERT_TRUE(rd_ret);  // Read "hello".
-  result = std::move(rd_ret.value());
+  result = rd_ret.value();
   ASSERT_EQ(0, result.compare("hello"));
   ASSERT_TRUE(seq_file->Skip(1));
   rd_ret = seq_file->Read(1000, scratch);
   ASSERT_TRUE(rd_ret);  // Read "world".
-  result = std::move(rd_ret.value());
+  result = rd_ret.value();
   ASSERT_EQ(0, result.compare("world"));
   rd_ret = seq_file->Read(1000, scratch);
   ASSERT_TRUE(rd_ret);  // Try reading past EOF.
-  result = std::move(rd_ret.value());
+  result = rd_ret.value();
   ASSERT_EQ(0, result.size());
   ASSERT_TRUE(seq_file->Skip(100));  // Try to skip past end of file.
   rd_ret = seq_file->Read(1000, scratch);
   ASSERT_TRUE(rd_ret);
-  result = std::move(rd_ret.value());
+  result = rd_ret.value();
   ASSERT_EQ(0, result.size());
   delete seq_file;
 
@@ -157,14 +157,14 @@ TEST_F(MemEnvTest, ReadWrite) {
   rand_file = rand_ret.value();
   rd_ret = rand_file->Read(6, 5, scratch);
   ASSERT_TRUE(rd_ret);  // Read "world".
-  result = std::move(rd_ret.value());
+  result = rd_ret.value();
   ASSERT_EQ(0, result.compare("world"));
   ASSERT_TRUE(rand_file->Read(0, 5, scratch));  // Read "hello".
-  result = std::move(rd_ret.value());
+  result = rd_ret.value();
   ASSERT_EQ(0, result.compare("hello"));
   rd_ret = rand_file->Read(10, 100, scratch);
   ASSERT_TRUE(rd_ret);  // Read "d".
-  result = std::move(rd_ret.value());
+  result = rd_ret.value();
   ASSERT_EQ(0, result.compare("d"));
 
   // Too high offset.
@@ -178,7 +178,7 @@ TEST_F(MemEnvTest, Locks) {
   // These are no-ops, but we test they return success.
   auto ret = env_->LockFile("some file");
   ASSERT_TRUE(ret);
-  lock = std::move(ret.value());
+  lock = ret.value();
   ASSERT_TRUE(env_->UnlockFile(lock));
 }
 
@@ -225,7 +225,7 @@ TEST_F(MemEnvTest, LargeWrite) {
   seq_file = seq_ret.value();
   auto rd_ret = seq_file->Read(3, scratch);
   ASSERT_TRUE(rd_ret);  // Read "foo".
-  result = std::move(rd_ret.value());
+  result = rd_ret.value();
   ASSERT_EQ(0, result.compare("foo"));
 
   size_t read = 0;
@@ -233,7 +233,7 @@ TEST_F(MemEnvTest, LargeWrite) {
   while (read < kWriteSize) {
     rd_ret = seq_file->Read(kWriteSize - read, scratch);
     ASSERT_TRUE(rd_ret);
-    result = std::move(rd_ret.value());
+    result = rd_ret.value();
     read_data.append(result.data(), result.size());
     read += result.size();
   }
@@ -252,7 +252,7 @@ TEST_F(MemEnvTest, OverwriteOpenFile) {
   RandomAccessFile* rand_file;
   std::expected<RandomAccessFile*, Error> ret;
   ASSERT_TRUE(ret = env_->NewRandomAccessFile(kTestFileName));
-  rand_file = std::move(ret.value());
+  rand_file = ret.value();
 
   const char kWrite2Data[] = "Write #2 data";
   ASSERT_LEVELDB_OK(WriteStringToFile(env_, kWrite2Data, kTestFileName));
@@ -263,7 +263,7 @@ TEST_F(MemEnvTest, OverwriteOpenFile) {
   char scratch[kFileDataLen];
   auto rd_ret = rand_file->Read(0, kFileDataLen, scratch);
   ASSERT_TRUE(rd_ret);
-  result = std::move(rd_ret.value());
+  result = rd_ret.value();
   ASSERT_EQ(0, result.compare(kWrite2Data));
 
   delete rand_file;

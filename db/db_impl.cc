@@ -113,7 +113,7 @@ Options SanitizeOptions(const std::string& dbname,
     src.env->RenameFile(InfoLogFileName(dbname), OldInfoLogFileName(dbname));
 
     if (auto ret = src.env->NewLogger(InfoLogFileName(dbname))) {
-      result.info_log = std::move(ret.value());
+      result.info_log = ret.value();
     } else {
       // No place suitable for logging
       result.info_log = nullptr;
@@ -203,7 +203,7 @@ Error DBImpl::NewDB() {
   if (auto ret = env_->NewWritableFile(manifest)) {
     file = ret.value();
   } else {
-    return std::move(ret.error());
+    return ret.error();
   }
   {
     log::Writer log(file);
@@ -249,8 +249,8 @@ void DBImpl::RemoveObsoleteFiles() {
   std::set<uint64_t> live = pending_outputs_;
   versions_->AddLiveFiles(&live);
 
-  std::vector<std::string> filenames = std::move(
-      env_->GetChildren(dbname_).value());  // Ignoring errors on purpose
+  std::vector<std::string> filenames =
+      env_->GetChildren(dbname_).value();  // Ignoring errors on purpose
   uint64_t number;
   FileType type;
   std::vector<std::string> files_to_delete;
@@ -357,7 +357,7 @@ Error DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
   if (auto ret = env_->GetChildren(dbname_)) {
     filenames = std::move(ret.value());
   } else {
-    return std::move(ret.error());
+    return ret.error();
   }
   std::set<uint64_t> expected;
   versions_->AddLiveFiles(&expected);
@@ -427,7 +427,7 @@ Error DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
     file = ret.value();
   } else {
     MaybeIgnoreError(&ret.error());
-    return std::move(ret.error());
+    return ret.error();
   }
 
   // Create the log reader.
@@ -675,7 +675,7 @@ Error DBImpl::TEST_CompactMemTable() {
   // nullptr batch means just wait for earlier writes to be done
   auto res = Write(WriteOptions(), nullptr);
   if (!res) {
-    return std::move(res.error());
+    return res.error();
   }
   // Wait until the compaction completes
   MutexLock l(&mutex_);
@@ -1409,7 +1409,7 @@ Error DBImpl::MakeRoomForWrite(bool force) {
       WritableFile* lfile = nullptr;
       if (auto ret =
               env_->NewWritableFile(LogFileName(dbname_, new_log_number))) {
-        lfile = std::move(ret.value());
+        lfile = ret.value();
       } else {
         // Avoid chewing through file number space in a tight loop.
         e = std::move(ret.error());

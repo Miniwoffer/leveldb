@@ -67,7 +67,7 @@ TEST_F(EnvTest, ReadWrite) {
     std::string_view read;
     auto rd_ret = sequential_file->Read(len, &scratch[0]);
     ASSERT_TRUE(rd_ret);
-    read = std::move(rd_ret.value());
+    read = rd_ret.value();
     if (len > 0) {
       ASSERT_GT(read.size(), 0);
     }

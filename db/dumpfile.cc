@@ -58,7 +58,7 @@ Error PrintLogContents(Env* env, const std::string& fname,
   if (auto ret = env->NewSequentialFile(fname)) {
     file = ret.value();
   } else {
-    return std::move(ret.error());
+    return ret.error();
   }
 
   CorruptionReporter reporter;
