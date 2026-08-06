@@ -14,6 +14,7 @@
 #define STORAGE_LEVELDB_INCLUDE_TABLE_BUILDER_H_
 
 #include <cstdint>
+#include <expected>
 #include <string_view>
 
 #include "leveldb/error.h"
@@ -45,7 +46,7 @@ class LEVELDB_EXPORT TableBuilder {
   // passed to the constructor is different from its value in the
   // structure passed to this method, this method will return an error
   // without changing any fields.
-  Error ChangeOptions(const Options& options);
+  std::expected<void, Error> ChangeOptions(const Options& options);
 
   // Add key,value to the table being constructed.
   // REQUIRES: key is after any previously added key according to comparator.
