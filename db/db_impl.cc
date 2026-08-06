@@ -540,7 +540,8 @@ Error DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   Error e;
   {
     mutex_.Unlock();
-    e = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
+    e = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta)
+            .error_or(Error());
     mutex_.Lock();
   }
 
