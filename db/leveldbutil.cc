@@ -25,9 +25,8 @@ bool HandleDumpCommand(Env* env, char** files, int num) {
   StdoutPrinter printer;
   bool ok = true;
   for (int i = 0; i < num; i++) {
-    Error e = DumpFile(env, files[i], &printer);
-    if (!e.ok()) {
-      std::fprintf(stderr, "%s\n", e.ToString().c_str());
+    if (auto ret = DumpFile(env, files[i], &printer); !ret) {
+      std::fprintf(stderr, "%s\n", ret.error().ToString().c_str());
       ok = false;
     }
   }
