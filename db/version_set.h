@@ -17,6 +17,7 @@
 
 #include "db/dbformat.h"
 #include "db/version_edit.h"
+#include <expected>
 #include <functional>
 #include <map>
 #include <set>
@@ -180,11 +181,11 @@ class VersionSet {
   // current version.  Will release *mu while actually writing to the file.
   // REQUIRES: *mu is held on entry.
   // REQUIRES: no other thread concurrently calls LogAndApply()
-  Error LogAndApply(VersionEdit* edit, port::Mutex* mu)
+  std::expected<void, Error> LogAndApply(VersionEdit* edit, port::Mutex* mu)
       EXCLUSIVE_LOCKS_REQUIRED(mu);
 
   // Recover the last saved descriptor from persistent storage.
-  Error Recover(bool* save_manifest);
+  std::expected<void, Error> Recover(bool* save_manifest);
 
   // Return the current version.
   Version* current() const { return current_; }
@@ -291,7 +292,7 @@ class VersionSet {
   void SetupOtherInputs(Compaction* c);
 
   // Save current contents to *log
-  Error WriteSnapshot(log::Writer* log);
+  std::expected<void, Error> WriteSnapshot(log::Writer* log);
 
   void AppendVersion(Version* v);
 

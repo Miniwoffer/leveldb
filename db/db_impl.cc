@@ -317,14 +317,13 @@ std::expected<void, Error> DBImpl::Recover(VersionEdit* edit,
     return std::unexpected(ret.error());
   }
 
-  Error e;
+  std::expected<void, Error> result;
   if (!env_->FileExists(CurrentFileName(dbname_))) {
     if (options_.create_if_missing) {
       Log(options_.info_log, "Creating DB %s since it was missing.",
           dbname_.c_str());
-      e = NewDB().error_or(Error());
-      if (!e.ok()) {
-        return std::unexpected(e);
+      if ((result = NewDB()); !result) {
+        return result;
       }
     } else {
       return std::unexpected(
@@ -338,9 +337,8 @@ std::expected<void, Error> DBImpl::Recover(VersionEdit* edit,
     }
   }
 
-  e = versions_->Recover(save_manifest);
-  if (!e.ok()) {
-    return std::unexpected(e);
+  if ((result = versions_->Recover(save_manifest)); !result) {
+    return result;
   }
   SequenceNumber max_sequence(0);
 
@@ -398,7 +396,7 @@ std::expected<void, Error> DBImpl::Recover(VersionEdit* edit,
     versions_->SetLastSequence(max_sequence);
   }
 
-  return {};
+  return result;
 }
 
 std::expected<void, Error> DBImpl::RecoverLogFile(
@@ -582,28 +580,29 @@ void DBImpl::CompactMemTable() {
   VersionEdit edit;
   Version* base = versions_->current();
   base->Ref();
-  Error e = WriteLevel0Table(imm_, &edit, base).error_or(Error());
+  auto e = WriteLevel0Table(imm_, &edit, base);
   base->Unref();
 
-  if (e.ok() && shutting_down_.load(std::memory_order_acquire)) {
-    e = Error(Error::Code::IOFault, "Deleting DB during memtable compaction");
+  if (e && shutting_down_.load(std::memory_order_acquire)) {
+    e = std::unexpected(
+        Error(Error::Code::IOFault, "Deleting DB during memtable compaction"));
   }
 
   // Replace immutable memtable with the generated Table
-  if (e.ok()) {
+  if (e) {
     edit.SetPrevLogNumber(0);
     edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
     e = versions_->LogAndApply(&edit, &mutex_);
   }
 
-  if (e.ok()) {
+  if (e) {
     // Commit to the new state
     imm_->Unref();
     imm_ = nullptr;
     has_imm_.store(false, std::memory_order_release);
     RemoveObsoleteFiles();
   } else {
-    RecordBackgroundError(e);
+    RecordBackgroundError(e.error());
   }
 }
 
@@ -775,7 +774,7 @@ void DBImpl::BackgroundCompaction() {
     c->edit()->RemoveFile(c->level(), f->number);
     c->edit()->AddFile(c->level() + 1, f->number, f->file_size, f->smallest,
                        f->largest);
-    err = versions_->LogAndApply(c->edit(), &mutex_);
+    err = versions_->LogAndApply(c->edit(), &mutex_).error_or(Error());
     if (!err.ok()) {
       RecordBackgroundError(err);
     }
@@ -932,8 +931,7 @@ std::expected<void, Error> DBImpl::InstallCompactionResults(
     compact->compaction->edit()->AddFile(level + 1, out.number, out.file_size,
                                          out.smallest, out.largest);
   }
-  Error e = versions_->LogAndApply(compact->compaction->edit(), &mutex_);
-  return e.ok() ? std::expected<void, Error>{} : std::unexpected(e);
+  return versions_->LogAndApply(compact->compaction->edit(), &mutex_);
 }
 
 std::expected<void, Error> DBImpl::DoCompactionWork(CompactionState* compact) {
@@ -1562,8 +1560,8 @@ std::expected<std::shared_ptr<DB>, Error> DB::Open(
   VersionEdit edit;
   // Recover handles create_if_missing, error_if_exists
   bool save_manifest = false;
-  Error e = impl->Recover(&edit, &save_manifest).error_or(Error());
-  if (e.ok() && impl->mem_ == nullptr) {
+  auto result = impl->Recover(&edit, &save_manifest);
+  if (result && impl->mem_ == nullptr) {
     // Create new log and a corresponding memtable.
     uint64_t new_log_number = impl->versions_->NewFileNumber();
     WritableFile* lfile;
@@ -1577,24 +1575,24 @@ std::expected<std::shared_ptr<DB>, Error> DB::Open(
       impl->mem_ = new MemTable(impl->internal_comparator_);
       impl->mem_->Ref();
     } else {
-      e = std::move(ret.error());
+      result = std::unexpected(std::move(ret.error()));
     }
   }
-  if (e.ok() && save_manifest) {
+  if (result && save_manifest) {
     edit.SetPrevLogNumber(0);  // No older logs needed after recovery.
     edit.SetLogNumber(impl->logfile_number_);
-    e = impl->versions_->LogAndApply(&edit, &impl->mutex_);
+    result = impl->versions_->LogAndApply(&edit, &impl->mutex_);
   }
-  if (e.ok()) {
+  if (result) {
     impl->RemoveObsoleteFiles();
     impl->MaybeScheduleCompaction();
   }
   impl->mutex_.Unlock();
-  if (e.ok()) {
-    assert(impl->mem_ != nullptr);
-    return impl;
+  if (!result) {
+    return std::unexpected(result.error());
   }
-  return std::unexpected(std::move(e));
+  assert(impl->mem_ != nullptr);
+  return impl;
 }
 
 Snapshot::~Snapshot() = default;
