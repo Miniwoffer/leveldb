@@ -480,7 +480,7 @@ std::expected<void, Error> DBImpl::RecoverLogFile(
     if (mem->ApproximateMemoryUsage() > options_.write_buffer_size) {
       compactions++;
       *save_manifest = true;
-      err = WriteLevel0Table(mem, edit, nullptr);
+      err = WriteLevel0Table(mem, edit, nullptr).error_or(Error());
       mem->Unref();
       mem = nullptr;
       if (!err.ok()) {
@@ -522,7 +522,7 @@ std::expected<void, Error> DBImpl::RecoverLogFile(
     // mem did not get reused; compact it.
     if (err.ok()) {
       *save_manifest = true;
-      err = WriteLevel0Table(mem, edit, nullptr);
+      err = WriteLevel0Table(mem, edit, nullptr).error_or(Error());
     }
     mem->Unref();
   }
@@ -533,8 +533,9 @@ std::expected<void, Error> DBImpl::RecoverLogFile(
   return {};
 }
 
-Error DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
-                               Version* base) {
+std::expected<void, Error> DBImpl::WriteLevel0Table(MemTable* mem,
+                                                    VersionEdit* edit,
+                                                    Version* base) {
   mutex_.AssertHeld();
   const uint64_t start_micros = env_->NowMicros();
   FileMetaData meta;
@@ -544,24 +545,23 @@ Error DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   Log(options_.info_log, "Level-0 table #%llu: started",
       (unsigned long long)meta.number);
 
-  Error e;
+  std::expected<void, Error> result;
   {
     mutex_.Unlock();
-    e = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta)
-            .error_or(Error());
+    result = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
     mutex_.Lock();
   }
 
   Log(options_.info_log, "Level-0 table #%llu: %lld bytes %s",
       (unsigned long long)meta.number, (unsigned long long)meta.file_size,
-      e.ToString().c_str());
+      result.error_or(Error()).ToString().c_str());
   delete iter;
   pending_outputs_.erase(meta.number);
 
   // Note that if file_size is zero, the file has been deleted and
   // should not be added to the manifest.
   int level = 0;
-  if (e.ok() && meta.file_size > 0) {
+  if (result && meta.file_size > 0) {
     const std::string_view min_user_key = meta.smallest.user_key();
     const std::string_view max_user_key = meta.largest.user_key();
     if (base != nullptr) {
@@ -575,7 +575,7 @@ Error DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   stats.micros = env_->NowMicros() - start_micros;
   stats.bytes_written = meta.file_size;
   stats_[level].Add(stats);
-  return e;
+  return result;
 }
 
 void DBImpl::CompactMemTable() {
@@ -586,7 +586,7 @@ void DBImpl::CompactMemTable() {
   VersionEdit edit;
   Version* base = versions_->current();
   base->Ref();
-  Error e = WriteLevel0Table(imm_, &edit, base);
+  Error e = WriteLevel0Table(imm_, &edit, base).error_or(Error());
   base->Unref();
 
   if (e.ok() && shutting_down_.load(std::memory_order_acquire)) {

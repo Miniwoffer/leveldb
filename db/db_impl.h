@@ -154,7 +154,8 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
                                             SequenceNumber* max_sequence)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  Error WriteLevel0Table(MemTable* mem, VersionEdit* edit, Version* base)
+  std::expected<void, Error> WriteLevel0Table(MemTable* mem, VersionEdit* edit,
+                                              Version* base)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   Error MakeRoomForWrite(bool force /* compact even if there is room? */)
