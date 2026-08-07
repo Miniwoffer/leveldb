@@ -34,14 +34,14 @@ Writer::Writer(WritableFile* dest, uint64_t dest_length)
 
 Writer::~Writer() = default;
 
-Error Writer::AddRecord(const std::string_view& slice) {
+std::expected<void, Error> Writer::AddRecord(const std::string_view& slice) {
   const char* ptr = slice.data();
   size_t left = slice.size();
 
   // Fragment the record if necessary and emit it.  Note that if slice
   // is empty, we still want to iterate once to emit a single
   // zero-length record
-  Error e;
+  std::expected<void, Error> result;
   bool begin = true;
   do {
     const int leftover = kBlockSize - block_offset_;
@@ -74,15 +74,17 @@ Error Writer::AddRecord(const std::string_view& slice) {
       type = kMiddleType;
     }
 
-    e = EmitPhysicalRecord(type, ptr, fragment_length);
+    result = EmitPhysicalRecord(type, ptr, fragment_length);
     ptr += fragment_length;
     left -= fragment_length;
     begin = false;
-  } while (e.ok() && left > 0);
-  return e;
+  } while (result && left > 0);
+  return result;
 }
 
-Error Writer::EmitPhysicalRecord(RecordType t, const char* ptr, size_t length) {
+std::expected<void, Error> Writer::EmitPhysicalRecord(RecordType t,
+                                                      const char* ptr,
+                                                      size_t length) {
   assert(length <= 0xffff);  // Must fit in two bytes
   assert(block_offset_ + kHeaderSize + length <= kBlockSize);
 
@@ -98,17 +100,14 @@ Error Writer::EmitPhysicalRecord(RecordType t, const char* ptr, size_t length) {
   EncodeFixed<uint32_t>(std::span(buf, 8), crc);
 
   // Write the header and the payload
-
-  if (auto ret = dest_->Append(std::string_view(buf, kHeaderSize)); !ret) {
-    return ret.error();
+  auto ret = dest_->Append(std::string_view(buf, kHeaderSize));
+  if (ret) {
+    if ((ret = dest_->Append(std::string_view(ptr, length)))) {
+      block_offset_ += kHeaderSize + length;
+      return dest_->Flush();
+    }
   }
-
-  if (auto ret = dest_->Append(std::string_view(ptr, length)); !ret) {
-    return ret.error();
-  }
-
-  block_offset_ += kHeaderSize + length;
-  return dest_->Flush().error_or(Error());
+  return ret;
 }
 
 }  // namespace log

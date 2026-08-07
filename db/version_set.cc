@@ -778,9 +778,9 @@ Error VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
     if (e.ok()) {
       std::string record;
       edit->EncodeTo(&record);
-      e = descriptor_log_->AddRecord(record);
+      e = descriptor_log_->AddRecord(record).error_or(Error());
       if (e.ok()) {
-        e = descriptor_file_->Sync().error_or(e);
+        e = descriptor_file_->Sync().error_or(Error());
       }
       if (!e.ok()) {
         Log(options_->info_log, "MANIFEST write: %s\n", e.ToString().c_str());
@@ -1061,7 +1061,7 @@ Error VersionSet::WriteSnapshot(log::Writer* log) {
 
   std::string record;
   edit.EncodeTo(&record);
-  return log->AddRecord(record);
+  return log->AddRecord(record).error_or(Error());
 }
 
 int VersionSet::NumLevelFiles(int level) const {

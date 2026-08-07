@@ -7,6 +7,7 @@
 
 #include "db/log_format.h"
 #include <cstdint>
+#include <expected>
 #include <string_view>
 
 #include "leveldb/error.h"
@@ -34,10 +35,11 @@ class Writer {
 
   ~Writer();
 
-  Error AddRecord(const std::string_view& slice);
+  std::expected<void, Error> AddRecord(const std::string_view& slice);
 
  private:
-  Error EmitPhysicalRecord(RecordType type, const char* ptr, size_t length);
+  std::expected<void, Error> EmitPhysicalRecord(RecordType type,
+                                                const char* ptr, size_t length);
 
   WritableFile* dest_;
   int block_offset_;  // Current offset in block

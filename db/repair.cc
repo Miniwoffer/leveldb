@@ -393,8 +393,7 @@ class Repairer {
       log::Writer log(file);
       std::string record;
       edit_.EncodeTo(&record);
-      Error e = log.AddRecord(record);
-      ret = e.ok() ? ret : std::unexpected(std::move(e));
+      ret = log.AddRecord(record);
     }
     if (ret) {
       ret = file->Close();

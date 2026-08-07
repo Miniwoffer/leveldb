@@ -191,7 +191,7 @@ DBImpl::~DBImpl() {
 }
 
 std::expected<void, Error> DBImpl::NewDB() {
-  std::expected<void, Error> ret;
+  std::expected<void, Error> result;
   VersionEdit new_db;
   new_db.SetComparatorName(user_comparator()->Name());
   new_db.SetLogNumber(0);
@@ -209,23 +209,20 @@ std::expected<void, Error> DBImpl::NewDB() {
     log::Writer log(file);
     std::string record;
     new_db.EncodeTo(&record);
-    Error e = log.AddRecord(record);
-    if (e.ok()) {
-      if ((ret = file->Sync())) {
-        ret = file->Close();
+    if ((result = log.AddRecord(record))) {
+      if ((result = file->Sync())) {
+        result = file->Close();
       }
-    } else {
-      ret = std::unexpected(e);
     }
   }
   delete file;
-  if (ret) {
+  if (result) {
     // Make "CURRENT" file that points to the new manifest file.
-    ret = SetCurrentFile(env_, dbname_, 1);
+    result = SetCurrentFile(env_, dbname_, 1);
   } else {
     env_->RemoveFile(manifest);
   }
-  return ret;
+  return result;
 }
 
 void DBImpl::MaybeIgnoreError(Error* s) const {
@@ -1272,10 +1269,10 @@ std::expected<void, Error> DBImpl::Write(const WriteOptions& options,
   }
 
   // May temporarily unlock and wait.
-  Error err = MakeRoomForWrite(updates == nullptr).error_or(Error());
+  auto result = MakeRoomForWrite(updates == nullptr);
   uint64_t last_sequence = versions_->LastSequence();
   Writer* last_writer = &w;
-  if (err.ok() && updates != nullptr) {  // nullptr batch is for compactions
+  if (result && updates != nullptr) {  // nullptr batch is for compactions
     WriteBatch* write_batch = BuildBatchGroup(&last_writer);
     WriteBatchInternal::SetSequence(write_batch, last_sequence + 1);
     last_sequence += WriteBatchInternal::Count(write_batch);
@@ -1286,24 +1283,23 @@ std::expected<void, Error> DBImpl::Write(const WriteOptions& options,
     // into mem_.
     {
       mutex_.Unlock();
-      err = log_->AddRecord(WriteBatchInternal::Contents(write_batch));
+      result = log_->AddRecord(WriteBatchInternal::Contents(write_batch));
       bool sync_error = false;
-      if (err.ok() && options.sync) {
-        err = logfile_->Sync().error_or(err);
-        if (!err.ok()) {
+      if (result && options.sync) {
+        result = logfile_->Sync();
+        if (!result) {
           sync_error = true;
         }
       }
-      if (err.ok()) {
-        err =
-            WriteBatchInternal::InsertInto(write_batch, mem_).error_or(Error());
+      if (result) {
+        result = WriteBatchInternal::InsertInto(write_batch, mem_);
       }
       mutex_.Lock();
       if (sync_error) {
         // The state of the log file is indeterminate: the log record we
         // just added may or may not show up when the DB is re-opened.
         // So we force the DB into a mode where all future writes fail.
-        RecordBackgroundError(err);
+        RecordBackgroundError(result.error());
       }
     }
     if (write_batch == tmp_batch_) tmp_batch_->Clear();
@@ -1315,7 +1311,7 @@ std::expected<void, Error> DBImpl::Write(const WriteOptions& options,
     Writer* ready = writers_.front();
     writers_.pop_front();
     if (ready != &w) {
-      ready->err = err;
+      ready->err = result.error_or(Error());
       ready->done = true;
       ready->cv.Signal();
     }
@@ -1327,8 +1323,7 @@ std::expected<void, Error> DBImpl::Write(const WriteOptions& options,
     writers_.front()->cv.Signal();
   }
 
-  return err.ok() ? std::expected<void, Error>()
-                  : std::unexpected(std::move(err));
+  return result;
 }
 
 // REQUIRES: Writer list must be non-empty
