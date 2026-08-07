@@ -59,8 +59,7 @@ std::expected<void, Error> Table::Open(const Options& options,
   }
 
   Footer footer;
-  Error e = footer.DecodeFrom(&footer_input);
-  if (!e.ok()) return std::unexpected(e);
+  if (auto ret = footer.DecodeFrom(&footer_input); !ret) return ret;
 
   // Read the index block
   BlockContents index_block_contents;
@@ -68,9 +67,9 @@ std::expected<void, Error> Table::Open(const Options& options,
   if (options.paranoid_checks) {
     opt.verify_checksums = true;
   }
-  e = ReadBlock(file, opt, footer.index_handle(), &index_block_contents);
-
-  if (e.ok()) {
+  auto result =
+      ReadBlock(file, opt, footer.index_handle(), &index_block_contents);
+  if (result) {
     // We've successfully read the footer and the index block: we're
     // ready to serve requests.
     Block* index_block = new Block(index_block_contents);
@@ -84,10 +83,8 @@ std::expected<void, Error> Table::Open(const Options& options,
     rep->filter = nullptr;
     *table = new Table(rep);
     (*table)->ReadMeta(footer);
-    return {};
-  } else {
-    return std::unexpected(e);
   }
+  return result;
 }
 
 void Table::ReadMeta(const Footer& footer) {
@@ -102,7 +99,7 @@ void Table::ReadMeta(const Footer& footer) {
     opt.verify_checksums = true;
   }
   BlockContents contents;
-  if (!ReadBlock(rep_->file, opt, footer.metaindex_handle(), &contents).ok()) {
+  if (!ReadBlock(rep_->file, opt, footer.metaindex_handle(), &contents)) {
     // Do not propagate errors since meta info is not needed for operation
     return;
   }
@@ -122,7 +119,7 @@ void Table::ReadMeta(const Footer& footer) {
 void Table::ReadFilter(const std::string_view& filter_handle_value) {
   std::string_view v = filter_handle_value;
   BlockHandle filter_handle;
-  if (!filter_handle.DecodeFrom(&v).ok()) {
+  if (!filter_handle.DecodeFrom(&v)) {
     return;
   }
 
@@ -133,7 +130,7 @@ void Table::ReadFilter(const std::string_view& filter_handle_value) {
     opt.verify_checksums = true;
   }
   BlockContents block;
-  if (!ReadBlock(rep_->file, opt, filter_handle, &block).ok()) {
+  if (!ReadBlock(rep_->file, opt, filter_handle, &block)) {
     return;
   }
   if (block.heap_allocated) {
@@ -170,11 +167,11 @@ Iterator* Table::BlockReader(void* arg, const ReadOptions& options,
 
   BlockHandle handle;
   std::string_view input = index_value;
-  Error e = handle.DecodeFrom(&input);
+  auto result = handle.DecodeFrom(&input);
   // We intentionally allow extra stuff in index_value so that we
   // can add more features in the future.
 
-  if (e.ok()) {
+  if (result) {
     BlockContents contents;
     if (block_cache != nullptr) {
       std::array<char, 16> cache_key_buffer;
@@ -187,8 +184,8 @@ Iterator* Table::BlockReader(void* arg, const ReadOptions& options,
       if ((cache_handle = block_cache->Lookup(key))) {
         block = reinterpret_cast<Block*>(block_cache->Value(*cache_handle));
       } else {
-        e = ReadBlock(table->rep_->file, options, handle, &contents);
-        if (e.ok()) {
+        result = ReadBlock(table->rep_->file, options, handle, &contents);
+        if (result) {
           block = new Block(contents);
           if (contents.cachable && options.fill_cache) {
             cache_handle = block_cache->Insert(key, block, block->size(),
@@ -197,8 +194,8 @@ Iterator* Table::BlockReader(void* arg, const ReadOptions& options,
         }
       }
     } else {
-      e = ReadBlock(table->rep_->file, options, handle, &contents);
-      if (e.ok()) {
+      result = ReadBlock(table->rep_->file, options, handle, &contents);
+      if (result) {
         block = new Block(contents);
       }
     }
@@ -213,7 +210,7 @@ Iterator* Table::BlockReader(void* arg, const ReadOptions& options,
       iter->RegisterCleanup(&ReleaseBlock, block_cache, *cache_handle);
     }
   } else {
-    iter = NewErrorIterator(e);
+    iter = NewErrorIterator(result.error());
   }
   return iter;
 }
@@ -236,7 +233,7 @@ std::expected<std::string, Error> Table::InternalGet(
     std::string_view handle_value = iiter->value();
     FilterBlockReader* filter = rep_->filter;
     BlockHandle handle;
-    if (filter != nullptr && handle.DecodeFrom(&handle_value).ok() &&
+    if (filter != nullptr && handle.DecodeFrom(&handle_value) &&
         !filter->KeyMayMatch(handle.offset(), k)) {
       delete iiter;
       return std::unexpected(Error(Error::Code::NotFound));
@@ -268,8 +265,7 @@ uint64_t Table::ApproximateOffsetOf(const std::string_view& key) const {
   if (index_iter->Valid()) {
     BlockHandle handle;
     std::string_view input = index_iter->value();
-    Error e = handle.DecodeFrom(&input);
-    if (e.ok()) {
+    if (handle.DecodeFrom(&input)) {
       result = handle.offset();
     } else {
       // Strange: we can't decode the block handle in the index block.

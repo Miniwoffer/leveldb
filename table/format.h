@@ -37,7 +37,7 @@ class BlockHandle {
 
   void EncodeTo(std::string& dst) const;
   void EncodeTo(std::string* dst) const;
-  Error DecodeFrom(std::string_view* input);
+  std::expected<void, Error> DecodeFrom(std::string_view* input);
 
  private:
   uint64_t offset_;
@@ -64,7 +64,7 @@ class Footer {
   void set_index_handle(const BlockHandle& h) { index_handle_ = h; }
 
   void EncodeTo(std::string* dst) const;
-  Error DecodeFrom(std::string_view* input);
+  std::expected<void, Error> DecodeFrom(std::string_view* input);
 
  private:
   BlockHandle metaindex_handle_;
@@ -87,8 +87,10 @@ struct BlockContents {
 
 // Read the block identified by "handle" from "file".  On failure
 // return non-OK.  On success fill *result and return OK.
-Error ReadBlock(RandomAccessFile* file, const ReadOptions& options,
-                const BlockHandle& handle, BlockContents* result);
+std::expected<void, Error> ReadBlock(RandomAccessFile* file,
+                                     const ReadOptions& options,
+                                     const BlockHandle& handle,
+                                     BlockContents* result);
 
 // Implementation details follow.  Clients should ignore,
 
