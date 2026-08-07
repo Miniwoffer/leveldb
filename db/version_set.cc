@@ -729,7 +729,8 @@ void VersionSet::AppendVersion(Version* v) {
   v->next_->prev_ = v;
 }
 
-Error VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
+std::expected<void, Error> VersionSet::LogAndApply(VersionEdit* edit,
+                                                   port::Mutex* mu) {
   if (edit->has_log_number_) {
     assert(edit->log_number_ >= log_number_);
     assert(edit->log_number_ < next_file_number_);
@@ -755,7 +756,7 @@ Error VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
   // Initialize new descriptor log file if necessary by creating
   // a temporary file that contains a snapshot of the current version.
   std::string new_manifest_file;
-  Error e;
+  std::expected<void, Error> result;
   if (descriptor_log_ == nullptr) {
     // No reason to unlock *mu here since we only hit this path in the
     // first call to LogAndApply (when opening the database).
@@ -764,9 +765,9 @@ Error VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
     if (auto ret = env_->NewWritableFile(new_manifest_file)) {
       descriptor_file_ = ret.value();
       descriptor_log_ = new log::Writer(descriptor_file_);
-      e = WriteSnapshot(descriptor_log_);
+      result = WriteSnapshot(descriptor_log_);
     } else {
-      e = std::move(ret.error());
+      result = std::unexpected(std::move(ret.error()));
     }
   }
 
@@ -775,30 +776,30 @@ Error VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
     mu->Unlock();
 
     // Write new record to MANIFEST log
-    if (e.ok()) {
+    if (result) {
       std::string record;
       edit->EncodeTo(&record);
-      e = descriptor_log_->AddRecord(record).error_or(Error());
-      if (e.ok()) {
-        e = descriptor_file_->Sync().error_or(Error());
+      result = descriptor_log_->AddRecord(record);
+      if (result) {
+        result = descriptor_file_->Sync();
       }
-      if (!e.ok()) {
-        Log(options_->info_log, "MANIFEST write: %s\n", e.ToString().c_str());
+      if (!result) {
+        Log(options_->info_log, "MANIFEST write: %s\n",
+            result.error().ToString().c_str());
       }
     }
 
     // If we just created a new descriptor file, install it by writing a
     // new CURRENT file that points to it.
-    if (e.ok() && !new_manifest_file.empty()) {
-      e = SetCurrentFile(env_, dbname_, manifest_file_number_)
-              .error_or(Error());
+    if (result && !new_manifest_file.empty()) {
+      result = SetCurrentFile(env_, dbname_, manifest_file_number_);
     }
 
     mu->Lock();
   }
 
   // Install the new version
-  if (e.ok()) {
+  if (result) {
     AppendVersion(v);
     log_number_ = edit->log_number_;
     prev_log_number_ = edit->prev_log_number_;
@@ -813,27 +814,26 @@ Error VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
     }
   }
 
-  return e;
+  return result;
 }
 
-Error VersionSet::Recover(bool* save_manifest) {
+std::expected<void, Error> VersionSet::Recover(bool* save_manifest) {
   struct LogReporter : public log::Reader::Reporter {
-    Error* status;
+    std::expected<void, Error>* status;
     void Corruption(size_t bytes, const Error& s) override {
-      if (this->status->ok()) *this->status = s;
+      if (this->status && !s.ok()) *this->status = std::unexpected(s);
     }
   };
 
   // Read "CURRENT" file, which contains a pointer to the current manifest file
   std::string current;
-  Error e = ReadFileToString(env_, CurrentFileName(dbname_), &current)
-                .error_or(Error());
-  if (!e.ok()) {
-    return e;
+  auto result = ReadFileToString(env_, CurrentFileName(dbname_), &current);
+  if (!result) {
+    return result;
   }
   if (current.empty() || current[current.size() - 1] != '\n') {
-    return Error(Error::Code::Corruption,
-                 "CURRENT file does not end with newline");
+    return std::unexpected(Error(Error::Code::Corruption,
+                                 "CURRENT file does not end with newline"));
   }
   current.resize(current.size() - 1);
 
@@ -842,12 +842,13 @@ Error VersionSet::Recover(bool* save_manifest) {
   if (auto ret = env_->NewSequentialFile(dscname)) {
     file = ret.value();
   } else {
-    e = std::move(ret.error());
-    if (e.IsNotFound()) {
-      return Error(Error::Code::Corruption,
-                   "CURRENT points to a non-existent file", e.ToString());
+    result = std::unexpected(std::move(ret.error()));
+    if (result.error().IsNotFound()) {
+      return std::unexpected(Error(Error::Code::Corruption,
+                                   "CURRENT points to a non-existent file",
+                                   result.error().ToString()));
     }
-    return e;
+    return result;
   }
 
   bool have_log_number = false;
@@ -863,25 +864,26 @@ Error VersionSet::Recover(bool* save_manifest) {
 
   {
     LogReporter reporter;
-    reporter.status = &e;
+    reporter.status = &result;
     log::Reader reader(file, &reporter, true /*checksum*/,
                        0 /*initial_offset*/);
     std::string_view record;
     std::string scratch;
-    while (reader.ReadRecord(&record, &scratch) && e.ok()) {
+    while (reader.ReadRecord(&record, &scratch) && result) {
       ++read_records;
       VersionEdit edit;
-      e = edit.DecodeFrom(record).error_or(Error());
-      if (e.ok()) {
+      result = edit.DecodeFrom(record);
+      if (result) {
         if (edit.has_comparator_ &&
             edit.comparator_ != icmp_.user_comparator()->Name()) {
-          e = Error(Error::Code::InvalidArgument,
+          result = std::unexpected(
+              Error(Error::Code::InvalidArgument,
                     edit.comparator_ + " does not match existing comparator ",
-                    icmp_.user_comparator()->Name());
+                    icmp_.user_comparator()->Name()));
         }
       }
 
-      if (e.ok()) {
+      if (result) {
         builder.Apply(&edit);
       }
 
@@ -909,16 +911,17 @@ Error VersionSet::Recover(bool* save_manifest) {
   delete file;
   file = nullptr;
 
-  if (e.ok()) {
+  if (result) {
     if (!have_next_file) {
-      e = Error(Error::Code::Corruption,
-                "no meta-nextfile entry in descriptor");
+      result = std::unexpected(Error(Error::Code::Corruption,
+                                     "no meta-nextfile entry in descriptor"));
     } else if (!have_log_number) {
-      e = Error(Error::Code::Corruption,
-                "no meta-lognumber entry in descriptor");
+      result = std::unexpected(Error(Error::Code::Corruption,
+                                     "no meta-lognumber entry in descriptor"));
     } else if (!have_last_sequence) {
-      e = Error(Error::Code::Corruption,
-                "no last-sequence-number entry in descriptor");
+      result =
+          std::unexpected(Error(Error::Code::Corruption,
+                                "no last-sequence-number entry in descriptor"));
     }
 
     if (!have_prev_log_number) {
@@ -929,7 +932,7 @@ Error VersionSet::Recover(bool* save_manifest) {
     MarkFileNumberUsed(log_number);
   }
 
-  if (e.ok()) {
+  if (result) {
     Version* v = new Version(this);
     builder.SaveTo(v);
     // Install recovered version
@@ -948,12 +951,11 @@ Error VersionSet::Recover(bool* save_manifest) {
       *save_manifest = true;
     }
   } else {
-    std::string error = e.ToString();
     Log(options_->info_log, "Error recovering version set with %d records: %s",
-        read_records, error.c_str());
+        read_records, result.error().ToString().c_str());
   }
 
-  return e;
+  return result;
 }
 
 bool VersionSet::ReuseManifest(const std::string& dscname,
@@ -1034,7 +1036,7 @@ void VersionSet::Finalize(Version* v) {
   v->compaction_score_ = best_score;
 }
 
-Error VersionSet::WriteSnapshot(log::Writer* log) {
+std::expected<void, Error> VersionSet::WriteSnapshot(log::Writer* log) {
   // TODO: Break up into multiple records to reduce memory usage on recovery?
 
   // Save metadata
@@ -1061,7 +1063,7 @@ Error VersionSet::WriteSnapshot(log::Writer* log) {
 
   std::string record;
   edit.EncodeTo(&record);
-  return log->AddRecord(record).error_or(Error());
+  return log->AddRecord(record);
 }
 
 int VersionSet::NumLevelFiles(int level) const {
