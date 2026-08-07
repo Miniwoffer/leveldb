@@ -1265,7 +1265,7 @@ std::expected<void, Error> DBImpl::Write(const WriteOptions& options,
   }
 
   // May temporarily unlock and wait.
-  Error err = MakeRoomForWrite(updates == nullptr);
+  Error err = MakeRoomForWrite(updates == nullptr).error_or(Error());
   uint64_t last_sequence = versions_->LastSequence();
   Writer* last_writer = &w;
   if (err.ok() && updates != nullptr) {  // nullptr batch is for compactions
@@ -1376,7 +1376,7 @@ WriteBatch* DBImpl::BuildBatchGroup(Writer** last_writer) {
 
 // REQUIRES: mutex_ is held
 // REQUIRES: this thread is currently at the front of the writer queue
-Error DBImpl::MakeRoomForWrite(bool force) {
+std::expected<void, Error> DBImpl::MakeRoomForWrite(bool force) {
   mutex_.AssertHeld();
   assert(!writers_.empty());
   bool allow_delay = !force;
@@ -1452,7 +1452,12 @@ Error DBImpl::MakeRoomForWrite(bool force) {
       MaybeScheduleCompaction();
     }
   }
-  return e;
+
+  if (!e.ok()) {
+    return std::unexpected(e);
+  }
+
+  return {};
 }
 
 std::optional<std::string> DBImpl::GetProperty(
