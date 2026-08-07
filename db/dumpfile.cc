@@ -53,14 +53,16 @@ class CorruptionReporter : public log::Reader::Reporter {
 };
 
 // Print contents of a log file. (*func)() is called on every record.
-Error PrintLogContents(Env* env, const std::string& fname,
-                       void (*func)(uint64_t, std::string_view, WritableFile*),
-                       WritableFile* dst) {
+std::expected<void, Error> PrintLogContents(Env* env, const std::string& fname,
+                                            void (*func)(uint64_t,
+                                                         std::string_view,
+                                                         WritableFile*),
+                                            WritableFile* dst) {
   SequentialFile* file;
   if (auto ret = env->NewSequentialFile(fname)) {
     file = ret.value();
   } else {
-    return ret.error();
+    return std::unexpected(ret.error());
   }
 
   CorruptionReporter reporter;
@@ -72,7 +74,7 @@ Error PrintLogContents(Env* env, const std::string& fname,
     (*func)(reader.LastRecordOffset(), record, dst);
   }
   delete file;
-  return Error(Error::Code::Ok);
+  return {};
 }
 
 // Called on every log record (each one of which is a WriteBatch)
@@ -114,7 +116,8 @@ static void WriteBatchPrinter(uint64_t pos, std::string_view record,
   }
 }
 
-Error DumpLog(Env* env, const std::string& fname, WritableFile* dst) {
+std::expected<void, Error> DumpLog(Env* env, const std::string& fname,
+                                   WritableFile* dst) {
   return PrintLogContents(env, fname, WriteBatchPrinter, dst);
 }
 
@@ -136,39 +139,41 @@ static void VersionEditPrinter(uint64_t pos, std::string_view record,
   dst->Append(r);
 }
 
-Error DumpDescriptor(Env* env, const std::string& fname, WritableFile* dst) {
+std::expected<void, Error> DumpDescriptor(Env* env, const std::string& fname,
+                                          WritableFile* dst) {
   return PrintLogContents(env, fname, VersionEditPrinter, dst);
 }
 
-Error DumpTable(Env* env, const std::string& fname, WritableFile* dst) {
+std::expected<void, Error> DumpTable(Env* env, const std::string& fname,
+                                     WritableFile* dst) {
   uint64_t file_size;
   RandomAccessFile* file = nullptr;
   Table* table = nullptr;
-  Error err;
+  std::expected<void, Error> result{};
 
   if (auto fs_ret = env->GetFileSize(fname)) {
     file_size = fs_ret.value();
     if (auto rf_ret = env->NewRandomAccessFile(fname)) {
       file = rf_ret.value();
     } else {
-      err = std::move(rf_ret.error());
+      result = std::unexpected(std::move(rf_ret.error()));
     }
   } else {
-    err = std::move(fs_ret.error());
+    result = std::unexpected(std::move(fs_ret.error()));
   }
 
-  if (err.ok()) {
+  if (result) {
     // We use the default comparator, which may or may not match the
     // comparator used in this database. However this should not cause
     // problems since we only use Table operations that do not require
     // any comparisons.  In particular, we do not call Seek or Prev.
-    err = Table::Open(Options(), file, file_size, &table).error_or(Error());
+    result = Table::Open(Options(), file, file_size, &table);
   }
 
-  if (!err.ok()) {
+  if (!result) {
     delete table;
     delete file;
-    return err;
+    return result;
   }
 
   ReadOptions ro;
@@ -204,15 +209,15 @@ Error DumpTable(Env* env, const std::string& fname, WritableFile* dst) {
       dst->Append(r);
     }
   }
-  err = iter->error();
-  if (!err.ok()) {
-    dst->Append("iterator error: " + err.ToString() + "\n");
+  if (Error e = iter->error(); !e.ok()) {
+    result = std::unexpected(std::move(e));
+    dst->Append("iterator error: " + result.error().ToString() + "\n");
   }
 
   delete iter;
   delete table;
   delete file;
-  return Error(Error::Code::Ok);
+  return result;
 }
 
 }  // namespace
@@ -224,23 +229,17 @@ std::expected<void, Error> DumpFile(Env* env, const std::string& fname,
     return std::unexpected(
         Error(Error::Code::InvalidArgument, fname + ": unknown file type"));
   }
-  Error err;
   switch (ftype) {
     case kLogFile:
-      err = DumpLog(env, fname, dst);
-      break;
+      return DumpLog(env, fname, dst);
     case kDescriptorFile:
-      err = DumpDescriptor(env, fname, dst);
-      break;
+      return DumpDescriptor(env, fname, dst);
     case kTableFile:
-      err = DumpTable(env, fname, dst);
-      break;
+      return DumpTable(env, fname, dst);
     default:
-      err = Error(Error::Code::InvalidArgument,
-                  fname + ": not a dump-able file type");
-      break;
+      return std::unexpected(Error(Error::Code::InvalidArgument,
+                                   fname + ": not a dump-able file type"));
   }
-  return std::unexpected(err);
 }
 
 }  // namespace leveldb
