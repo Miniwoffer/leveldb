@@ -406,12 +406,14 @@ std::expected<void, Error> DBImpl::RecoverLogFile(
     Env* env;
     Logger* info_log;
     const char* fname;
-    Error* err;  // null if options_.paranoid_checks==false
+    std::expected<void, Error>*
+        status;  // null if options_.paranoid_checks==false
     void Corruption(size_t bytes, const Error& e) override {
       Log(info_log, "%s%s: dropping %d bytes; %s",
-          (this->err == nullptr ? "(ignoring error) " : ""), fname,
+          (this->status == nullptr ? "(ignoring error) " : ""), fname,
           static_cast<int>(bytes), e.ToString().c_str());
-      if (this->err != nullptr && this->err->ok()) *this->err = e;
+      if (this->status != nullptr && this->status && !e.ok())
+        *this->status = std::unexpected(e);
     }
   };
 
@@ -420,7 +422,7 @@ std::expected<void, Error> DBImpl::RecoverLogFile(
   // Open the log file
   std::string fname = LogFileName(dbname_, log_number);
   SequentialFile* file;
-  Error err;
+  std::expected<void, Error> result{};
   if (auto ret = env_->NewSequentialFile(fname)) {
     file = ret.value();
   } else {
@@ -433,7 +435,7 @@ std::expected<void, Error> DBImpl::RecoverLogFile(
   reporter.env = env_;
   reporter.info_log = options_.info_log;
   reporter.fname = fname.c_str();
-  reporter.err = (options_.paranoid_checks ? &err : nullptr);
+  reporter.status = (options_.paranoid_checks ? &result : nullptr);
   // We intentionally make log::Reader do checksumming even if
   // paranoid_checks==false so that corruptions cause entire commits
   // to be skipped instead of propagating bad information (like overly
@@ -448,7 +450,7 @@ std::expected<void, Error> DBImpl::RecoverLogFile(
   WriteBatch batch;
   int compactions = 0;
   MemTable* mem = nullptr;
-  while (reader.ReadRecord(&record, &scratch) && err.ok()) {
+  while (reader.ReadRecord(&record, &scratch) && result) {
     if (record.size() < 12) {
       reporter.Corruption(record.size(), Error(Error::Code::Corruption,
                                                "log record too small"));
@@ -460,9 +462,9 @@ std::expected<void, Error> DBImpl::RecoverLogFile(
       mem = new MemTable(internal_comparator_);
       mem->Ref();
     }
-    err = WriteBatchInternal::InsertInto(&batch, mem).error_or(Error());
-    MaybeIgnoreError(&err);
-    if (!err.ok()) {
+    result = WriteBatchInternal::InsertInto(&batch, mem);
+    if (!result) {
+      MaybeIgnoreError(&result.error());
       break;
     }
     const SequenceNumber last_seq = WriteBatchInternal::Sequence(&batch) +
@@ -474,10 +476,10 @@ std::expected<void, Error> DBImpl::RecoverLogFile(
     if (mem->ApproximateMemoryUsage() > options_.write_buffer_size) {
       compactions++;
       *save_manifest = true;
-      err = WriteLevel0Table(mem, edit, nullptr).error_or(Error());
+      result = WriteLevel0Table(mem, edit, nullptr);
       mem->Unref();
       mem = nullptr;
-      if (!err.ok()) {
+      if (!result) {
         // Reflect errors immediately so that conditions like full
         // file-systems cause the DB::Open() to fail.
         break;
@@ -488,7 +490,7 @@ std::expected<void, Error> DBImpl::RecoverLogFile(
   delete file;
 
   // See if we should keep reusing the last log file.
-  if (err.ok() && options_.reuse_logs && last_log && compactions == 0) {
+  if (result && options_.reuse_logs && last_log && compactions == 0) {
     assert(logfile_ == nullptr);
     assert(log_ == nullptr);
     assert(mem_ == nullptr);
@@ -514,17 +516,14 @@ std::expected<void, Error> DBImpl::RecoverLogFile(
 
   if (mem != nullptr) {
     // mem did not get reused; compact it.
-    if (err.ok()) {
+    if (result) {
       *save_manifest = true;
-      err = WriteLevel0Table(mem, edit, nullptr).error_or(Error());
+      result = WriteLevel0Table(mem, edit, nullptr);
     }
     mem->Unref();
   }
 
-  if (!err.ok()) {
-    return std::unexpected(err);
-  }
-  return {};
+  return result;
 }
 
 std::expected<void, Error> DBImpl::WriteLevel0Table(MemTable* mem,
@@ -764,7 +763,7 @@ void DBImpl::BackgroundCompaction() {
     c = versions_->PickCompaction();
   }
 
-  Error err;
+  std::expected<void, Error> result;
   if (c == nullptr) {
     // Nothing to do
   } else if (!is_manual && c->IsTrivialMove()) {
@@ -774,20 +773,20 @@ void DBImpl::BackgroundCompaction() {
     c->edit()->RemoveFile(c->level(), f->number);
     c->edit()->AddFile(c->level() + 1, f->number, f->file_size, f->smallest,
                        f->largest);
-    err = versions_->LogAndApply(c->edit(), &mutex_).error_or(Error());
-    if (!err.ok()) {
-      RecordBackgroundError(err);
+    result = versions_->LogAndApply(c->edit(), &mutex_);
+    if (!result) {
+      RecordBackgroundError(result.error());
     }
     VersionSet::LevelSummaryStorage tmp;
     Log(options_.info_log, "Moved #%lld to level-%d %lld bytes %s: %s\n",
         static_cast<unsigned long long>(f->number), c->level() + 1,
-        static_cast<unsigned long long>(f->file_size), err.ToString().c_str(),
+        static_cast<unsigned long long>(f->file_size),
+        result.error_or(Error()).ToString().c_str(),
         versions_->LevelSummary(&tmp));
   } else {
     CompactionState* compact = new CompactionState(c);
-    err = DoCompactionWork(compact).error_or(Error());
-    if (!err.ok()) {
-      RecordBackgroundError(err);
+    if ((result = DoCompactionWork(compact)); !result) {
+      RecordBackgroundError(result.error());
     }
     CleanupCompaction(compact);
     c->ReleaseInputs();
@@ -795,17 +794,18 @@ void DBImpl::BackgroundCompaction() {
   }
   delete c;
 
-  if (err.ok()) {
+  if (result) {
     // Done
   } else if (shutting_down_.load(std::memory_order_acquire)) {
     // Ignore compaction errors found during shutting down
   } else {
-    Log(options_.info_log, "Compaction error: %s", err.ToString().c_str());
+    Log(options_.info_log, "Compaction error: %s",
+        result.error().ToString().c_str());
   }
 
   if (is_manual) {
     ManualCompaction* m = manual_compaction_;
-    if (!err.ok()) {
+    if (!result) {
       m->done = true;
     }
     if (!m->done) {
@@ -1380,11 +1380,11 @@ std::expected<void, Error> DBImpl::MakeRoomForWrite(bool force) {
   mutex_.AssertHeld();
   assert(!writers_.empty());
   bool allow_delay = !force;
-  Error e;
+  std::expected<void, Error> result{};
   while (true) {
     if (!bg_error_.ok()) {
       // Yield previous error
-      e = bg_error_;
+      result = std::unexpected(bg_error_);
       break;
     } else if (allow_delay && versions_->NumLevelFiles(0) >=
                                   config::kL0_SlowdownWritesTrigger) {
@@ -1421,15 +1421,13 @@ std::expected<void, Error> DBImpl::MakeRoomForWrite(bool force) {
         lfile = ret.value();
       } else {
         // Avoid chewing through file number space in a tight loop.
-        e = std::move(ret.error());
+        result = std::unexpected(std::move(ret.error()));
         versions_->ReuseFileNumber(new_log_number);
         break;
       }
 
       delete log_;
-
-      e = logfile_->Close().error_or(Error());
-      if (!e.ok()) {
+      if ((result = logfile_->Close()); !result) {
         // We may have lost some data written to the previous log file.
         // Switch to the new log file anyway, but record as a background
         // error so we do not attempt any more writes.
@@ -1437,7 +1435,7 @@ std::expected<void, Error> DBImpl::MakeRoomForWrite(bool force) {
         // We could perhaps attempt to save the memtable corresponding
         // to log file and suppress the error if that works, but that
         // would add more complexity in a critical code path.
-        RecordBackgroundError(e);
+        RecordBackgroundError(result.error());
       }
       delete logfile_;
 
@@ -1453,11 +1451,7 @@ std::expected<void, Error> DBImpl::MakeRoomForWrite(bool force) {
     }
   }
 
-  if (!e.ok()) {
-    return std::unexpected(e);
-  }
-
-  return {};
+  return result;
 }
 
 std::optional<std::string> DBImpl::GetProperty(

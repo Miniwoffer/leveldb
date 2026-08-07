@@ -35,14 +35,15 @@ void BM_LogAndApply(benchmark::State& state) {
   std::string dbname = testing::TempDir() + "leveldb_test_benchmark";
   DestroyDB(dbname, Options());
 
-  DB* db = nullptr;
+  std::shared_ptr<DB> db = nullptr;
   Options opts;
   opts.create_if_missing = true;
-  Error e = DB::Open(opts, dbname, &db);
-  ASSERT_LEVELDB_OK(e);
+  auto dbo_ret = DB::Open(opts, dbname);
+  ASSERT_TRUE(dbo_ret);
+  db = dbo_ret.value();
   ASSERT_TRUE(db != nullptr);
 
-  delete db;
+  db.reset();
   db = nullptr;
 
   Env* env = Env::Default();

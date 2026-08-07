@@ -325,34 +325,34 @@ class Repairer {
     delete iter;
 
     ArchiveFile(src);
-    Error e;
+    std::expected<void, Error> result;
     if (counter == 0) {
       builder->Abandon();  // Nothing to save
     } else {
-      e = builder->Finish().error_or(Error());
-      if (e.ok()) {
+      result = builder->Finish();
+      if (result) {
         t.meta.file_size = builder->FileSize();
       }
     }
     delete builder;
     builder = nullptr;
 
-    if (e.ok()) {
-      e = file->Close().error_or(Error());
+    if (result) {
+      result = file->Close();
     }
     delete file;
     file = nullptr;
 
-    if (counter > 0 && e.ok()) {
+    if (counter > 0 && result) {
       std::string orig = TableFileName(dbname_, t.meta.number);
-      e = env_->RenameFile(copy, orig).error_or(Error());
-      if (e.ok()) {
+      result = env_->RenameFile(copy, orig);
+      if (result) {
         Log(options_.info_log, "Table #%llu: %d entries repaired",
             (unsigned long long)t.meta.number, counter);
         tables_.push_back(t);
       }
     }
-    if (!e.ok()) {
+    if (!result) {
       env_->RemoveFile(copy);
     }
   }

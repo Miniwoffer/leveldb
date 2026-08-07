@@ -263,7 +263,7 @@ std::expected<WritableFile*, Error> FaultInjectionTestEnv::NewWritableFile(
   }
 }
 
-std::expeced<WritableFile*, Error> FaultInjectionTestEnv::NewAppendableFile(
+std::expected<WritableFile*, Error> FaultInjectionTestEnv::NewAppendableFile(
     const std::string& fname) {
   if (auto ret = target()->NewAppendableFile(fname)) {
     WritableFile* actual_writable_file = ret.value();

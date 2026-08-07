@@ -19,7 +19,7 @@ std::expected<void, Error> BuildTable(const std::string& dbname, Env* env,
                                       const Options& options,
                                       TableCache* table_cache, Iterator* iter,
                                       FileMetaData* meta) {
-  Error e;
+  std::expected<void, Error> result;
   meta->file_size = 0;
   iter->SeekToFirst();
 
@@ -44,46 +44,45 @@ std::expected<void, Error> BuildTable(const std::string& dbname, Env* env,
     }
 
     // Finish and check for builder errors
-    e = builder->Finish().error_or(Error());
-    if (e.ok()) {
+    result = builder->Finish();
+    if (result) {
       meta->file_size = builder->FileSize();
       assert(meta->file_size > 0);
     }
     delete builder;
 
     // Finish and check for file errors
-    if (e.ok()) {
-      e = file->Sync().error_or(e);
+    if (result) {
+      result = file->Sync();
     }
-    if (e.ok()) {
-      e = file->Close().error_or(e);
+    if (result) {
+      result = file->Close();
     }
     delete file;
     file = nullptr;
 
-    if (e.ok()) {
+    if (result) {
       // Verify that the table is usable
       Iterator* it = table_cache->NewIterator(ReadOptions(), meta->number,
                                               meta->file_size);
-      e = it->error();
+      Error e = it->error();
+      result = e.ok() ? result : std::unexpected(e);
       delete it;
     }
   }
 
   // Check for input iterator errors
   if (!iter->error().ok()) {
-    e = iter->error();
+    result = std::unexpected(iter->error());
   }
 
-  if (e.ok() && meta->file_size > 0) {
+  if (result && meta->file_size > 0) {
     // Keep it
   } else {
     env->RemoveFile(fname);
   }
-  if (!e.ok()) {
-    return std::unexpected(e);
-  }
-  return {};
+
+  return result;
 }
 
 }  // namespace leveldb
