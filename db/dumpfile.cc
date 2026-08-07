@@ -129,12 +129,12 @@ static void VersionEditPrinter(uint64_t pos, std::string_view record,
   AppendNumberTo(&r, pos);
   r += "; ";
   VersionEdit edit;
-  Error e = edit.DecodeFrom(record);
-  if (!e.ok()) {
-    r += e.ToString();
-    r.push_back('\n');
-  } else {
+
+  if (auto ret = edit.DecodeFrom(record)) {
     r += edit.DebugString();
+  } else {
+    r += ret.error().ToString();
+    r.push_back('\n');
   }
   dst->Append(r);
 }

@@ -12,8 +12,8 @@ static void TestEncodeDecode(const VersionEdit& edit) {
   std::string encoded, encoded2;
   edit.EncodeTo(&encoded);
   VersionEdit parsed;
-  Error e = parsed.DecodeFrom(encoded);
-  ASSERT_TRUE(e.ok()) << e.ToString();
+  auto ret = parsed.DecodeFrom(encoded);
+  ASSERT_TRUE(ret) << ret.error().ToString();
   parsed.EncodeTo(&encoded2);
   ASSERT_EQ(encoded, encoded2);
 }

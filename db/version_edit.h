@@ -6,6 +6,7 @@
 #define STORAGE_LEVELDB_DB_VERSION_EDIT_H_
 
 #include "db/dbformat.h"
+#include <expected>
 #include <set>
 #include <string_view>
 #include <utility>
@@ -79,7 +80,7 @@ class VersionEdit {
 
   void EncodeTo(std::string& dst) const;
   void EncodeTo(std::string* dst) const;
-  Error DecodeFrom(const std::string_view& src);
+  std::expected<void, Error> DecodeFrom(const std::string_view& src);
 
   std::string DebugString() const;
 
