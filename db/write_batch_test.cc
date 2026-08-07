@@ -21,7 +21,7 @@ static std::string PrintContents(WriteBatch* b) {
   MemTable* mem = new MemTable(cmp);
   mem->Ref();
   std::string state;
-  auto status = WriteBatchInternal::InsertInto(b, mem);
+  auto e = WriteBatchInternal::InsertInto(b, mem);
   int count = 0;
   Iterator* iter = mem->NewIterator();
   for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
@@ -47,7 +47,7 @@ static std::string PrintContents(WriteBatch* b) {
     state.append(NumberToString(ikey.sequence));
   }
   delete iter;
-  if (!status) {
+  if (!e) {
     state.append("ParseError()");
   } else if (count != WriteBatchInternal::Count(b)) {
     state.append("CountMismatch()");
