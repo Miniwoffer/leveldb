@@ -156,13 +156,13 @@ class CorruptionTest : public testing::Test {
 
     // Do it
     std::string contents;
-    Error e = ReadFileToString(env_.target(), fname, &contents);
-    ASSERT_TRUE(e.ok()) << e.ToString();
+    auto rfts_ret = ReadFileToString(env_.target(), fname, &contents);
+    ASSERT_TRUE(rfts_ret) << rfts_ret.error().ToString();
     for (int i = 0; i < bytes_to_corrupt; i++) {
       contents[i + offset] ^= 0x80;
     }
-    e = WriteStringToFile(env_.target(), contents, fname);
-    ASSERT_TRUE(e.ok()) << e.ToString();
+    rfts_ret = WriteStringToFile(env_.target(), contents, fname);
+    ASSERT_TRUE(rfts_ret) << rfts_ret.error().ToString();
   }
 
   int Property(const std::string& name) {

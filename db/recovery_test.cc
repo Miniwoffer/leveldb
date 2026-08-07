@@ -88,8 +88,7 @@ class RecoveryTest : public testing::Test {
 
   std::string ManifestFileName() {
     std::string current;
-    EXPECT_LEVELDB_OK(
-        ReadFileToString(env_, CurrentFileName(dbname_), &current));
+    EXPECT_TRUE(ReadFileToString(env_, CurrentFileName(dbname_), &current));
     size_t len = current.size();
     if (len > 0 && current[len - 1] == '\n') {
       current.resize(len - 1);

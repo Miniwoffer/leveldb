@@ -413,8 +413,7 @@ class Repairer {
       // Install new manifest
       ret = env_->RenameFile(tmp, DescriptorFileName(dbname_, 1));
       if (ret) {
-        Error e = SetCurrentFile(env_, dbname_, 1);
-        ret = e.ok() ? ret : std::unexpected(std::move(e));
+        ret = SetCurrentFile(env_, dbname_, 1);
       } else {
         env_->RemoveFile(tmp);
       }

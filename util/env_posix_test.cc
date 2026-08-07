@@ -229,7 +229,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecSequentialFile) {
   ASSERT_TRUE(td_ret);
   test_dir = std::move(td_ret.value());
   std::string file_path = test_dir + "/close_on_exec_sequential.txt";
-  ASSERT_LEVELDB_OK(WriteStringToFile(env_, "0123456789", file_path));
+  ASSERT_TRUE(WriteStringToFile(env_, "0123456789", file_path));
 
   leveldb::SequentialFile* file = nullptr;
   std::expected<SequentialFile*, Error> sf_ret;
@@ -250,7 +250,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecRandomAccessFile) {
   ASSERT_TRUE(td_ret);
   test_dir = std::move(td_ret.value());
   std::string file_path = test_dir + "/close_on_exec_random_access.txt";
-  ASSERT_LEVELDB_OK(WriteStringToFile(env_, "0123456789", file_path));
+  ASSERT_TRUE(WriteStringToFile(env_, "0123456789", file_path));
 
   // Exhaust the RandomAccessFile mmap limit. This way, the test
   // RandomAccessFile instance below is backed by a file descriptor, not by an
@@ -283,7 +283,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecWritableFile) {
   ASSERT_TRUE(td_ret);
   test_dir = std::move(td_ret.value());
   std::string file_path = test_dir + "/close_on_exec_writable.txt";
-  ASSERT_LEVELDB_OK(WriteStringToFile(env_, "0123456789", file_path));
+  ASSERT_TRUE(WriteStringToFile(env_, "0123456789", file_path));
 
   leveldb::WritableFile* file = nullptr;
   auto wf_ret = env_->NewWritableFile(file_path);
@@ -304,7 +304,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecAppendableFile) {
   ASSERT_TRUE(td_ret);
   test_dir = std::move(td_ret.value());
   std::string file_path = test_dir + "/close_on_exec_appendable.txt";
-  ASSERT_LEVELDB_OK(WriteStringToFile(env_, "0123456789", file_path));
+  ASSERT_TRUE(WriteStringToFile(env_, "0123456789", file_path));
 
   leveldb::WritableFile* file = nullptr;
   auto af_ret = env_->NewAppendableFile(file_path);
@@ -325,7 +325,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecLockFile) {
   ASSERT_TRUE(td_ret);
   test_dir = std::move(td_ret.value());
   std::string file_path = test_dir + "/close_on_exec_lock.txt";
-  ASSERT_LEVELDB_OK(WriteStringToFile(env_, "0123456789", file_path));
+  ASSERT_TRUE(WriteStringToFile(env_, "0123456789", file_path));
 
   leveldb::FileLock* lock = nullptr;
   auto lf_ret = env_->LockFile(file_path);
@@ -345,7 +345,7 @@ TEST_F(EnvPosixTest, TestCloseOnExecLogger) {
   ASSERT_TRUE(td_ret);
   test_dir = std::move(td_ret.value());
   std::string file_path = test_dir + "/close_on_exec_logger.txt";
-  ASSERT_LEVELDB_OK(WriteStringToFile(env_, "0123456789", file_path));
+  ASSERT_TRUE(WriteStringToFile(env_, "0123456789", file_path));
 
   leveldb::Logger* file = nullptr;
   auto nl_ret = env_->NewLogger(file_path);

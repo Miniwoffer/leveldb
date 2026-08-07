@@ -790,7 +790,8 @@ Error VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
     // If we just created a new descriptor file, install it by writing a
     // new CURRENT file that points to it.
     if (e.ok() && !new_manifest_file.empty()) {
-      e = SetCurrentFile(env_, dbname_, manifest_file_number_);
+      e = SetCurrentFile(env_, dbname_, manifest_file_number_)
+              .error_or(Error());
     }
 
     mu->Lock();
@@ -825,7 +826,8 @@ Error VersionSet::Recover(bool* save_manifest) {
 
   // Read "CURRENT" file, which contains a pointer to the current manifest file
   std::string current;
-  Error e = ReadFileToString(env_, CurrentFileName(dbname_), &current);
+  Error e = ReadFileToString(env_, CurrentFileName(dbname_), &current)
+                .error_or(Error());
   if (!e.ok()) {
     return e;
   }

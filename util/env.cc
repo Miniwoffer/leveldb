@@ -57,13 +57,14 @@ void Log(Logger* info_log, const char* format, ...) {
   }
 }
 
-static Error DoWriteStringToFile(Env* env, const std::string_view& data,
-                                 const std::string& fname, bool should_sync) {
+static std::expected<void, Error> DoWriteStringToFile(
+    Env* env, const std::string_view& data, const std::string& fname,
+    bool should_sync) {
   WritableFile* file;
   if (auto ret = env->NewWritableFile(fname)) {
     file = ret.value();
   } else {
-    return ret.error();
+    return std::unexpected(ret.error());
   }
 
   auto ret = file->Append(data);
@@ -77,30 +78,33 @@ static Error DoWriteStringToFile(Env* env, const std::string_view& data,
   if (!ret) {
     env->RemoveFile(fname);
   }
-  return ret.error_or(Error());
+  return ret;
 }
 
-Error WriteStringToFile(Env* env, const std::string_view& data,
-                        const std::string& fname) {
+std::expected<void, Error> WriteStringToFile(Env* env,
+                                             const std::string_view& data,
+                                             const std::string& fname) {
   return DoWriteStringToFile(env, data, fname, false);
 }
 
-Error WriteStringToFileSync(Env* env, const std::string_view& data,
-                            const std::string& fname) {
+std::expected<void, Error> WriteStringToFileSync(Env* env,
+                                                 const std::string_view& data,
+                                                 const std::string& fname) {
   return DoWriteStringToFile(env, data, fname, true);
 }
 
-Error ReadFileToString(Env* env, const std::string& fname, std::string* data) {
+std::expected<void, Error> ReadFileToString(Env* env, const std::string& fname,
+                                            std::string* data) {
   data->clear();
   SequentialFile* file;
-  Error e;
 
   if (auto ret = env->NewSequentialFile(fname)) {
     file = ret.value();
   } else {
-    return ret.error();
+    return std::unexpected(ret.error());
   }
 
+  std::expected<void, Error> result{};
   static const int kBufferSize = 8192;
   char* space = new char[kBufferSize];
   while (true) {
@@ -109,7 +113,7 @@ Error ReadFileToString(Env* env, const std::string& fname, std::string* data) {
     if (auto ret = file->Read(kBufferSize, space)) {
       fragment = ret.value();
     } else {
-      break;
+      result = std::unexpected(ret.error());
     }
 
     data->append(fragment.data(), fragment.size());
@@ -119,7 +123,7 @@ Error ReadFileToString(Env* env, const std::string& fname, std::string* data) {
   }
   delete[] space;
   delete file;
-  return e;
+  return result;
 }
 
 EnvWrapper::~EnvWrapper() {}
