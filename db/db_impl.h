@@ -158,7 +158,8 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
                                               Version* base)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  Error MakeRoomForWrite(bool force /* compact even if there is room? */)
+  std::expected<void, Error> MakeRoomForWrite(
+      bool force /* compact even if there is room? */)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   WriteBatch* BuildBatchGroup(Writer** last_writer)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
