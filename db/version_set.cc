@@ -871,7 +871,7 @@ Error VersionSet::Recover(bool* save_manifest) {
     while (reader.ReadRecord(&record, &scratch) && e.ok()) {
       ++read_records;
       VersionEdit edit;
-      e = edit.DecodeFrom(record);
+      e = edit.DecodeFrom(record).error_or(Error());
       if (e.ok()) {
         if (edit.has_comparator_ &&
             edit.comparator_ != icmp_.user_comparator()->Name()) {
