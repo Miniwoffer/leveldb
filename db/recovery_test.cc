@@ -155,7 +155,7 @@ class RecoveryTest : public testing::Test {
     WriteBatch batch;
     batch.Put(key, val);
     WriteBatchInternal::SetSequence(&batch, seq);
-    ASSERT_LEVELDB_OK(writer.AddRecord(WriteBatchInternal::Contents(&batch)));
+    ASSERT_TRUE(writer.AddRecord(WriteBatchInternal::Contents(&batch)));
     ASSERT_TRUE(file->Flush());
     delete file;
   }
