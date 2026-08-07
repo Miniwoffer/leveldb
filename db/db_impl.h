@@ -172,12 +172,13 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
   void BackgroundCompaction() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   void CleanupCompaction(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
-  Error DoCompactionWork(CompactionState* compact)
+  std::expected<void, Error> DoCompactionWork(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  Error OpenCompactionOutputFile(CompactionState* compact);
-  Error FinishCompactionOutputFile(CompactionState* compact, Iterator* input);
-  Error InstallCompactionResults(CompactionState* compact)
+  std::expected<void, Error> OpenCompactionOutputFile(CompactionState* compact);
+  std::expected<void, Error> FinishCompactionOutputFile(
+      CompactionState* compact, Iterator* input);
+  std::expected<void, Error> InstallCompactionResults(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   const Comparator* user_comparator() const {

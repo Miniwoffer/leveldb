@@ -790,7 +790,7 @@ void DBImpl::BackgroundCompaction() {
         versions_->LevelSummary(&tmp));
   } else {
     CompactionState* compact = new CompactionState(c);
-    err = DoCompactionWork(compact);
+    err = DoCompactionWork(compact).error_or(Error());
     if (!err.ok()) {
       RecordBackgroundError(err);
     }
@@ -840,7 +840,8 @@ void DBImpl::CleanupCompaction(CompactionState* compact) {
   delete compact;
 }
 
-Error DBImpl::OpenCompactionOutputFile(CompactionState* compact) {
+std::expected<void, Error> DBImpl::OpenCompactionOutputFile(
+    CompactionState* compact) {
   assert(compact != nullptr);
   assert(compact->builder == nullptr);
   uint64_t file_number;
@@ -858,18 +859,18 @@ Error DBImpl::OpenCompactionOutputFile(CompactionState* compact) {
 
   // Make the output file
   std::string fname = TableFileName(dbname_, file_number);
-  Error e;
+  std::expected<void, Error> result{};
   if (auto ret = env_->NewWritableFile(fname)) {
     compact->outfile = ret.value();
     compact->builder = new TableBuilder(options_, compact->outfile);
   } else {
-    e = std::move(ret.error());
+    result = std::unexpected(ret.error());
   }
-  return e;
+  return result;
 }
 
-Error DBImpl::FinishCompactionOutputFile(CompactionState* compact,
-                                         Iterator* input) {
+std::expected<void, Error> DBImpl::FinishCompactionOutputFile(
+    CompactionState* compact, Iterator* input) {
   assert(compact != nullptr);
   assert(compact->outfile != nullptr);
   assert(compact->builder != nullptr);
@@ -878,10 +879,10 @@ Error DBImpl::FinishCompactionOutputFile(CompactionState* compact,
   assert(output_number != 0);
 
   // Check for iterator errors
-  Error e = input->error();
+  std::expected<void, Error> result{};
   const uint64_t current_entries = compact->builder->NumEntries();
-  if (e.ok()) {
-    e = compact->builder->Finish().error_or(Error());
+  if (input->error().ok()) {
+    result = compact->builder->Finish();
   } else {
     compact->builder->Abandon();
   }
@@ -892,32 +893,35 @@ Error DBImpl::FinishCompactionOutputFile(CompactionState* compact,
   compact->builder = nullptr;
 
   // Finish and check for file errors
-  if (e.ok()) {
-    e = compact->outfile->Sync().error_or(e);
+  if (result) {
+    result = compact->outfile->Sync();
   }
-  if (e.ok()) {
-    e = compact->outfile->Close().error_or(e);
+  if (result) {
+    result = compact->outfile->Close();
   }
   delete compact->outfile;
   compact->outfile = nullptr;
 
-  if (e.ok() && current_entries > 0) {
+  if (result && current_entries > 0) {
     // Verify that the table is usable
     Iterator* iter =
         table_cache_->NewIterator(ReadOptions(), output_number, current_bytes);
-    e = iter->error();
+    Error e = iter->error();
     delete iter;
     if (e.ok()) {
       Log(options_.info_log, "Generated table #%llu@%d: %lld keys, %lld bytes",
           (unsigned long long)output_number, compact->compaction->level(),
           (unsigned long long)current_entries,
           (unsigned long long)current_bytes);
+    } else {
+      result = std::unexpected(e);
     }
   }
-  return e;
+  return result;
 }
 
-Error DBImpl::InstallCompactionResults(CompactionState* compact) {
+std::expected<void, Error> DBImpl::InstallCompactionResults(
+    CompactionState* compact) {
   mutex_.AssertHeld();
   Log(options_.info_log, "Compacted %d@%d + %d@%d files => %lld bytes",
       compact->compaction->num_input_files(0), compact->compaction->level(),
@@ -932,10 +936,11 @@ Error DBImpl::InstallCompactionResults(CompactionState* compact) {
     compact->compaction->edit()->AddFile(level + 1, out.number, out.file_size,
                                          out.smallest, out.largest);
   }
-  return versions_->LogAndApply(compact->compaction->edit(), &mutex_);
+  Error e = versions_->LogAndApply(compact->compaction->edit(), &mutex_);
+  return e.ok() ? std::expected<void, Error>{} : std::unexpected(e);
 }
 
-Error DBImpl::DoCompactionWork(CompactionState* compact) {
+std::expected<void, Error> DBImpl::DoCompactionWork(CompactionState* compact) {
   const uint64_t start_micros = env_->NowMicros();
   int64_t imm_micros = 0;  // Micros spent doing imm_ compactions
 
@@ -959,7 +964,7 @@ Error DBImpl::DoCompactionWork(CompactionState* compact) {
   mutex_.Unlock();
 
   input->SeekToFirst();
-  Error err;
+  std::expected<void, Error> result;
   ParsedInternalKey ikey;
   std::string current_user_key;
   bool has_current_user_key = false;
@@ -981,8 +986,8 @@ Error DBImpl::DoCompactionWork(CompactionState* compact) {
     std::string_view key = input->key();
     if (compact->compaction->ShouldStopBefore(key) &&
         compact->builder != nullptr) {
-      err = FinishCompactionOutputFile(compact, input);
-      if (!err.ok()) {
+      result = FinishCompactionOutputFile(compact, input);
+      if (!result) {
         break;
       }
     }
@@ -1035,8 +1040,8 @@ Error DBImpl::DoCompactionWork(CompactionState* compact) {
     if (!drop) {
       // Open output file if necessary
       if (compact->builder == nullptr) {
-        err = OpenCompactionOutputFile(compact);
-        if (!err.ok()) {
+        result = OpenCompactionOutputFile(compact);
+        if (!result) {
           break;
         }
       }
@@ -1049,8 +1054,8 @@ Error DBImpl::DoCompactionWork(CompactionState* compact) {
       // Close output file if it is big enough
       if (compact->builder->FileSize() >=
           compact->compaction->MaxOutputFileSize()) {
-        err = FinishCompactionOutputFile(compact, input);
-        if (!err.ok()) {
+        result = FinishCompactionOutputFile(compact, input);
+        if (!result) {
           break;
         }
       }
@@ -1059,14 +1064,16 @@ Error DBImpl::DoCompactionWork(CompactionState* compact) {
     input->Next();
   }
 
-  if (err.ok() && shutting_down_.load(std::memory_order_acquire)) {
-    err = Error(Error::Code::IOFault, "Deleting DB during compaction");
+  if (result && shutting_down_.load(std::memory_order_acquire)) {
+    result = std::unexpected(
+        Error(Error::Code::IOFault, "Deleting DB during compaction"));
   }
-  if (err.ok() && compact->builder != nullptr) {
-    err = FinishCompactionOutputFile(compact, input);
+  if (result && compact->builder != nullptr) {
+    result = FinishCompactionOutputFile(compact, input);
   }
-  if (err.ok()) {
-    err = input->error();
+  if (result) {
+    Error e = input->error();
+    result = e.ok() ? result : std::unexpected(e);
   }
   delete input;
   input = nullptr;
@@ -1085,15 +1092,16 @@ Error DBImpl::DoCompactionWork(CompactionState* compact) {
   mutex_.Lock();
   stats_[compact->compaction->level() + 1].Add(stats);
 
-  if (err.ok()) {
-    err = InstallCompactionResults(compact);
+  if (result) {
+    result = InstallCompactionResults(compact);
   }
-  if (!err.ok()) {
-    RecordBackgroundError(err);
+  if (!result) {
+    RecordBackgroundError(result.error());
   }
   VersionSet::LevelSummaryStorage tmp;
   Log(options_.info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
-  return err;
+
+  return result;
 }
 
 namespace {
