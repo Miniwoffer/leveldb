@@ -15,8 +15,9 @@
 namespace leveldb {
 
 // A utility routine: write "data" to the named file and Sync() it.
-Error WriteStringToFileSync(Env* env, const std::string_view& data,
-                            const std::string& fname);
+std::expected<void, Error> WriteStringToFileSync(Env* env,
+                                                 const std::string_view& data,
+                                                 const std::string& fname);
 
 static std::string MakeFileName(const std::string& dbname, uint64_t number,
                                 const char* suffix) {
@@ -121,22 +122,22 @@ bool ParseFileName(const std::string& filename, uint64_t* number,
   return true;
 }
 
-Error SetCurrentFile(Env* env, const std::string& dbname,
-                     uint64_t descriptor_number) {
+std::expected<void, Error> SetCurrentFile(Env* env, const std::string& dbname,
+                                          uint64_t descriptor_number) {
   // Remove leading "dbname/" and add newline to manifest file name
   std::string manifest = DescriptorFileName(dbname, descriptor_number);
   std::string_view contents = manifest;
   assert(contents.starts_with(dbname + "/"));
   contents.remove_prefix(dbname.size() + 1);
   std::string tmp = TempFileName(dbname, descriptor_number);
-  Error e = WriteStringToFileSync(env, std::string(contents) + "\n", tmp);
-  if (e.ok()) {
-    e = env->RenameFile(tmp, CurrentFileName(dbname)).error_or(e);
+  auto ret = WriteStringToFileSync(env, std::string(contents) + "\n", tmp);
+  if (ret) {
+    ret = env->RenameFile(tmp, CurrentFileName(dbname));
   }
-  if (!e.ok()) {
+  if (!ret) {
     env->RemoveFile(tmp);
   }
-  return e;
+  return ret;
 }
 
 }  // namespace leveldb

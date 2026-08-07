@@ -247,7 +247,7 @@ TEST_F(MemEnvTest, OverwriteOpenFile) {
   const size_t kFileDataLen = sizeof(kWrite1Data) - 1;
   const std::string kTestFileName = testing::TempDir() + "leveldb-TestFile.dat";
 
-  ASSERT_LEVELDB_OK(WriteStringToFile(env_, kWrite1Data, kTestFileName));
+  ASSERT_TRUE(WriteStringToFile(env_, kWrite1Data, kTestFileName));
 
   RandomAccessFile* rand_file;
   std::expected<RandomAccessFile*, Error> ret;
@@ -255,7 +255,7 @@ TEST_F(MemEnvTest, OverwriteOpenFile) {
   rand_file = ret.value();
 
   const char kWrite2Data[] = "Write #2 data";
-  ASSERT_LEVELDB_OK(WriteStringToFile(env_, kWrite2Data, kTestFileName));
+  ASSERT_TRUE(WriteStringToFile(env_, kWrite2Data, kTestFileName));
 
   // Verify that overwriting an open file will result in the new file data
   // being read from files opened before the write.

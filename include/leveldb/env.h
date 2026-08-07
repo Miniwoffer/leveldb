@@ -326,12 +326,12 @@ void Log(Logger* info_log, const char* format, ...)
     ;
 
 // A utility routine: write "data" to the named file.
-LEVELDB_EXPORT Error WriteStringToFile(Env* env, const std::string_view& data,
-                                       const std::string& fname);
+LEVELDB_EXPORT std::expected<void, Error> WriteStringToFile(
+    Env* env, const std::string_view& data, const std::string& fname);
 
 // A utility routine: read contents of named file into *data
-LEVELDB_EXPORT Error ReadFileToString(Env* env, const std::string& fname,
-                                      std::string* data);
+LEVELDB_EXPORT std::expected<void, Error> ReadFileToString(
+    Env* env, const std::string& fname, std::string* data);
 
 // An implementation of Env that forwards all calls to another Env.
 // May be useful to clients who wish to override just part of the

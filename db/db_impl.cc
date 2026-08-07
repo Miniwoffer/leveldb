@@ -221,8 +221,7 @@ std::expected<void, Error> DBImpl::NewDB() {
   delete file;
   if (ret) {
     // Make "CURRENT" file that points to the new manifest file.
-    Error e = SetCurrentFile(env_, dbname_, 1);
-    ret = e.ok() ? ret : std::unexpected(e);
+    ret = SetCurrentFile(env_, dbname_, 1);
   } else {
     env_->RemoveFile(manifest);
   }
