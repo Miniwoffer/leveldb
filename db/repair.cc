@@ -134,16 +134,15 @@ class Repairer {
   void ConvertLogFilesToTables() {
     for (size_t i = 0; i < logs_.size(); i++) {
       std::string logname = LogFileName(dbname_, logs_[i]);
-      Error err = ConvertLogToTable(logs_[i]);
-      if (!err.ok()) {
+      if (auto ret = ConvertLogToTable(logs_[i]); !ret) {
         Log(options_.info_log, "Log #%llu: ignoring conversion error: %s",
-            (unsigned long long)logs_[i], err.ToString().c_str());
+            (unsigned long long)logs_[i], ret.error().ToString().c_str());
       }
       ArchiveFile(logname);
     }
   }
 
-  Error ConvertLogToTable(uint64_t log) {
+  std::expected<void, Error> ConvertLogToTable(uint64_t log) {
     struct LogReporter : public log::Reader::Reporter {
       Env* env;
       Logger* info_log;
@@ -162,7 +161,7 @@ class Repairer {
     if (auto ret = env_->NewSequentialFile(logname)) {
       lfile = ret.value();
     } else {
-      return ret.error();
+      return std::unexpected(ret.error());
     }
 
     // Create the log reader.
@@ -181,7 +180,7 @@ class Repairer {
     std::string scratch;
     std::string_view record;
     WriteBatch batch;
-    Error err;
+    std::expected<void, Error> result;
     MemTable* mem = new MemTable(icmp_);
     mem->Ref();
     int counter = 0;
@@ -192,13 +191,13 @@ class Repairer {
         continue;
       }
       WriteBatchInternal::SetContents(&batch, record);
-      err = WriteBatchInternal::InsertInto(&batch, mem).error_or(Error());
-      if (err.ok()) {
+      result = WriteBatchInternal::InsertInto(&batch, mem);
+      if (result) {
         counter += WriteBatchInternal::Count(&batch);
       } else {
         Log(options_.info_log, "Log #%llu: ignoring %s",
-            (unsigned long long)log, status.error().ToString().c_str());
-        err = Error(Error::Code::Ok);  // Keep going with rest of file
+            (unsigned long long)log, result.error().ToString().c_str());
+        result = {};  // Keep going with rest of file
       }
     }
     delete lfile;
@@ -208,20 +207,20 @@ class Repairer {
     FileMetaData meta;
     meta.number = next_file_number_++;
     Iterator* iter = mem->NewIterator();
-    err = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta)
-              .error_or(Error());
+    result = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
+
     delete iter;
     mem->Unref();
     mem = nullptr;
-    if (err.ok()) {
+    if (result) {
       if (meta.file_size > 0) {
         table_numbers_.push_back(meta.number);
       }
     }
     Log(options_.info_log, "Log #%llu: %d ops saved to Table #%llu %s",
         (unsigned long long)log, counter, (unsigned long long)meta.number,
-        err.ToString().c_str());
-    return err;
+        result.error_or(Error()).ToString().c_str());
+    return result;
   }
 
   void ExtractMetaData() {
