@@ -159,12 +159,13 @@ class Constructor {
       keys->push_back(kvp.first);
     }
     data_.clear();
-    Error e = FinishImpl(options, *kvmap);
-    ASSERT_TRUE(e.ok()) << e.ToString();
+    auto ret = FinishImpl(options, *kvmap);
+    ASSERT_TRUE(ret) << ret.error().ToString();
   }
 
   // Construct the data structure from the data in "data"
-  virtual Error FinishImpl(const Options& options, const KVMap& data) = 0;
+  virtual std::expected<void, Error> FinishImpl(const Options& options,
+                                                const KVMap& data) = 0;
 
   virtual std::unique_ptr<Iterator> NewIterator() const = 0;
 
@@ -183,7 +184,8 @@ class BlockConstructor : public Constructor {
   explicit BlockConstructor(const Comparator* cmp)
       : Constructor(cmp), comparator_(cmp), block_(nullptr) {}
   ~BlockConstructor() override { delete block_; }
-  Error FinishImpl(const Options& options, const KVMap& data) override {
+  std::expected<void, Error> FinishImpl(const Options& options,
+                                        const KVMap& data) override {
     delete block_;
     block_ = nullptr;
     BlockBuilder builder(&options);
@@ -198,7 +200,7 @@ class BlockConstructor : public Constructor {
     contents.cachable = false;
     contents.heap_allocated = false;
     block_ = new Block(contents);
-    return Error(Error::Code::Ok);
+    return {};
   }
   std::unique_ptr<Iterator> NewIterator() const override {
     return std::unique_ptr<Iterator>(block_->NewIterator(comparator_));
@@ -217,7 +219,8 @@ class TableConstructor : public Constructor {
   TableConstructor(const Comparator* cmp)
       : Constructor(cmp), source_(nullptr), table_(nullptr) {}
   ~TableConstructor() override { Reset(); }
-  Error FinishImpl(const Options& options, const KVMap& data) override {
+  std::expected<void, Error> FinishImpl(const Options& options,
+                                        const KVMap& data) override {
     Reset();
     StringSink sink;
     TableBuilder builder(options, &sink);
@@ -234,8 +237,7 @@ class TableConstructor : public Constructor {
     source_ = new StringSource(sink.contents());
     Options table_options;
     table_options.comparator = options.comparator;
-    return Table::Open(table_options, source_, sink.contents().size(), &table_)
-        .error_or(Error());
+    return Table::Open(table_options, source_, sink.contents().size(), &table_);
   }
 
   std::unique_ptr<Iterator> NewIterator() const override {
@@ -308,7 +310,8 @@ class MemTableConstructor : public Constructor {
     memtable_->Ref();
   }
   ~MemTableConstructor() override { memtable_->Unref(); }
-  Error FinishImpl(const Options& options, const KVMap& data) override {
+  std::expected<void, Error> FinishImpl(const Options& options,
+                                        const KVMap& data) override {
     memtable_->Unref();
     memtable_ = new MemTable(internal_comparator_);
     memtable_->Ref();
@@ -317,7 +320,7 @@ class MemTableConstructor : public Constructor {
       memtable_->Add(seq, kTypeValue, kvp.first, kvp.second);
       seq++;
     }
-    return Error(Error::Code::Ok);
+    return {};
   }
   std::unique_ptr<Iterator> NewIterator() const override {
     return std::unique_ptr<KeyConvertingIterator>(
@@ -337,7 +340,8 @@ class DBConstructor : public Constructor {
     NewDB();
   }
   ~DBConstructor() override {}
-  Error FinishImpl(const Options& options, const KVMap& data) override {
+  std::expected<void, Error> FinishImpl(const Options& options,
+                                        const KVMap& data) override {
     db_ = nullptr;
     NewDB();
     for (const auto& kvp : data) {
@@ -345,7 +349,7 @@ class DBConstructor : public Constructor {
       batch.Put(std::string_view(kvp.first), kvp.second);
       EXPECT_TRUE(db_->Write(WriteOptions(), &batch));
     }
-    return Error(Error::Code::Ok);
+    return {};
   }
   std::unique_ptr<Iterator> NewIterator() const override {
     return db_->NewIterator(ReadOptions());
@@ -360,7 +364,7 @@ class DBConstructor : public Constructor {
     Options options;
     options.comparator = comparator_;
     auto ret = DestroyDB(name, options);
-    ASSERT_TRUE(ret) << ret.error_or(Error()).ToString();
+    ASSERT_TRUE(ret) << ret.error().ToString();
 
     options.create_if_missing = true;
     options.error_if_exists = true;
