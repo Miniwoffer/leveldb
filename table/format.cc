@@ -25,17 +25,17 @@ void BlockHandle::EncodeTo(std::string& dst) const {
 }
 void BlockHandle::EncodeTo(std::string* dst) const { return EncodeTo(*dst); }
 
-Error BlockHandle::DecodeFrom(std::string_view* input) {
+std::expected<void, Error> BlockHandle::DecodeFrom(std::string_view* input) {
   if (auto offset = GetVarint<uint64_t>(*input)) {
     *input = offset->remaining_input;
     offset_ = offset->value;
     if (auto size = GetVarint<uint64_t>(*input)) {
       *input = size->remaining_input;
       size_ = size->value;
-      return Error(Error::Code::Ok);
+      return {};
     }
   }
-  return Error(Error::Code::Corruption, "bad block handle");
+  return std::unexpected(Error(Error::Code::Corruption, "bad block handle"));
 }
 
 void Footer::EncodeTo(std::string* dst) const {
@@ -49,9 +49,10 @@ void Footer::EncodeTo(std::string* dst) const {
   (void)original_size;  // Disable unused variable warning.
 }
 
-Error Footer::DecodeFrom(std::string_view* input) {
+std::expected<void, Error> Footer::DecodeFrom(std::string_view* input) {
   if (input->size() < kEncodedLength) {
-    return Error(Error::Code::Corruption, "not an sstable (footer too short)");
+    return std::unexpected(
+        Error(Error::Code::Corruption, "not an sstable (footer too short)"));
   }
 
   const char* magic_ptr = input->data() + kEncodedLength - 8;
@@ -61,14 +62,15 @@ Error Footer::DecodeFrom(std::string_view* input) {
   const uint64_t magic = ((static_cast<uint64_t>(magic_hi) << 32) |
                           (static_cast<uint64_t>(magic_lo)));
   if (magic != kTableMagicNumber) {
-    return Error(Error::Code::Corruption, "not an sstable (bad magic number)");
+    return std::unexpected(
+        Error(Error::Code::Corruption, "not an sstable (bad magic number)"));
   }
 
-  Error result = metaindex_handle_.DecodeFrom(input);
-  if (result.ok()) {
+  auto result = metaindex_handle_.DecodeFrom(input);
+  if (result) {
     result = index_handle_.DecodeFrom(input);
   }
-  if (result.ok()) {
+  if (result) {
     // We skip over any leftover data (just padding for now) in "input"
     const char* end = magic_ptr + 8;
     *input = std::string_view(end, input->data() + input->size() - end);
@@ -76,8 +78,10 @@ Error Footer::DecodeFrom(std::string_view* input) {
   return result;
 }
 
-Error ReadBlock(RandomAccessFile* file, const ReadOptions& options,
-                const BlockHandle& handle, BlockContents* result) {
+std::expected<void, Error> ReadBlock(RandomAccessFile* file,
+                                     const ReadOptions& options,
+                                     const BlockHandle& handle,
+                                     BlockContents* result) {
   result->data = std::string_view();
   result->cachable = false;
   result->heap_allocated = false;
@@ -92,11 +96,12 @@ Error ReadBlock(RandomAccessFile* file, const ReadOptions& options,
     contents = ret.value();
   } else {
     delete[] buf;
-    return ret.error();
+    return std::unexpected(ret.error());
   }
   if (contents.size() != n + kBlockTrailerSize) {
     delete[] buf;
-    return Error(Error::Code::Corruption, "truncated block read");
+    return std::unexpected(
+        Error(Error::Code::Corruption, "truncated block read"));
   }
 
   // Check the crc of the type and the block contents
@@ -107,7 +112,8 @@ Error ReadBlock(RandomAccessFile* file, const ReadOptions& options,
     const uint32_t actual = crc32c::Value(data, n + 1);
     if (actual != crc) {
       delete[] buf;
-      return Error(Error::Code::Corruption, "block checksum mismatch");
+      return std::unexpected(
+          Error(Error::Code::Corruption, "block checksum mismatch"));
     }
   }
 
@@ -133,15 +139,17 @@ Error ReadBlock(RandomAccessFile* file, const ReadOptions& options,
       size_t ulength = 0;
       if (!port::Snappy_GetUncompressedLength(data, n, &ulength)) {
         delete[] buf;
-        return Error(Error::Code::Corruption,
-                     "corrupted snappy compressed block length");
+        return std::unexpected(
+            Error(Error::Code::Corruption,
+                  "corrupted snappy compressed block length"));
       }
       char* ubuf = new char[ulength];
       if (!port::Snappy_Uncompress(data, n, ubuf)) {
         delete[] buf;
         delete[] ubuf;
-        return Error(Error::Code::Corruption,
-                     "corrupted snappy compressed block contents");
+        return std::unexpected(
+            Error(Error::Code::Corruption,
+                  "corrupted snappy compressed block contents"));
       }
       delete[] buf;
       result->data = std::string_view(ubuf, ulength);
@@ -153,15 +161,16 @@ Error ReadBlock(RandomAccessFile* file, const ReadOptions& options,
       size_t ulength = 0;
       if (!port::Zstd_GetUncompressedLength(data, n, &ulength)) {
         delete[] buf;
-        return Error(Error::Code::Corruption,
-                     "corrupted zstd compressed block length");
+        return std::unexpected(Error(Error::Code::Corruption,
+                                     "corrupted zstd compressed block length"));
       }
       char* ubuf = new char[ulength];
       if (!port::Zstd_Uncompress(data, n, ubuf)) {
         delete[] buf;
         delete[] ubuf;
-        return Error(Error::Code::Corruption,
-                     "corrupted zstd compressed block contents");
+        return std::unexpected(
+            Error(Error::Code::Corruption,
+                  "corrupted zstd compressed block contents"));
       }
       delete[] buf;
       result->data = std::string_view(ubuf, ulength);
@@ -171,10 +180,10 @@ Error ReadBlock(RandomAccessFile* file, const ReadOptions& options,
     }
     default:
       delete[] buf;
-      return Error(Error::Code::Corruption, "bad block type");
+      return std::unexpected(Error(Error::Code::Corruption, "bad block type"));
   }
 
-  return Error(Error::Code::Ok);
+  return {};
 }
 
 }  // namespace leveldb
