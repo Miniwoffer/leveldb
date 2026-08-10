@@ -72,7 +72,7 @@ class LEVELDB_EXPORT Iterator {
   virtual std::string_view value() const = 0;
 
   // If an error has occurred, return it.  Else return an ok status.
-  virtual Error error() const = 0;
+  virtual std::expected<void, Error> error() const = 0;
 
   // Clients are allowed to register function/arg1/arg2 triples that
   // will be invoked when this iterator is destroyed.

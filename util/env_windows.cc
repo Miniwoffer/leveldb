@@ -283,32 +283,25 @@ class WindowsWritableFile : public WritableFile {
     }
 
     // Can't fit in buffer, so need to do at least one write.
-    Error err = FlushBuffer();
-    if (!err.ok()) {
-      return std::unexpected(err);
+    auto ret = FlushBuffer();
+    if (ret) {
+      // Small writes go to buffer, large writes are written directly.
+      if (write_size < kWritableFileBufferSize) {
+        std::memcpy(buf_, write_data, write_size);
+        pos_ = write_size;
+        return {};
+      }
+      ret = WriteUnbuffered(write_data, write_size);
     }
-
-    // Small writes go to buffer, large writes are written directly.
-    if (write_size < kWritableFileBufferSize) {
-      std::memcpy(buf_, write_data, write_size);
-      pos_ = write_size;
-      return {};
-    }
-    if (auto ret = WriteUnbuffered(write_data, write_size); !ret.ok()) {
-      return std::unexpected(ret.error());
-    }
-    return {};
+    return ret;
   }
 
   std::expected<void, Error> Close() override {
-    Error err = FlushBuffer();
-    if (!handle_.Close() && err.ok()) {
-      err = WindowsError(filename_, ::GetLastError());
+    auto err = FlushBuffer();
+    if (!handle_.Close() && err) {
+      err = std::unexpected(WindowsError(filename_, ::GetLastError()));
     }
-    if (!err.ok()) {
-      return std::unexpected(err);
-    }
-    return {};
+    return err;
   }
 
   std::expected<void, Error> Flush() override { return FlushBuffer(); }
@@ -317,33 +310,32 @@ class WindowsWritableFile : public WritableFile {
     // On Windows no need to sync parent directory. Its metadata will be updated
     // via the creation of the new file, without an explicit sync.
 
-    Error err = FlushBuffer();
-    if (!err.ok()) {
-      return std::unexpected(err);
+    auto ret = FlushBuffer();
+    if (ret) {
+      if (!::FlushFileBuffers(handle_.get())) {
+        ret = std::unexpected(Error(Error::Code::IOFault, filename_,
+                                    GetWindowsErrorMessage(::GetLastError())));
+      }
     }
 
-    if (!::FlushFileBuffers(handle_.get())) {
-      return std::unexpected(Error(Error::Code::IOFault, filename_,
-                                   GetWindowsErrorMessage(::GetLastError())));
-    }
-    return {};
+    return ret;
   }
 
  private:
-  Error FlushBuffer() {
-    Error err = WriteUnbuffered(buf_, pos_);
+  std::expected<void, Error> FlushBuffer() {
+    auto err = WriteUnbuffered(buf_, pos_);
     pos_ = 0;
     return err;
   }
 
-  Error WriteUnbuffered(const char* data, size_t size) {
+  std::expected<void, Error> WriteUnbuffered(const char* data, size_t size) {
     DWORD bytes_written;
     if (!::WriteFile(handle_.get(), data, static_cast<DWORD>(size),
                      &bytes_written, nullptr)) {
-      return Error(Error::Code::IOFault, filename_,
-                   GetWindowsErrorMessage(::GetLastError()));
+      return std::unexpected(Error(Error::Code::IOFault, filename_,
+                                   GetWindowsErrorMessage(::GetLastError())));
     }
-    return Error(Error::Code::Ok);
+    return {};
   }
 
   // buf_[0, pos_-1] contains data to be written to handle_.

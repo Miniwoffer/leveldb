@@ -183,7 +183,7 @@ void Reader::ReportCorruption(uint64_t bytes, const char* reason) {
 void Reader::ReportDrop(uint64_t bytes, const Error& reason) {
   if (reporter_ != nullptr &&
       end_of_buffer_offset_ - buffer_.size() - bytes >= initial_offset_) {
-    reporter_->Corruption(static_cast<size_t>(bytes), reason);
+    reporter_->Corruption(static_cast<size_t>(bytes), std::unexpected(reason));
   }
 }
 
@@ -192,18 +192,18 @@ unsigned int Reader::ReadPhysicalRecord(std::string_view* result) {
     if (buffer_.size() < kHeaderSize) {
       if (!eof_) {
         // Last read was a full read, so this is a trailer to skip
-        Error err;
+        std::expected<void, Error> err;
         buffer_ = {};
         if (auto rd_ret = file_->Read(kBlockSize, backing_store_)) {
           buffer_ = rd_ret.value();
         } else {
-          err = std::move(rd_ret.error());
+          err = std::unexpected(std::move(rd_ret.error()));
         }
 
         end_of_buffer_offset_ += buffer_.size();
-        if (!err.ok()) {
+        if (!err) {
           buffer_ = {};
-          ReportDrop(kBlockSize, err);
+          ReportDrop(kBlockSize, err.error());
           eof_ = true;
           return kEof;
         } else if (buffer_.size() < kBlockSize) {

@@ -26,7 +26,8 @@ class Reader {
 
     // Some corruption was detected.  "bytes" is the approximate number
     // of bytes dropped due to the corruption.
-    virtual void Corruption(size_t bytes, const Error& status) = 0;
+    virtual void Corruption(size_t bytes,
+                            const std::expected<void, Error>& status) = 0;
   };
 
   // Create a reader that will return log records from "*file".

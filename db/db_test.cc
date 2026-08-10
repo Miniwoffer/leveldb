@@ -417,8 +417,8 @@ class DBTest : public testing::Test {
     InternalKey target(user_key, kMaxSequenceNumber, kTypeValue);
     iter->Seek(target.Encode());
     std::string result;
-    if (!iter->error().ok()) {
-      result = iter->error().ToString();
+    if (!iter->error()) {
+      result = Error::ExpectedToString(iter->error());
     } else {
       result = "[ ";
       bool first = true;
@@ -1312,7 +1312,7 @@ TEST_F(DBTest, ApproximateSizes_MixOfSmallAndLarge) {
 
     if (options.reuse_logs) {
       // Need to force a memtable compaction since recovery does not do so.
-      ASSERT_LEVELDB_OK(dbfull()->TEST_CompactMemTable());
+      ASSERT_TRUE(dbfull()->TEST_CompactMemTable());
     }
 
     // Check sizes across recovery by reopening a few times
@@ -1398,7 +1398,7 @@ TEST_F(DBTest, HiddenValuesAreRemoved) {
     Put("foo", "tiny");
     Put("pastfoo2", "v2");  // Advance sequence number one more
 
-    ASSERT_LEVELDB_OK(dbfull()->TEST_CompactMemTable());
+    ASSERT_TRUE(dbfull()->TEST_CompactMemTable());
     ASSERT_GT(NumTableFilesAtLevel(0), 0);
 
     ASSERT_EQ(big, Get("foo", snapshot));
@@ -1419,7 +1419,7 @@ TEST_F(DBTest, HiddenValuesAreRemoved) {
 
 TEST_F(DBTest, DeletionMarkers1) {
   Put("foo", "v1");
-  ASSERT_LEVELDB_OK(dbfull()->TEST_CompactMemTable());
+  ASSERT_TRUE(dbfull()->TEST_CompactMemTable());
   const int last = config::kMaxMemCompactLevel;
   ASSERT_EQ(NumTableFilesAtLevel(last), 1);  // foo => v1 is now in last level
 
@@ -1433,7 +1433,7 @@ TEST_F(DBTest, DeletionMarkers1) {
   Delete("foo");
   Put("foo", "v2");
   ASSERT_EQ(AllEntriesFor("foo"), "[ v2, DEL, v1 ]");
-  ASSERT_LEVELDB_OK(dbfull()->TEST_CompactMemTable());  // Moves to level last-2
+  ASSERT_TRUE(dbfull()->TEST_CompactMemTable());  // Moves to level last-2
   ASSERT_EQ(AllEntriesFor("foo"), "[ v2, DEL, v1 ]");
   std::string_view z("z");
   dbfull()->TEST_CompactRange(last - 2, nullptr, &z);
@@ -1448,7 +1448,7 @@ TEST_F(DBTest, DeletionMarkers1) {
 
 TEST_F(DBTest, DeletionMarkers2) {
   Put("foo", "v1");
-  ASSERT_LEVELDB_OK(dbfull()->TEST_CompactMemTable());
+  ASSERT_TRUE(dbfull()->TEST_CompactMemTable());
   const int last = config::kMaxMemCompactLevel;
   ASSERT_EQ(NumTableFilesAtLevel(last), 1);  // foo => v1 is now in last level
 
@@ -1461,7 +1461,7 @@ TEST_F(DBTest, DeletionMarkers2) {
 
   Delete("foo");
   ASSERT_EQ(AllEntriesFor("foo"), "[ DEL, v1 ]");
-  ASSERT_LEVELDB_OK(dbfull()->TEST_CompactMemTable());  // Moves to level last-2
+  ASSERT_TRUE(dbfull()->TEST_CompactMemTable());  // Moves to level last-2
   ASSERT_EQ(AllEntriesFor("foo"), "[ DEL, v1 ]");
   dbfull()->TEST_CompactRange(last - 2, nullptr, nullptr);
   // DEL kept: "last" file overlaps
@@ -2224,7 +2224,7 @@ class ModelDB : public DB {
     void Prev() override { --iter_; }
     std::string_view key() const override { return iter_->first; }
     std::string_view value() const override { return iter_->second; }
-    Error error() const override { return Error(Error::Code::Ok); }
+    std::expected<void, Error> error() const override { return {}; }
 
    private:
     const KVMap* const map_;

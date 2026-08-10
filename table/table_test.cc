@@ -227,7 +227,7 @@ class TableConstructor : public Constructor {
 
     for (const auto& kvp : data) {
       builder.Add(kvp.first, kvp.second);
-      EXPECT_LEVELDB_OK(builder.error());
+      EXPECT_TRUE(builder.error());
     }
     EXPECT_TRUE(builder.Finish());
 
@@ -288,17 +288,20 @@ class KeyConvertingIterator : public Iterator {
     assert(Valid());
     ParsedInternalKey key;
     if (!ParseInternalKey(iter_->key(), &key)) {
-      err_ = Error(Error::Code::Corruption, "malformed internal key");
+      err_ = std::unexpected(
+          Error(Error::Code::Corruption, "malformed internal key"));
       return std::string_view("corrupted key");
     }
     return key.user_key;
   }
 
   std::string_view value() const override { return iter_->value(); }
-  Error error() const override { return err_.ok() ? iter_->error() : err_; }
+  std::expected<void, Error> error() const override {
+    return err_ ? iter_->error() : err_;
+  }
 
  private:
-  mutable Error err_;
+  mutable std::expected<void, Error> err_;
   Iterator* iter_;
 };
 

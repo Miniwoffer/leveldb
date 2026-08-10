@@ -20,10 +20,10 @@ TEST(Error, MoveConstructor) {
     Error e(Error::Code::InvalidArgument);
     Error e2 = foo();
 
-    Error ok = Error(Error::Code::Ok);
-    Error ok2 = std::move(ok);
+    Error iof = Error(Error::Code::IOFault);
+    Error iof2 = std::move(iof);
 
-    ASSERT_TRUE(ok2.ok());
+    ASSERT_TRUE(iof2.IsIOFault());
   }
 
   {

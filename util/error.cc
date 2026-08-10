@@ -1,6 +1,8 @@
 
 #include "leveldb/error.h"
 
+#include <cassert>
+
 namespace leveldb {
 
 Error::~Error() {

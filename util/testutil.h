@@ -19,6 +19,7 @@
 namespace leveldb {
 namespace test {
 
+#if 0
 MATCHER(IsOK, "") { return arg.ok(); }
 
 // Macros for testing the results of functions that return leveldb::Error or
@@ -27,6 +28,7 @@ MATCHER(IsOK, "") { return arg.ok(); }
   EXPECT_THAT(expression, leveldb::test::IsOK())
 #define ASSERT_LEVELDB_OK(expression) \
   ASSERT_THAT(expression, leveldb::test::IsOK())
+#endif
 
 // Returns the random seed used at the start of the current test run.
 inline int RandomSeed() {

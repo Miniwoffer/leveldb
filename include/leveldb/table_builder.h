@@ -60,7 +60,7 @@ class LEVELDB_EXPORT TableBuilder {
   void Flush();
 
   // Return non-ok iff some error has been detected.
-  Error error() const;
+  std::expected<void, Error> error() const;
 
   // Finish building the table.  Stops using the file passed to the
   // constructor after this function returns.
@@ -82,7 +82,7 @@ class LEVELDB_EXPORT TableBuilder {
   uint64_t FileSize() const;
 
  private:
-  bool ok() const { return error().ok(); }
+  bool ok() const { return error().has_value(); }
   void WriteBlock(BlockBuilder* block, BlockHandle* handle);
   void WriteRawBlock(const std::string_view& data, CompressionType,
                      BlockHandle* handle);

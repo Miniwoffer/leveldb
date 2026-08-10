@@ -79,7 +79,7 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
                          const std::string_view* end);
 
   // Force current memtable contents to be compacted.
-  Error TEST_CompactMemTable();
+  std::expected<void, Error> TEST_CompactMemTable();
 
   // Return an internal iterator over the current state of the database.
   // The keys of this iterator are internal keys (see format.h).
@@ -138,7 +138,7 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
   std::expected<void, Error> Recover(VersionEdit* edit, bool* save_manifest)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  void MaybeIgnoreError(Error* s) const;
+  void MaybeIgnoreError(std::expected<void, Error>* s) const;
 
   // Delete any unneeded files and stale in-memory entries.
   void RemoveObsoleteFiles() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
@@ -230,7 +230,7 @@ class DBImpl : public DB, public std::enable_shared_from_this<DBImpl> {
   VersionSet* const versions_ GUARDED_BY(mutex_);
 
   // Have we encountered a background error in paranoid mode?
-  Error bg_error_ GUARDED_BY(mutex_);
+  std::expected<void, Error> bg_error_ GUARDED_BY(mutex_);
 
   CompactionStats stats_[config::kNumLevels] GUARDED_BY(mutex_);
 };

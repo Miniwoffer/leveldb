@@ -41,7 +41,7 @@ struct TableBuilder::Rep {
   Options index_block_options;
   WritableFile* file;
   uint64_t offset;
-  Error err;
+  std::expected<void, Error> err;
   BlockBuilder data_block;
   BlockBuilder index_block;
   std::string last_key;
@@ -136,7 +136,7 @@ void TableBuilder::Flush() {
   WriteBlock(&r->data_block, &r->pending_handle);
   if (ok()) {
     r->pending_index_entry = true;
-    r->err = r->file->Flush().error_or(r->err);
+    r->err = r->file->Flush();
   }
   if (r->filter_block != nullptr) {
     r->filter_block->StartBlock(r->offset);
@@ -199,8 +199,8 @@ void TableBuilder::WriteRawBlock(const std::string_view& block_contents,
   Rep* r = rep_;
   handle->set_offset(r->offset);
   handle->set_size(block_contents.size());
-  r->err = r->file->Append(block_contents).error_or(Error());
-  if (r->err.ok()) {
+  r->err = r->file->Append(block_contents);
+  if (r->err) {
     std::array<char, kBlockTrailerSize> trailer;
     trailer[0] = type;
     uint32_t crc = crc32c::Value(block_contents.data(), block_contents.size());
@@ -208,14 +208,14 @@ void TableBuilder::WriteRawBlock(const std::string_view& block_contents,
                          1);  // Extend crc to cover block type
     EncodeFixed<uint32_t>(std::span<char>(trailer.begin() + 1, trailer.end()),
                           crc32c::Mask(crc));
-    r->err = r->file->Append(std::string_view(trailer)).error_or(Error());
-    if (r->err.ok()) {
+    r->err = r->file->Append(std::string_view(trailer));
+    if (r->err) {
       r->offset += block_contents.size() + kBlockTrailerSize;
     }
   }
 }
 
-Error TableBuilder::error() const { return rep_->err; }
+std::expected<void, Error> TableBuilder::error() const { return rep_->err; }
 
 std::expected<void, Error> TableBuilder::Finish() {
   Rep* r = rep_;
@@ -266,14 +266,14 @@ std::expected<void, Error> TableBuilder::Finish() {
     footer.set_index_handle(index_block_handle);
     std::string footer_encoding;
     footer.EncodeTo(&footer_encoding);
-    r->err = r->file->Append(footer_encoding).error_or(Error());
-    if (r->err.ok()) {
+    r->err = r->file->Append(footer_encoding);
+    if (r->err) {
       r->offset += footer_encoding.size();
     }
   }
 
   if (!ok()) {
-    return std::unexpected(r->err);
+    return r->err;
   }
 
   return {};

@@ -202,7 +202,7 @@ class Version::LevelFileNumIterator : public Iterator {
     EncodeFixed<uint64_t>(span, (*flist_)[index_]->file_size);
     return std::string_view(value_buf_);
   }
-  Error error() const override { return Error(Error::Code::Ok); }
+  std::expected<void, Error> error() const override { return {}; }
 
  private:
   const InternalKeyComparator icmp_;
@@ -820,8 +820,9 @@ std::expected<void, Error> VersionSet::LogAndApply(VersionEdit* edit,
 std::expected<void, Error> VersionSet::Recover(bool* save_manifest) {
   struct LogReporter : public log::Reader::Reporter {
     std::expected<void, Error>* status;
-    void Corruption(size_t bytes, const Error& s) override {
-      if (this->status && !s.ok()) *this->status = std::unexpected(s);
+    void Corruption(size_t bytes,
+                    const std::expected<void, Error>& s) override {
+      if (this->status && !s) *this->status = s;
     }
   };
 

@@ -30,7 +30,7 @@ struct Table::Rep {
   }
 
   Options options;
-  Error err;
+  std::expected<void, Error> err;
   RandomAccessFile* file;
   uint64_t cache_id;
   FilterBlockReader* filter;
@@ -226,7 +226,7 @@ std::expected<std::string, Error> Table::InternalGet(
     std::function<std::expected<std::string, Error>(const std::string_view&,
                                                     const std::string_view&)>
         handle_result) {
-  Error e;
+  std::expected<std::string, Error> ret;
   Iterator* iiter = rep_->index_block->NewIterator(rep_->options.comparator);
   iiter->Seek(k);
   if (iiter->Valid()) {
@@ -246,15 +246,16 @@ std::expected<std::string, Error> Table::InternalGet(
         delete iiter;
         return res;
       }
-      e = block_iter->error();
+      ret = block_iter->error() ? ret
+                                : std::unexpected(block_iter->error().error());
       delete block_iter;
     }
   }
-  if (e.ok()) {
-    e = iiter->error();
+  if (ret) {
+    ret = iiter->error() ? ret : std::unexpected(iiter->error().error());
   }
   delete iiter;
-  return std::unexpected(std::move(e));
+  return ret;
 }
 
 uint64_t Table::ApproximateOffsetOf(const std::string_view& key) const {
