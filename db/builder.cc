@@ -65,15 +65,14 @@ std::expected<void, Error> BuildTable(const std::string& dbname, Env* env,
       // Verify that the table is usable
       Iterator* it = table_cache->NewIterator(ReadOptions(), meta->number,
                                               meta->file_size);
-      Error e = it->error();
-      result = e.ok() ? result : std::unexpected(e);
+      result = it->error();
       delete it;
     }
   }
 
   // Check for input iterator errors
-  if (!iter->error().ok()) {
-    result = std::unexpected(iter->error());
+  if (!iter->error()) {
+    result = iter->error();
   }
 
   if (result && meta->file_size > 0) {

@@ -151,11 +151,23 @@ struct leveldb_env_t {
   bool is_default;
 };
 
-static bool SaveError(char** errptr, const Error& s) {
+static bool SaveError(char** errptr, const std::expected<void, Error>& s) {
   assert(errptr != nullptr);
-  if (s.ok()) {
+  if (s) {
     return false;
   } else if (*errptr == nullptr) {
+    *errptr = strdup(Error::ExpectedToString(s).c_str());
+  } else {
+    // TODO(sanjay): Merge with existing error?
+    std::free(*errptr);
+    *errptr = strdup(Error::ExpectedToString(s).c_str());
+  }
+  return true;
+}
+
+static bool SaveError(char** errptr, const Error& s) {
+  assert(errptr != nullptr);
+  if (*errptr == nullptr) {
     *errptr = strdup(s.ToString().c_str());
   } else {
     // TODO(sanjay): Merge with existing error?
@@ -290,12 +302,12 @@ void leveldb_compact_range(leveldb_t* db, const char* start_key,
 
 void leveldb_destroy_db(const leveldb_options_t* options, const char* name,
                         char** errptr) {
-  SaveError(errptr, DestroyDB(name, options->rep).error_or(Error()));
+  SaveError(errptr, DestroyDB(name, options->rep));
 }
 
 void leveldb_repair_db(const leveldb_options_t* options, const char* name,
                        char** errptr) {
-  SaveError(errptr, RepairDB(name, options->rep).error_or(Error()));
+  SaveError(errptr, RepairDB(name, options->rep));
 }
 
 void leveldb_iter_destroy(leveldb_iterator_t* iter) { delete iter; }

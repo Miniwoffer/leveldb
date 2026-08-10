@@ -38,28 +38,28 @@ TEST(Issue178, Test) {
   leveldb::Options db_options;
   db_options.create_if_missing = true;
   db_options.compression = leveldb::kNoCompression;
-  ASSERT_LEVELDB_OK(leveldb::DB::Open(db_options, dbpath, &db));
+  ASSERT_TRUE(leveldb::DB::Open(db_options, dbpath, &db));
 
   // create first key range
   leveldb::WriteBatch batch;
   for (size_t i = 0; i < kNumKeys; i++) {
     batch.Put(Key1(i), "value for range 1 key");
   }
-  ASSERT_LEVELDB_OK(db->Write(leveldb::WriteOptions(), &batch));
+  ASSERT_TRUE(db->Write(leveldb::WriteOptions(), &batch));
 
   // create second key range
   batch.Clear();
   for (size_t i = 0; i < kNumKeys; i++) {
     batch.Put(Key2(i), "value for range 2 key");
   }
-  ASSERT_LEVELDB_OK(db->Write(leveldb::WriteOptions(), &batch));
+  ASSERT_TRUE(db->Write(leveldb::WriteOptions(), &batch));
 
   // delete second key range
   batch.Clear();
   for (size_t i = 0; i < kNumKeys; i++) {
     batch.Delete(Key2(i));
   }
-  ASSERT_LEVELDB_OK(db->Write(leveldb::WriteOptions(), &batch));
+  ASSERT_TRUE(db->Write(leveldb::WriteOptions(), &batch));
 
   // compact database
   std::string start_key = Key1(0);

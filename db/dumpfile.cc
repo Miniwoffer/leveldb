@@ -40,11 +40,12 @@ bool GuessType(const std::string& fname, FileType* type) {
 // Notified when log reader encounters corruption.
 class CorruptionReporter : public log::Reader::Reporter {
  public:
-  void Corruption(size_t bytes, const Error& status) override {
+  void Corruption(size_t bytes,
+                  const std::expected<void, Error>& status) override {
     std::string r = "corruption: ";
     AppendNumberTo(&r, bytes);
     r += " bytes; ";
-    r += status.ToString();
+    r += Error::ExpectedToString(status);
     r.push_back('\n');
     dst_->Append(r);
   }
@@ -209,8 +210,7 @@ std::expected<void, Error> DumpTable(Env* env, const std::string& fname,
       dst->Append(r);
     }
   }
-  if (Error e = iter->error(); !e.ok()) {
-    result = std::unexpected(std::move(e));
+  if (result = iter->error(); !result) {
     dst->Append("iterator error: " + result.error().ToString() + "\n");
   }
 

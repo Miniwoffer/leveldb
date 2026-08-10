@@ -231,7 +231,7 @@ TEST_F(EnvTest, ReopenWritableFile) {
   ASSERT_TRUE(writable_file->Close());
   delete writable_file;
 
-  ASSERT_LEVELDB_OK(ReadFileToString(env_, test_file_name, &data));
+  ASSERT_TRUE(ReadFileToString(env_, test_file_name, &data));
   ASSERT_EQ(std::string("42"), data);
   env_->RemoveFile(test_file_name);
 }
@@ -261,7 +261,7 @@ TEST_F(EnvTest, ReopenAppendableFile) {
   ASSERT_TRUE(appendable_file->Close());
   delete appendable_file;
 
-  ASSERT_LEVELDB_OK(ReadFileToString(env_, test_file_name, &data));
+  ASSERT_TRUE(ReadFileToString(env_, test_file_name, &data));
   ASSERT_EQ(std::string("hello world!42"), data);
   env_->RemoveFile(test_file_name);
 }

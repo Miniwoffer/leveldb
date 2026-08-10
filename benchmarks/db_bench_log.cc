@@ -55,7 +55,7 @@ void BM_LogAndApply(benchmark::State& state) {
   Options options;
   VersionSet vset(dbname, &options, nullptr, &cmp);
   bool save_manifest;
-  ASSERT_LEVELDB_OK(vset.Recover(&save_manifest));
+  ASSERT_TRUE(vset.Recover(&save_manifest));
   VersionEdit vbase;
   uint64_t fnum = 1;
   for (int i = 0; i < num_base_files; i++) {
@@ -63,7 +63,7 @@ void BM_LogAndApply(benchmark::State& state) {
     InternalKey limit(MakeKey(2 * fnum + 1), 1, kTypeDeletion);
     vbase.AddFile(2, fnum++, 1 /* file size */, start, limit);
   }
-  ASSERT_LEVELDB_OK(vset.LogAndApply(&vbase, &mu));
+  ASSERT_TRUE(vset.LogAndApply(&vbase, &mu));
 
   uint64_t start_micros = env->NowMicros();
 

@@ -220,9 +220,10 @@ class LogTest : public testing::Test {
   class ReportCollector : public Reader::Reporter {
    public:
     ReportCollector() : dropped_bytes_(0) {}
-    void Corruption(size_t bytes, const Error& status) override {
+    void Corruption(size_t bytes,
+                    const std::expected<void, Error>& status) override {
       dropped_bytes_ += bytes;
-      message_.append(status.ToString());
+      message_.append(Error::ExpectedToString(status));
     }
 
     size_t dropped_bytes_;

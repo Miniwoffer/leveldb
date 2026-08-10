@@ -5,6 +5,7 @@
 #include <atomic>
 #include <cassert>
 #include <cstdint>
+#include <expected>
 #include <map>
 #include <mutex>
 #include <ranges>
@@ -32,17 +33,15 @@ class LEVELDB_EXPORT Error {
 
  public:
   enum class Code : code_t {
-    Ok = 0,  // TODO: deprecate after everything is expected returns semantics
     NotFound = 1,
     Corruption = 2,
     NotSupported = 3,
     InvalidArgument = 4,
     IOFault = 5,
-    Count_
+    Count_ = 5
   };
 
-  Error() noexcept = default;  // TODO: deprecate after everything is expected
-                               // returns semantics
+  Error() noexcept = delete;
   Error(Code c) noexcept : code_(c) {}
   ~Error();
 
@@ -63,7 +62,6 @@ class LEVELDB_EXPORT Error {
   Error& operator=(Error&&) noexcept;
 
   bool operator==(const Code rhs) const { return code_ == rhs; }
-  bool ok() const { return code_ == Code::Ok; }
   bool IsNotFound() const { return code_ == Code::NotFound; }
   bool IsCorruption() const { return code_ == Code::Corruption; }
   bool IsIOFault() const { return code_ == Code::IOFault; }
@@ -72,17 +70,19 @@ class LEVELDB_EXPORT Error {
 
   std::string ToString() const;
 
+  template <typename T>
+  static std::string ExpectedToString(const std::expected<T, Error>& expected) {
+    return expected ? "Ok" : expected.error().ToString();
+  }
+
  private:
   Code code_{0};
   code_t msg_key_{0};
 
   static inline const std::array<std::string_view,
                                  static_cast<size_t>(Error::Code::Count_)>
-      code_strings_ = {"Ok", "Not found", "Corruption", "Invalid argument",
-                       "IO fault"};
-  static_assert(static_cast<size_t>(Error::Code::Count_) ==
-                    code_strings_.size(),
-                "Update code_strings_ array to reflect Code enum");
+      code_strings_ = {"Not found", "Corruption", "Not supported",
+                       "Invalid argument", "IO fault"};
 
   static inline std::atomic<code_t> next_key_{1};
   static inline std::mutex msg_mu_;
@@ -100,8 +100,9 @@ class LEVELDB_EXPORT Error {
   bool HasMessage() const { return msg_key_ != 0; }
 
   std::string_view GetCodeString() const {
-    return (code_ < Code::Count_) ? code_strings_[static_cast<size_t>(code_)]
-                                  : "Unknown error code";
+    return (code_ < Code::Count_)
+               ? code_strings_[static_cast<size_t>(code_) - 1]
+               : "Unknown error code";
   }
 
   std::string_view GetMessage() const { return messages_.at(msg_key_); }

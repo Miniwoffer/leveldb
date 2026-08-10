@@ -420,7 +420,7 @@ class FaultInjectionTest : public testing::Test {
       batch.Clear();
       batch.Put(key, Value(i, &value_space));
       WriteOptions options;
-      ASSERT_LEVELDB_OK(db_->Write(options, &batch));
+      ASSERT_TRUE(db_->Write(options, &batch));
     }
   }
 

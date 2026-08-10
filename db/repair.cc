@@ -147,11 +147,12 @@ class Repairer {
       Env* env;
       Logger* info_log;
       uint64_t lognum;
-      void Corruption(size_t bytes, const Error& s) override {
+      void Corruption(size_t bytes,
+                      const std::expected<void, Error>& s) override {
         // We print error messages for corruption, but continue repairing.
         Log(info_log, "Log #%llu: dropping %d bytes; %s",
             (unsigned long long)lognum, static_cast<int>(bytes),
-            s.ToString().c_str());
+            Error::ExpectedToString(s).c_str());
       }
     };
 
@@ -186,8 +187,9 @@ class Repairer {
     int counter = 0;
     while (reader.ReadRecord(&record, &scratch)) {
       if (record.size() < 12) {
-        reporter.Corruption(record.size(), Error(Error::Code::Corruption,
-                                                 "log record too small"));
+        reporter.Corruption(record.size(),
+                            std::unexpected(Error(Error::Code::Corruption,
+                                                  "log record too small")));
         continue;
       }
       WriteBatchInternal::SetContents(&batch, record);
@@ -219,7 +221,7 @@ class Repairer {
     }
     Log(options_.info_log, "Log #%llu: %d ops saved to Table #%llu %s",
         (unsigned long long)log, counter, (unsigned long long)meta.number,
-        result.error_or(Error()).ToString().c_str());
+        Error::ExpectedToString(result).c_str());
     return result;
   }
 
@@ -239,7 +241,7 @@ class Repairer {
 
   void ScanTable(uint64_t number) {
     TableInfo t;
-    Error err;
+    std::expected<void, Error> err;
     t.meta.number = number;
     std::string fname = TableFileName(dbname_, number);
 
@@ -250,16 +252,15 @@ class Repairer {
       fname = SSTTableFileName(dbname_, number);
       if ((ret = env_->GetFileSize(fname))) {
         t.meta.file_size = ret.value();
-        err = Error(Error::Code::Ok);
       } else {
-        err = std::move(ret.error());
+        err = std::unexpected(std::move(ret.error()));
       }
     }
-    if (!err.ok()) {
+    if (!err) {
       ArchiveFile(TableFileName(dbname_, number));
       ArchiveFile(SSTTableFileName(dbname_, number));
       Log(options_.info_log, "Table #%llu: dropped: %s",
-          (unsigned long long)t.meta.number, err.ToString().c_str());
+          (unsigned long long)t.meta.number, err.error().ToString().c_str());
       return;
     }
 
@@ -287,14 +288,15 @@ class Repairer {
         t.max_sequence = parsed.sequence;
       }
     }
-    if (!iter->error().ok()) {
+    if (!iter->error()) {
       err = iter->error();
     }
     delete iter;
     Log(options_.info_log, "Table #%llu: %d entries %s",
-        (unsigned long long)t.meta.number, counter, err.ToString().c_str());
+        (unsigned long long)t.meta.number, counter,
+        Error::ExpectedToString(err).c_str());
 
-    if (err.ok()) {
+    if (err) {
       tables_.push_back(t);
     } else {
       RepairTable(fname, t);  // RepairTable archives input file.
@@ -434,9 +436,9 @@ class Repairer {
     std::string new_file = new_dir;
     new_file.append("/");
     new_file.append((slash == nullptr) ? fname.c_str() : slash + 1);
-    Error e = env_->RenameFile(fname, new_file).error_or(Error());
+    auto e = env_->RenameFile(fname, new_file);
     Log(options_.info_log, "Archiving %s: %s\n", fname.c_str(),
-        e.ToString().c_str());
+        Error::ExpectedToString(e).c_str());
   }
 
   const std::string dbname_;

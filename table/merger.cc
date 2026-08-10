@@ -118,11 +118,11 @@ class MergingIterator : public Iterator {
     return current_->value();
   }
 
-  Error error() const override {
-    Error err;
+  std::expected<void, Error> error() const override {
+    std::expected<void, Error> err;
     for (int i = 0; i < n_; i++) {
       err = children_[i].error();
-      if (!err.ok()) {
+      if (!err) {
         break;
       }
     }

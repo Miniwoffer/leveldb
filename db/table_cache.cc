@@ -53,7 +53,7 @@ std::expected<Cache::Handle*, Error> TableCache::FindTable(uint64_t file_number,
   std::string fname = TableFileName(dbname_, file_number);
   RandomAccessFile* file = nullptr;
   Table* table = nullptr;
-  Error e;
+  std::expected<void, Error> e;
   if (auto ret = env_->NewRandomAccessFile(fname)) {
     file = ret.value();
   } else {
@@ -61,18 +61,18 @@ std::expected<Cache::Handle*, Error> TableCache::FindTable(uint64_t file_number,
     if ((ret = env_->NewRandomAccessFile(old_fname))) {
       file = ret.value();
     } else {
-      e = std::move(ret.error());
+      e = std::unexpected(std::move(ret.error()));
     }
   }
 
   if (file) {
-    e = Table::Open(options_, file, file_size, &table).error_or(Error());
+    e = Table::Open(options_, file, file_size, &table);
   }
 
-  if (!e.ok()) {
+  if (!e) {
     assert(table == nullptr);
     delete file;
-    return std::unexpected(std::move(e));
+    return std::unexpected(std::move(e.error()));
     // We do not cache error results so that if the error is transient,
     // or somebody repairs the file, we recover automatically.
   }

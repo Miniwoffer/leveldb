@@ -49,7 +49,7 @@ struct DBImpl::Writer {
   explicit Writer(port::Mutex* mu)
       : batch(nullptr), sync(false), done(false), cv(mu) {}
 
-  Error err;
+  std::expected<void, Error> err;
   WriteBatch* batch;
   bool sync;
   bool done;
@@ -225,19 +225,20 @@ std::expected<void, Error> DBImpl::NewDB() {
   return result;
 }
 
-void DBImpl::MaybeIgnoreError(Error* s) const {
-  if (s->ok() || options_.paranoid_checks) {
+void DBImpl::MaybeIgnoreError(std::expected<void, Error>* e) const {
+  if (e || options_.paranoid_checks) {
     // No change needed
   } else {
-    Log(options_.info_log, "Ignoring error %s", s->ToString().c_str());
-    *s = Error(Error::Code::Ok);
+    Log(options_.info_log, "Ignoring error %s",
+        Error::ExpectedToString(*e).c_str());
+    *e = {};
   }
 }
 
 void DBImpl::RemoveObsoleteFiles() {
   mutex_.AssertHeld();
 
-  if (!bg_error_.ok()) {
+  if (!bg_error_) {
     // After a background error, we don't know whether a new version may
     // or may not have been committed, so we cannot safely garbage collect.
     return;
@@ -408,12 +409,12 @@ std::expected<void, Error> DBImpl::RecoverLogFile(
     const char* fname;
     std::expected<void, Error>*
         status;  // null if options_.paranoid_checks==false
-    void Corruption(size_t bytes, const Error& e) override {
+    void Corruption(size_t bytes,
+                    const std::expected<void, Error>& e) override {
       Log(info_log, "%s%s: dropping %d bytes; %s",
           (this->status == nullptr ? "(ignoring error) " : ""), fname,
-          static_cast<int>(bytes), e.ToString().c_str());
-      if (this->status != nullptr && this->status && !e.ok())
-        *this->status = std::unexpected(e);
+          static_cast<int>(bytes), Error::ExpectedToString(e).c_str());
+      if (this->status != nullptr && this->status && !e) *this->status = e;
     }
   };
 
@@ -426,8 +427,9 @@ std::expected<void, Error> DBImpl::RecoverLogFile(
   if (auto ret = env_->NewSequentialFile(fname)) {
     file = ret.value();
   } else {
-    MaybeIgnoreError(&ret.error());
-    return std::unexpected(ret.error());
+    result = std::unexpected(ret.error());
+    MaybeIgnoreError(&result);
+    return result;
   }
 
   // Create the log reader.
@@ -452,8 +454,9 @@ std::expected<void, Error> DBImpl::RecoverLogFile(
   MemTable* mem = nullptr;
   while (reader.ReadRecord(&record, &scratch) && result) {
     if (record.size() < 12) {
-      reporter.Corruption(record.size(), Error(Error::Code::Corruption,
-                                               "log record too small"));
+      reporter.Corruption(record.size(),
+                          std::unexpected(Error(Error::Code::Corruption,
+                                                "log record too small")));
       continue;
     }
     WriteBatchInternal::SetContents(&batch, record);
@@ -464,7 +467,7 @@ std::expected<void, Error> DBImpl::RecoverLogFile(
     }
     result = WriteBatchInternal::InsertInto(&batch, mem);
     if (!result) {
-      MaybeIgnoreError(&result.error());
+      MaybeIgnoreError(&result);
       break;
     }
     const SequenceNumber last_seq = WriteBatchInternal::Sequence(&batch) +
@@ -547,7 +550,7 @@ std::expected<void, Error> DBImpl::WriteLevel0Table(MemTable* mem,
 
   Log(options_.info_log, "Level-0 table #%llu: %lld bytes %s",
       (unsigned long long)meta.number, (unsigned long long)meta.file_size,
-      result.error_or(Error()).ToString().c_str());
+      Error::ExpectedToString(result).c_str());
   delete iter;
   pending_outputs_.erase(meta.number);
 
@@ -654,7 +657,7 @@ void DBImpl::TEST_CompactRange(int level, const std::string_view* begin,
 
   MutexLock l(&mutex_);
   while (!manual.done && !shutting_down_.load(std::memory_order_acquire) &&
-         bg_error_.ok()) {
+         bg_error_) {
     if (manual_compaction_ == nullptr) {  // Idle
       manual_compaction_ = &manual;
       MaybeScheduleCompaction();
@@ -673,25 +676,25 @@ void DBImpl::TEST_CompactRange(int level, const std::string_view* begin,
   }
 }
 
-Error DBImpl::TEST_CompactMemTable() {
+std::expected<void, Error> DBImpl::TEST_CompactMemTable() {
   // nullptr batch means just wait for earlier writes to be done
   auto res = Write(WriteOptions(), nullptr);
   if (!res) {
-    return res.error();
+    return res;
   }
   // Wait until the compaction completes
   MutexLock l(&mutex_);
-  while (imm_ != nullptr && bg_error_.ok() &&
+  while (imm_ != nullptr && bg_error_ &&
          !shutting_down_.load(std::memory_order_acquire)) {
     background_work_finished_signal_.Wait();
   }
-  return (imm_ != nullptr) ? bg_error_ : Error(Error::Code::Ok);
+  return (imm_ != nullptr) ? bg_error_ : std::expected<void, Error>{};
 }
 
 void DBImpl::RecordBackgroundError(const Error& s) {
   mutex_.AssertHeld();
-  if (bg_error_.ok()) {
-    bg_error_ = s;
+  if (bg_error_) {
+    bg_error_ = std::unexpected(s);
     background_work_finished_signal_.SignalAll();
   }
 }
@@ -702,7 +705,7 @@ void DBImpl::MaybeScheduleCompaction() {
     // Already scheduled
   } else if (shutting_down_.load(std::memory_order_acquire)) {
     // DB is being deleted; no more background compactions
-  } else if (!bg_error_.ok()) {
+  } else if (!bg_error_) {
     // Already got an error; no more changes
   } else if (imm_ == nullptr && manual_compaction_ == nullptr &&
              !versions_->NeedsCompaction()) {
@@ -722,7 +725,7 @@ void DBImpl::BackgroundCall() {
   assert(background_compaction_scheduled_);
   if (shutting_down_.load(std::memory_order_acquire)) {
     // No more background work when shutting down.
-  } else if (!bg_error_.ok()) {
+  } else if (!bg_error_) {
     // No more background work after a background error.
   } else {
     BackgroundCompaction();
@@ -781,8 +784,7 @@ void DBImpl::BackgroundCompaction() {
     Log(options_.info_log, "Moved #%lld to level-%d %lld bytes %s: %s\n",
         static_cast<unsigned long long>(f->number), c->level() + 1,
         static_cast<unsigned long long>(f->file_size),
-        result.error_or(Error()).ToString().c_str(),
-        versions_->LevelSummary(&tmp));
+        Error::ExpectedToString(result).c_str(), versions_->LevelSummary(&tmp));
   } else {
     CompactionState* compact = new CompactionState(c);
     if ((result = DoCompactionWork(compact)); !result) {
@@ -876,7 +878,7 @@ std::expected<void, Error> DBImpl::FinishCompactionOutputFile(
   // Check for iterator errors
   std::expected<void, Error> result{};
   const uint64_t current_entries = compact->builder->NumEntries();
-  if (input->error().ok()) {
+  if (input->error()) {
     result = compact->builder->Finish();
   } else {
     compact->builder->Abandon();
@@ -901,15 +903,13 @@ std::expected<void, Error> DBImpl::FinishCompactionOutputFile(
     // Verify that the table is usable
     Iterator* iter =
         table_cache_->NewIterator(ReadOptions(), output_number, current_bytes);
-    Error e = iter->error();
+    result = iter->error();
     delete iter;
-    if (e.ok()) {
+    if (result) {
       Log(options_.info_log, "Generated table #%llu@%d: %lld keys, %lld bytes",
           (unsigned long long)output_number, compact->compaction->level(),
           (unsigned long long)current_entries,
           (unsigned long long)current_bytes);
-    } else {
-      result = std::unexpected(e);
     }
   }
   return result;
@@ -1066,8 +1066,7 @@ std::expected<void, Error> DBImpl::DoCompactionWork(CompactionState* compact) {
     result = FinishCompactionOutputFile(compact, input);
   }
   if (result) {
-    Error e = input->error();
-    result = e.ok() ? result : std::unexpected(e);
+    result = input->error();
   }
   delete input;
   input = nullptr;
@@ -1262,8 +1261,7 @@ std::expected<void, Error> DBImpl::Write(const WriteOptions& options,
     w.cv.Wait();
   }
   if (w.done) {
-    return w.err.ok() ? std::expected<void, Error>()
-                      : std::unexpected(std::move(w.err));
+    return w.err;
   }
 
   // May temporarily unlock and wait.
@@ -1309,7 +1307,7 @@ std::expected<void, Error> DBImpl::Write(const WriteOptions& options,
     Writer* ready = writers_.front();
     writers_.pop_front();
     if (ready != &w) {
-      ready->err = result.error_or(Error());
+      ready->err = result;
       ready->done = true;
       ready->cv.Signal();
     }
@@ -1382,9 +1380,9 @@ std::expected<void, Error> DBImpl::MakeRoomForWrite(bool force) {
   bool allow_delay = !force;
   std::expected<void, Error> result{};
   while (true) {
-    if (!bg_error_.ok()) {
+    if (!bg_error_) {
       // Yield previous error
-      result = std::unexpected(bg_error_);
+      result = bg_error_;
       break;
     } else if (allow_delay && versions_->NumLevelFiles(0) >=
                                   config::kL0_SlowdownWritesTrigger) {
@@ -1604,7 +1602,7 @@ std::expected<void, Error> DestroyDB(const std::string& dbname,
   }
 
   FileLock* lock;
-  Error err;
+  std::expected<void, Error> result;
   const std::string lockname = LockFileName(dbname);
   if (auto ret = env->LockFile(lockname)) {
     lock = ret.value();
@@ -1613,21 +1611,16 @@ std::expected<void, Error> DestroyDB(const std::string& dbname,
     for (size_t i = 0; i < filenames.size(); i++) {
       // Lock file will be deleted at end
       if (ParseFileName(filenames[i], &number, &type) && type != kDBLockFile) {
-        if (auto del = env->RemoveFile(dbname + "/" + filenames[i]); !del) {
-          err = std::move(del.error());
-        }
+        result = env->RemoveFile(dbname + "/" + filenames[i]);
       }
     }
     env->UnlockFile(lock);  // Ignore error since state is already gone
     env->RemoveFile(lockname);
     env->RemoveDir(dbname);  // Ignore error in case dir contains other files
   } else {
-    err = std::move(ret.error());
+    result = std::unexpected(std::move(ret.error()));
   }
-  if (!err.ok()) {
-    return std::unexpected(err);
-  }
-  return {};
+  return result;
 }
 
 }  // namespace leveldb

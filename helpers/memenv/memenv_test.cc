@@ -303,7 +303,7 @@ TEST_F(MemEnvTest, DBTest) {
   }
 
   std::shared_ptr<DBImpl> dbi = std::static_pointer_cast<DBImpl>(db);
-  ASSERT_LEVELDB_OK(dbi->TEST_CompactMemTable());
+  ASSERT_TRUE(dbi->TEST_CompactMemTable());
 
   for (size_t i = 0; i < 3; ++i) {
     auto res = db->Get(ReadOptions(), keys[i]);

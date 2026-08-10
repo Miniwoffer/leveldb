@@ -68,13 +68,13 @@ void AutoCompactTest::DoReads(int n) {
     ASSERT_TRUE(db_->Put(WriteOptions(), std::string_view(Key(i)),
                          std::string_view(value)));
   }
-  ASSERT_LEVELDB_OK(dbi->TEST_CompactMemTable());
+  ASSERT_TRUE(dbi->TEST_CompactMemTable());
 
   // Delete everything
   for (int i = 0; i < kCount; i++) {
     ASSERT_TRUE(db_->Delete(WriteOptions(), std::string_view(Key(i))));
   }
-  ASSERT_LEVELDB_OK(dbi->TEST_CompactMemTable());
+  ASSERT_TRUE(dbi->TEST_CompactMemTable());
 
   // Get initial measurement of the space we will be reading.
   const int64_t initial_size = Size(Key(0), Key(n));

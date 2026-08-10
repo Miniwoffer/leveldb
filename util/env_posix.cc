@@ -204,7 +204,6 @@ class PosixRandomAccessFile final : public RandomAccessFile {
 
     assert(fd != -1);
 
-    Error err;
     ssize_t read_size = ::pread(fd, scratch, n, static_cast<off_t>(offset));
     if (!has_permanent_fd_) {
       // Close the temporary file descriptor opened earlier.
@@ -298,9 +297,9 @@ class PosixWritableFile final : public WritableFile {
     }
 
     // Can't fit in buffer, so need to do at least one write.
-    Error err = FlushBuffer();
-    if (!err.ok()) {
-      return std::unexpected(err);
+    auto err = FlushBuffer();
+    if (!err) {
+      return err;
     }
 
     // Small writes go to buffer, large writes are written directly.
@@ -309,31 +308,23 @@ class PosixWritableFile final : public WritableFile {
       pos_ = write_size;
       return {};
     }
-    if (err = WriteUnbuffered(write_data, write_size); !err.ok()) {
-      return std::unexpected(err);
+    if (err = WriteUnbuffered(write_data, write_size); !err) {
+      return err;
     }
     return {};
   }
 
   std::expected<void, Error> Close() override {
-    Error err = FlushBuffer();
+    auto err = FlushBuffer();
     const int close_result = ::close(fd_);
-    if (close_result < 0 && err.ok()) {
-      err = PosixError(filename_, errno);
+    if (close_result < 0 && err) {
+      err = std::unexpected(PosixError(filename_, errno));
     }
     fd_ = -1;
-    if (!err.ok()) {
-      return std::unexpected(err);
-    }
-    return {};
+    return err;
   }
 
-  std::expected<void, Error> Flush() override {
-    if (Error err = FlushBuffer(); !err.ok()) {
-      return std::unexpected(err);
-    }
-    return {};
-  }
+  std::expected<void, Error> Flush() override { return FlushBuffer(); }
 
   std::expected<void, Error> Sync() override {
     // Ensure new files referred to by the manifest are in the filesystem.
@@ -341,55 +332,47 @@ class PosixWritableFile final : public WritableFile {
     // This needs to happen before the manifest file is flushed to disk, to
     // avoid crashing in a state where the manifest refers to files that are not
     // yet on disk.
-    Error err = SyncDirIfManifest();
-    if (!err.ok()) {
-      return std::unexpected(err);
+    auto err = SyncDirIfManifest();
+    if (err) {
+      if ((err = FlushBuffer())) {
+        err = SyncFd(fd_, filename_);
+      }
     }
 
-    err = FlushBuffer();
-    if (!err.ok()) {
-      return std::unexpected(err);
-    }
-
-    err = SyncFd(fd_, filename_);
-    if (!err.ok()) {
-      return std::unexpected(err);
-    }
-
-    return {};
+    return err;
   }
 
  private:
-  Error FlushBuffer() {
-    Error err = WriteUnbuffered(buf_, pos_);
+  std::expected<void, Error> FlushBuffer() {
+    auto err = WriteUnbuffered(buf_, pos_);
     pos_ = 0;
     return err;
   }
 
-  Error WriteUnbuffered(const char* data, size_t size) {
+  std::expected<void, Error> WriteUnbuffered(const char* data, size_t size) {
     while (size > 0) {
       ssize_t write_result = ::write(fd_, data, size);
       if (write_result < 0) {
         if (errno == EINTR) {
           continue;  // Retry
         }
-        return PosixError(filename_, errno);
+        return std::unexpected(PosixError(filename_, errno));
       }
       data += write_result;
       size -= write_result;
     }
-    return Error(Error::Code::Ok);
+    return {};
   }
 
-  Error SyncDirIfManifest() {
-    Error err;
+  std::expected<void, Error> SyncDirIfManifest() {
+    std::expected<void, Error> err;
     if (!is_manifest_) {
       return err;
     }
 
     int fd = ::open(dirname_.c_str(), O_RDONLY | kOpenBaseFlags);
     if (fd < 0) {
-      err = PosixError(dirname_, errno);
+      err = std::unexpected(PosixError(dirname_, errno));
     } else {
       err = SyncFd(fd, dirname_);
       ::close(fd);
@@ -403,7 +386,7 @@ class PosixWritableFile final : public WritableFile {
   //
   // The path argument is only used to populate the description string in the
   // returned Error if an error occurs.
-  static Error SyncFd(int fd, const std::string& fd_path) {
+  static std::expected<void, Error> SyncFd(int fd, const std::string& fd_path) {
 #if HAVE_FULLFSYNC
     // On macOS and iOS, fsync() doesn't guarantee durability past power
     // failures. fcntl(F_FULLFSYNC) is required for that purpose. Some
@@ -420,10 +403,8 @@ class PosixWritableFile final : public WritableFile {
     bool sync_success = ::fsync(fd) == 0;
 #endif  // HAVE_FDATASYNC
 
-    if (sync_success) {
-      return Error(Error::Code::Ok);
-    }
-    return PosixError(fd_path, errno);
+    return sync_success ? std::expected<void, Error>{}
+                        : std::unexpected(PosixError(fd_path, errno));
   }
 
   // Returns the directory name in a path pointing to a file.
@@ -555,11 +536,10 @@ class PosixEnv : public Env {
     }
 
     uint64_t file_size;
-    RandomAccessFile* result;
-    Error err;
-    auto ret = GetFileSize(filename);
-    if (ret) {
-      file_size = ret.value();
+    std::expected<RandomAccessFile*, Error> result;
+    auto fs_ret = GetFileSize(filename);
+    if (fs_ret) {
+      file_size = fs_ret.value();
       void* mmap_base =
           ::mmap(/*addr=*/nullptr, file_size, PROT_READ, MAP_SHARED, fd, 0);
       if (mmap_base != MAP_FAILED) {
@@ -567,13 +547,15 @@ class PosixEnv : public Env {
                                            reinterpret_cast<char*>(mmap_base),
                                            file_size, &mmap_limiter_);
       } else {
-        err = PosixError(filename, errno);
+        result = std::unexpected(PosixError(filename, errno));
       }
     }
     ::close(fd);
-    if (!ret || !err.ok()) {
+    if (!fs_ret || !result) {
       mmap_limiter_.Release();
-      return std::unexpected(err);
+      if (!fs_ret) {
+        return std::unexpected(std::move(fs_ret.error()));
+      }
     }
 
     return result;

@@ -42,7 +42,7 @@ namespace {
 
 class EmptyIterator : public Iterator {
  public:
-  EmptyIterator(const Error& s) : err_(s) {}
+  EmptyIterator(const std::expected<void, Error>& s) : err_(s) {}
   ~EmptyIterator() override = default;
 
   bool Valid() const override { return false; }
@@ -59,20 +59,18 @@ class EmptyIterator : public Iterator {
     assert(false);
     return std::string_view();
   }
-  Error error() const override { return err_; }
+  std::expected<void, Error> error() const override { return err_; }
 
  private:
-  Error err_;
+  std::expected<void, Error> err_;
 };
 
 }  // anonymous namespace
 
-Iterator* NewEmptyIterator() {
-  return new EmptyIterator(Error(Error::Code::Ok));
-}
+Iterator* NewEmptyIterator() { return new EmptyIterator({}); }
 
 Iterator* NewErrorIterator(const Error& status) {
-  return new EmptyIterator(status);
+  return new EmptyIterator(std::unexpected(status));
 }
 
 }  // namespace leveldb
