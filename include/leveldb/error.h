@@ -41,9 +41,9 @@ class LEVELDB_EXPORT Error {
     Count_ = 5
   };
 
-  Error() noexcept = delete;
-  Error(Code c) noexcept : code_(c) {}
+  Error() = delete;
   ~Error();
+  Error(Code c) noexcept : code_(c) {}
 
   template <typename... Args>
     requires(std::convertible_to<Args, std::string_view> && ...)
