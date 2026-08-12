@@ -331,10 +331,8 @@ class Repairer {
     if (counter == 0) {
       builder->Abandon();  // Nothing to save
     } else {
-      result = builder->Finish();
-      if (result) {
-        t.meta.file_size = builder->FileSize();
-      }
+      result = builder->Finish().transform(
+          [&t, builder]() { t.meta.file_size = builder->FileSize(); });
     }
     delete builder;
     builder = nullptr;

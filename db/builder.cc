@@ -52,12 +52,9 @@ std::expected<void, Error> BuildTable(const std::string& dbname, Env* env,
     delete builder;
 
     // Finish and check for file errors
-    if (result) {
-      result = file->Sync();
-    }
-    if (result) {
-      result = file->Close();
-    }
+    result = result.and_then([file]() {
+      return file->Sync().and_then([file]() { return file->Close(); });
+    });
     delete file;
     file = nullptr;
 

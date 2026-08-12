@@ -209,11 +209,9 @@ std::expected<void, Error> DBImpl::NewDB() {
     log::Writer log(file);
     std::string record;
     new_db.EncodeTo(&record);
-    if ((result = log.AddRecord(record))) {
-      if ((result = file->Sync())) {
-        result = file->Close();
-      }
-    }
+    result = log.AddRecord(record).and_then([file]() {
+      return file->Sync().and_then([file]() { return file->Close(); });
+    });
   }
   delete file;
   if (result) {
@@ -353,11 +351,8 @@ std::expected<void, Error> DBImpl::Recover(VersionEdit* edit,
   const uint64_t min_log = versions_->LogNumber();
   const uint64_t prev_log = versions_->PrevLogNumber();
   std::vector<std::string> filenames;
-  if (auto ret = env_->GetChildren(dbname_)) {
-    filenames = std::move(ret.value());
-  } else {
-    return std::unexpected(ret.error());
-  }
+  result = env_->GetChildren(dbname_).transform(
+      [&filenames](auto&& names) { filenames = std::move(names); });
   std::set<uint64_t> expected;
   versions_->AddLiveFiles(&expected);
   uint64_t number;
@@ -423,11 +418,9 @@ std::expected<void, Error> DBImpl::RecoverLogFile(
   // Open the log file
   std::string fname = LogFileName(dbname_, log_number);
   SequentialFile* file;
-  std::expected<void, Error> result{};
-  if (auto ret = env_->NewSequentialFile(fname)) {
-    file = ret.value();
-  } else {
-    result = std::unexpected(ret.error());
+  std::expected<void, Error> result =
+      env_->NewSequentialFile(fname).transform([&file](auto f) { file = f; });
+  if (!result) {
     MaybeIgnoreError(&result);
     return result;
   }
@@ -856,13 +849,11 @@ std::expected<void, Error> DBImpl::OpenCompactionOutputFile(
 
   // Make the output file
   std::string fname = TableFileName(dbname_, file_number);
-  std::expected<void, Error> result{};
-  if (auto ret = env_->NewWritableFile(fname)) {
-    compact->outfile = ret.value();
-    compact->builder = new TableBuilder(options_, compact->outfile);
-  } else {
-    result = std::unexpected(ret.error());
-  }
+  std::expected<void, Error> result =
+      env_->NewWritableFile(fname).transform([this, compact](auto f) {
+        compact->outfile = f;
+        compact->builder = new TableBuilder(options_, compact->outfile);
+      });
   return result;
 }
 
@@ -876,7 +867,7 @@ std::expected<void, Error> DBImpl::FinishCompactionOutputFile(
   assert(output_number != 0);
 
   // Check for iterator errors
-  std::expected<void, Error> result{};
+  std::expected<void, Error> result;
   const uint64_t current_entries = compact->builder->NumEntries();
   if (input->error()) {
     result = compact->builder->Finish();
@@ -890,12 +881,10 @@ std::expected<void, Error> DBImpl::FinishCompactionOutputFile(
   compact->builder = nullptr;
 
   // Finish and check for file errors
-  if (result) {
-    result = compact->outfile->Sync();
-  }
-  if (result) {
-    result = compact->outfile->Close();
-  }
+  result = result.and_then([compact]() {
+    return compact->outfile->Sync().and_then(
+        [compact]() { return compact->outfile->Close(); });
+  });
   delete compact->outfile;
   compact->outfile = nullptr;
 
@@ -1034,8 +1023,7 @@ std::expected<void, Error> DBImpl::DoCompactionWork(CompactionState* compact) {
     if (!drop) {
       // Open output file if necessary
       if (compact->builder == nullptr) {
-        result = OpenCompactionOutputFile(compact);
-        if (!result) {
+        if (!(result = OpenCompactionOutputFile(compact))) {
           break;
         }
       }
@@ -1048,8 +1036,7 @@ std::expected<void, Error> DBImpl::DoCompactionWork(CompactionState* compact) {
       // Close output file if it is big enough
       if (compact->builder->FileSize() >=
           compact->compaction->MaxOutputFileSize()) {
-        result = FinishCompactionOutputFile(compact, input);
-        if (!result) {
+        if (!(result = FinishCompactionOutputFile(compact, input))) {
           break;
         }
       }
@@ -1378,7 +1365,7 @@ std::expected<void, Error> DBImpl::MakeRoomForWrite(bool force) {
   mutex_.AssertHeld();
   assert(!writers_.empty());
   bool allow_delay = !force;
-  std::expected<void, Error> result{};
+  std::expected<void, Error> result;
   while (true) {
     if (!bg_error_) {
       // Yield previous error
@@ -1425,7 +1412,7 @@ std::expected<void, Error> DBImpl::MakeRoomForWrite(bool force) {
       }
 
       delete log_;
-      if ((result = logfile_->Close()); !result) {
+      if (!(result = logfile_->Close())) {
         // We may have lost some data written to the previous log file.
         // Switch to the new log file anyway, but record as a background
         // error so we do not attempt any more writes.

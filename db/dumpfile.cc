@@ -150,18 +150,17 @@ std::expected<void, Error> DumpTable(Env* env, const std::string& fname,
   uint64_t file_size;
   RandomAccessFile* file = nullptr;
   Table* table = nullptr;
-  std::expected<void, Error> result{};
-
-  if (auto fs_ret = env->GetFileSize(fname)) {
-    file_size = fs_ret.value();
-    if (auto rf_ret = env->NewRandomAccessFile(fname)) {
-      file = rf_ret.value();
-    } else {
-      result = std::unexpected(std::move(rf_ret.error()));
-    }
-  } else {
-    result = std::unexpected(std::move(fs_ret.error()));
-  }
+  auto result = env->GetFileSize(fname).and_then(
+      [&file_size, &file, &fname,
+       env](uint64_t sz) -> std::expected<void, Error> {
+        file_size = sz;
+        if (auto ret = env->NewRandomAccessFile(fname)) {
+          file = ret.value();
+          return {};
+        } else {
+          return std::unexpected(ret.error());
+        }
+      });
 
   if (result) {
     // We use the default comparator, which may or may not match the
