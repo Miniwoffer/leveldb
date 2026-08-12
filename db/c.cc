@@ -43,6 +43,22 @@ using leveldb::Snapshot;
 using leveldb::WritableFile;
 using leveldb::WriteBatch;
 using leveldb::WriteOptions;
+
+template <typename T>
+static bool SaveError(char** errptr, const std::expected<T, Error>& s) {
+  assert(errptr != nullptr);
+  if (s) {
+    return false;
+  } else if (*errptr == nullptr) {
+    *errptr = strdup(Error::ExpectedToString(s).c_str());
+  } else {
+    // TODO(sanjay): Merge with existing error?
+    std::free(*errptr);
+    *errptr = strdup(Error::ExpectedToString(s).c_str());
+  }
+  return true;
+}
+
 extern "C" {
 
 struct leveldb_t {
@@ -151,32 +167,6 @@ struct leveldb_env_t {
   bool is_default;
 };
 
-static bool SaveError(char** errptr, const std::expected<void, Error>& s) {
-  assert(errptr != nullptr);
-  if (s) {
-    return false;
-  } else if (*errptr == nullptr) {
-    *errptr = strdup(Error::ExpectedToString(s).c_str());
-  } else {
-    // TODO(sanjay): Merge with existing error?
-    std::free(*errptr);
-    *errptr = strdup(Error::ExpectedToString(s).c_str());
-  }
-  return true;
-}
-
-static bool SaveError(char** errptr, const Error& s) {
-  assert(errptr != nullptr);
-  if (*errptr == nullptr) {
-    *errptr = strdup(s.ToString().c_str());
-  } else {
-    // TODO(sanjay): Merge with existing error?
-    std::free(*errptr);
-    *errptr = strdup(s.ToString().c_str());
-  }
-  return true;
-}
-
 static char* CopyString(const std::string& str) {
   char* result =
       reinterpret_cast<char*>(std::malloc(sizeof(char) * str.size()));
@@ -188,7 +178,7 @@ leveldb_t* leveldb_open(const leveldb_options_t* options, const char* name,
                         char** errptr) {
   auto res = DB::Open(options->rep, std::string(name));
   if (!res) {
-    SaveError(errptr, res.error());
+    SaveError(errptr, res);
     return nullptr;
   }
 
@@ -205,7 +195,7 @@ void leveldb_put(leveldb_t* db, const leveldb_writeoptions_t* options,
   auto resp = db->rep->Put(options->rep, std::string_view(key, keylen),
                            std::string_view(val, vallen));
   if (!resp) {
-    SaveError(errptr, resp.error());
+    SaveError(errptr, resp);
   }
 }
 
@@ -213,7 +203,7 @@ void leveldb_delete(leveldb_t* db, const leveldb_writeoptions_t* options,
                     const char* key, size_t keylen, char** errptr) {
   auto resp = db->rep->Delete(options->rep, std::string_view(key, keylen));
   if (!resp) {
-    SaveError(errptr, resp.error());
+    SaveError(errptr, resp);
   }
 }
 
@@ -221,7 +211,7 @@ void leveldb_write(leveldb_t* db, const leveldb_writeoptions_t* options,
                    leveldb_writebatch_t* batch, char** errptr) {
   auto res = db->rep->Write(options->rep, &batch->rep);
   if (!res) {
-    SaveError(errptr, res.error());
+    SaveError(errptr, res);
   }
 }
 
@@ -236,7 +226,7 @@ char* leveldb_get(leveldb_t* db, const leveldb_readoptions_t* options,
   } else {
     *vallen = 0;
     if (!(s.error().IsNotFound())) {
-      SaveError(errptr, s.error());
+      SaveError(errptr, s);
     }
   }
   return result;
