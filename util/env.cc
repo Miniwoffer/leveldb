@@ -109,14 +109,11 @@ std::expected<void, Error> ReadFileToString(Env* env, const std::string& fname,
   char* space = new char[kBufferSize];
   while (true) {
     std::string_view fragment;
-
-    if (auto ret = file->Read(kBufferSize, space)) {
-      fragment = ret.value();
-    } else {
-      result = std::unexpected(ret.error());
-    }
-
-    data->append(fragment.data(), fragment.size());
+    result = file->Read(kBufferSize, space)
+                 .transform([data, &fragment](std::string_view val) {
+                   fragment = val;
+                   data->append(fragment.data(), fragment.size());
+                 });
     if (fragment.empty()) {
       break;
     }

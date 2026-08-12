@@ -536,26 +536,23 @@ class PosixEnv : public Env {
     }
 
     uint64_t file_size;
-    std::expected<RandomAccessFile*, Error> result;
-    auto fs_ret = GetFileSize(filename);
-    if (fs_ret) {
-      file_size = fs_ret.value();
-      void* mmap_base =
-          ::mmap(/*addr=*/nullptr, file_size, PROT_READ, MAP_SHARED, fd, 0);
-      if (mmap_base != MAP_FAILED) {
-        result = new PosixMmapReadableFile(filename,
-                                           reinterpret_cast<char*>(mmap_base),
-                                           file_size, &mmap_limiter_);
-      } else {
-        result = std::unexpected(PosixError(filename, errno));
-      }
-    }
+    auto result = GetFileSize(filename).and_then(
+        [fd, &filename,
+         this](uint64_t file_size) -> std::expected<RandomAccessFile*, Error> {
+          void* mmap_base =
+              ::mmap(/*addr=*/nullptr, file_size, PROT_READ, MAP_SHARED, fd, 0);
+          if (mmap_base != MAP_FAILED) {
+            return new PosixMmapReadableFile(filename,
+                                             reinterpret_cast<char*>(mmap_base),
+                                             file_size, &this->mmap_limiter_);
+          } else {
+            return std::unexpected(PosixError(filename, errno));
+          }
+        });
+
     ::close(fd);
-    if (!fs_ret || !result) {
+    if (!result) {
       mmap_limiter_.Release();
-      if (!fs_ret) {
-        return std::unexpected(std::move(fs_ret.error()));
-      }
     }
 
     return result;
