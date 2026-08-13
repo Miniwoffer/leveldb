@@ -150,7 +150,7 @@ std::expected<void, Error> DumpTable(Env* env, const std::string& fname,
   uint64_t file_size;
   RandomAccessFile* file = nullptr;
   Table* table = nullptr;
-  auto result = env->GetFileSize(fname).and_then(
+  auto status = env->GetFileSize(fname).and_then(
       [&file_size, &file, &fname,
        env](uint64_t sz) -> std::expected<void, Error> {
         file_size = sz;
@@ -162,18 +162,18 @@ std::expected<void, Error> DumpTable(Env* env, const std::string& fname,
         }
       });
 
-  if (result) {
+  if (status) {
     // We use the default comparator, which may or may not match the
     // comparator used in this database. However this should not cause
     // problems since we only use Table operations that do not require
     // any comparisons.  In particular, we do not call Seek or Prev.
-    result = Table::Open(Options(), file, file_size, &table);
+    status = Table::Open(Options(), file, file_size, &table);
   }
 
-  if (!result) {
+  if (!status) {
     delete table;
     delete file;
-    return result;
+    return status;
   }
 
   ReadOptions ro;
@@ -209,14 +209,14 @@ std::expected<void, Error> DumpTable(Env* env, const std::string& fname,
       dst->Append(r);
     }
   }
-  if (result = iter->error(); !result) {
-    dst->Append("iterator error: " + result.error().ToString() + "\n");
+  if (!(status = iter->Status())) {
+    dst->Append("iterator error: " + status.error().ToString() + "\n");
   }
 
   delete iter;
   delete table;
   delete file;
-  return result;
+  return status;
 }
 
 }  // namespace

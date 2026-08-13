@@ -417,8 +417,8 @@ class DBTest : public testing::Test {
     InternalKey target(user_key, kMaxSequenceNumber, kTypeValue);
     iter->Seek(target.Encode());
     std::string result;
-    if (!iter->error()) {
-      result = Error::ExpectedToString(iter->error());
+    if (!iter->Ok()) {
+      result = Error::ExpectedToString(iter->Status());
     } else {
       result = "[ ";
       bool first = true;
@@ -2224,7 +2224,8 @@ class ModelDB : public DB {
     void Prev() override { --iter_; }
     std::string_view key() const override { return iter_->first; }
     std::string_view value() const override { return iter_->second; }
-    std::expected<void, Error> error() const override { return {}; }
+    bool Ok() const override { return true; }
+    std::expected<void, Error> Status() const override { return {}; }
 
    private:
     const KVMap* const map_;

@@ -79,7 +79,8 @@ class MemTableIterator : public Iterator {
     return value->value;
   }
 
-  std::expected<void, Error> error() const override { return {}; }
+  bool Ok() const override { return true; }
+  std::expected<void, Error> Status() const override { return {}; }
 
  private:
   MemTable::Table::Iterator iter_;

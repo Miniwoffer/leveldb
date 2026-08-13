@@ -43,9 +43,13 @@ class IteratorWrapper {
     return iter_->value();
   }
   // Methods below require iter() != nullptr
-  std::expected<void, Error> error() const {
+  bool Ok() const {
     assert(iter_);
-    return iter_->error();
+    return iter_->Ok();
+  }
+  std::expected<void, Error> Status() const {
+    assert(iter_);
+    return iter_->Status();
   }
   void Next() {
     assert(iter_);

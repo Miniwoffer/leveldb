@@ -849,12 +849,10 @@ std::expected<void, Error> DBImpl::OpenCompactionOutputFile(
 
   // Make the output file
   std::string fname = TableFileName(dbname_, file_number);
-  std::expected<void, Error> result =
-      env_->NewWritableFile(fname).transform([this, compact](auto f) {
-        compact->outfile = f;
-        compact->builder = new TableBuilder(options_, compact->outfile);
-      });
-  return result;
+  return env_->NewWritableFile(fname).transform([this, compact](auto f) {
+    compact->outfile = f;
+    compact->builder = new TableBuilder(options_, compact->outfile);
+  });
 }
 
 std::expected<void, Error> DBImpl::FinishCompactionOutputFile(
@@ -867,10 +865,10 @@ std::expected<void, Error> DBImpl::FinishCompactionOutputFile(
   assert(output_number != 0);
 
   // Check for iterator errors
-  std::expected<void, Error> result;
+  std::expected<void, Error> status;
   const uint64_t current_entries = compact->builder->NumEntries();
-  if (input->error()) {
-    result = compact->builder->Finish();
+  if (input->Ok()) {
+    status = compact->builder->Finish();
   } else {
     compact->builder->Abandon();
   }
@@ -881,27 +879,27 @@ std::expected<void, Error> DBImpl::FinishCompactionOutputFile(
   compact->builder = nullptr;
 
   // Finish and check for file errors
-  result = result.and_then([compact]() {
+  status = status.and_then([compact]() {
     return compact->outfile->Sync().and_then(
         [compact]() { return compact->outfile->Close(); });
   });
   delete compact->outfile;
   compact->outfile = nullptr;
 
-  if (result && current_entries > 0) {
+  if (status && current_entries > 0) {
     // Verify that the table is usable
     Iterator* iter =
         table_cache_->NewIterator(ReadOptions(), output_number, current_bytes);
-    result = iter->error();
+    status = iter->Status();
     delete iter;
-    if (result) {
+    if (status) {
       Log(options_.info_log, "Generated table #%llu@%d: %lld keys, %lld bytes",
           (unsigned long long)output_number, compact->compaction->level(),
           (unsigned long long)current_entries,
           (unsigned long long)current_bytes);
     }
   }
-  return result;
+  return status;
 }
 
 std::expected<void, Error> DBImpl::InstallCompactionResults(
@@ -1053,7 +1051,7 @@ std::expected<void, Error> DBImpl::DoCompactionWork(CompactionState* compact) {
     result = FinishCompactionOutputFile(compact, input);
   }
   if (result) {
-    result = input->error();
+    result = input->Status();
   }
   delete input;
   input = nullptr;

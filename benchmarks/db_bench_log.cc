@@ -43,8 +43,7 @@ void BM_LogAndApply(benchmark::State& state) {
   db = dbo_ret.value();
   ASSERT_TRUE(db != nullptr);
 
-  db.reset();
-  db = nullptr;
+  db.reset(nullptr);
 
   Env* env = Env::Default();
 

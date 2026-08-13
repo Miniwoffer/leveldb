@@ -241,7 +241,7 @@ class Repairer {
 
   void ScanTable(uint64_t number) {
     TableInfo t;
-    std::expected<void, Error> err;
+    std::expected<void, Error> status;
     t.meta.number = number;
     std::string fname = TableFileName(dbname_, number);
 
@@ -253,14 +253,14 @@ class Repairer {
       if ((ret = env_->GetFileSize(fname))) {
         t.meta.file_size = ret.value();
       } else {
-        err = std::unexpected(std::move(ret.error()));
+        status = std::unexpected(std::move(ret.error()));
       }
     }
-    if (!err) {
+    if (!status) {
       ArchiveFile(TableFileName(dbname_, number));
       ArchiveFile(SSTTableFileName(dbname_, number));
       Log(options_.info_log, "Table #%llu: dropped: %s",
-          (unsigned long long)t.meta.number, err.error().ToString().c_str());
+          (unsigned long long)t.meta.number, status.error().ToString().c_str());
       return;
     }
 
@@ -288,15 +288,15 @@ class Repairer {
         t.max_sequence = parsed.sequence;
       }
     }
-    if (!iter->error()) {
-      err = iter->error();
+    if (!iter->Ok()) {
+      status = iter->Status();
     }
     delete iter;
     Log(options_.info_log, "Table #%llu: %d entries %s",
         (unsigned long long)t.meta.number, counter,
-        Error::ExpectedToString(err).c_str());
+        Error::ExpectedToString(status).c_str());
 
-    if (err) {
+    if (status) {
       tables_.push_back(t);
     } else {
       RepairTable(fname, t);  // RepairTable archives input file.
@@ -409,12 +409,12 @@ class Repairer {
       }
 
       // Install new manifest
-      ret = env_->RenameFile(tmp, DescriptorFileName(dbname_, 1));
-      if (ret) {
-        ret = SetCurrentFile(env_, dbname_, 1);
-      } else {
-        env_->RemoveFile(tmp);
-      }
+      return env_->RenameFile(tmp, DescriptorFileName(dbname_, 1))
+          .transform_error([&](Error err) {
+            env_->RemoveFile(tmp);
+            return err;
+          })
+          .and_then([&]() { return SetCurrentFile(env_, dbname_, 1); });
     }
     return ret;
   }

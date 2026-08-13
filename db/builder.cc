@@ -19,7 +19,7 @@ std::expected<void, Error> BuildTable(const std::string& dbname, Env* env,
                                       const Options& options,
                                       TableCache* table_cache, Iterator* iter,
                                       FileMetaData* meta) {
-  std::expected<void, Error> result;
+  std::expected<void, Error> status;
   meta->file_size = 0;
   iter->SeekToFirst();
 
@@ -44,41 +44,41 @@ std::expected<void, Error> BuildTable(const std::string& dbname, Env* env,
     }
 
     // Finish and check for builder errors
-    result = builder->Finish();
-    if (result) {
+    status = builder->Finish();
+    if (status) {
       meta->file_size = builder->FileSize();
       assert(meta->file_size > 0);
     }
     delete builder;
 
     // Finish and check for file errors
-    result = result.and_then([file]() {
+    status = status.and_then([file]() {
       return file->Sync().and_then([file]() { return file->Close(); });
     });
     delete file;
     file = nullptr;
 
-    if (result) {
+    if (status) {
       // Verify that the table is usable
       Iterator* it = table_cache->NewIterator(ReadOptions(), meta->number,
                                               meta->file_size);
-      result = it->error();
+      status = it->Status();
       delete it;
     }
   }
 
   // Check for input iterator errors
-  if (!iter->error()) {
-    result = iter->error();
+  if (!iter->Ok()) {
+    status = iter->Status();
   }
 
-  if (result && meta->file_size > 0) {
+  if (status && meta->file_size > 0) {
     // Keep it
   } else {
     env->RemoveFile(fname);
   }
 
-  return result;
+  return status;
 }
 
 }  // namespace leveldb

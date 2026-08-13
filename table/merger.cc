@@ -118,15 +118,18 @@ class MergingIterator : public Iterator {
     return current_->value();
   }
 
-  std::expected<void, Error> error() const override {
-    std::expected<void, Error> err;
-    for (int i = 0; i < n_; i++) {
-      err = children_[i].error();
-      if (!err) {
-        break;
-      }
+  bool Ok() const override {
+    for (const auto& child : std::span(children_, n_)) {
+      if (!child.Ok()) return false;
     }
-    return err;
+    return true;
+  }
+
+  std::expected<void, Error> Status() const override {
+    for (const auto& child : std::span(children_, n_)) {
+      if (!child.Ok()) return child.Status();
+    }
+    return {};
   }
 
  private:
