@@ -42,7 +42,7 @@ namespace {
 
 class EmptyIterator : public Iterator {
  public:
-  EmptyIterator(const std::expected<void, Error>& s) : err_(s) {}
+  EmptyIterator(const std::expected<void, Error>& s) : status_(s) {}
   ~EmptyIterator() override = default;
 
   bool Valid() const override { return false; }
@@ -59,10 +59,11 @@ class EmptyIterator : public Iterator {
     assert(false);
     return std::string_view();
   }
-  std::expected<void, Error> error() const override { return err_; }
+  bool Ok() const override { return status_.has_value(); }
+  std::expected<void, Error> Status() const override { return status_; }
 
  private:
-  std::expected<void, Error> err_;
+  std::expected<void, Error> status_;
 };
 
 }  // anonymous namespace

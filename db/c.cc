@@ -335,7 +335,7 @@ const char* leveldb_iter_value(const leveldb_iterator_t* iter, size_t* vlen) {
 }
 
 void leveldb_iter_get_error(const leveldb_iterator_t* iter, char** errptr) {
-  SaveError(errptr, iter->rep->error());
+  SaveError(errptr, iter->rep->Status());
 }
 
 leveldb_writebatch_t* leveldb_writebatch_create() {

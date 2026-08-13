@@ -332,14 +332,9 @@ class PosixWritableFile final : public WritableFile {
     // This needs to happen before the manifest file is flushed to disk, to
     // avoid crashing in a state where the manifest refers to files that are not
     // yet on disk.
-    auto err = SyncDirIfManifest();
-    if (err) {
-      if ((err = FlushBuffer())) {
-        err = SyncFd(fd_, filename_);
-      }
-    }
-
-    return err;
+    return SyncDirIfManifest()
+        .and_then([&]() { return FlushBuffer(); })
+        .and_then([&]() { return SyncFd(fd_, filename_); });
   }
 
  private:
@@ -535,27 +530,20 @@ class PosixEnv : public Env {
       return new PosixRandomAccessFile(filename, fd, &fd_limiter_);
     }
 
-    uint64_t file_size;
-    auto result = GetFileSize(filename).and_then(
-        [fd, &filename,
-         this](uint64_t file_size) -> std::expected<RandomAccessFile*, Error> {
+    return GetFileSize(filename).and_then(
+        [&](uint64_t file_size) -> std::expected<RandomAccessFile*, Error> {
           void* mmap_base =
               ::mmap(/*addr=*/nullptr, file_size, PROT_READ, MAP_SHARED, fd, 0);
+          ::close(fd);
           if (mmap_base != MAP_FAILED) {
             return new PosixMmapReadableFile(filename,
                                              reinterpret_cast<char*>(mmap_base),
                                              file_size, &this->mmap_limiter_);
           } else {
+            mmap_limiter_.Release();
             return std::unexpected(PosixError(filename, errno));
           }
         });
-
-    ::close(fd);
-    if (!result) {
-      mmap_limiter_.Release();
-    }
-
-    return result;
   }
 
   std::expected<WritableFile*, Error> NewWritableFile(

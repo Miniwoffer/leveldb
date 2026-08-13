@@ -39,20 +39,31 @@ class TwoLevelIterator : public Iterator {
     assert(Valid());
     return data_iter_.value();
   }
-  std::expected<void, Error> error() const override {
+  bool Ok() const override {
     // It'd be nice if error() returned a const Error& instead of a Error
-    if (!index_iter_.error()) {
-      return index_iter_.error();
-    } else if (data_iter_.iter() != nullptr && !data_iter_.error()) {
-      return data_iter_.error();
+    if (!index_iter_.Ok()) {
+      return index_iter_.Ok();
+    } else if (data_iter_.iter() != nullptr && !data_iter_.Ok()) {
+      return data_iter_.Ok();
     } else {
-      return err_;
+      return status_.has_value();
+    }
+  }
+
+  std::expected<void, Error> Status() const override {
+    // It'd be nice if error() returned a const Error& instead of a Error
+    if (!index_iter_.Ok()) {
+      return index_iter_.Status();
+    } else if (data_iter_.iter() != nullptr && !data_iter_.Ok()) {
+      return data_iter_.Status();
+    } else {
+      return status_;
     }
   }
 
  private:
   void SaveError(const std::expected<void, Error>& s) {
-    if (err_ && !s) err_ = s;
+    if (status_ && !s) status_ = s;
   }
   void SkipEmptyDataBlocksForward();
   void SkipEmptyDataBlocksBackward();
@@ -62,7 +73,7 @@ class TwoLevelIterator : public Iterator {
   BlockFunction block_function_;
   void* arg_;
   const ReadOptions options_;
-  std::expected<void, Error> err_;
+  std::expected<void, Error> status_;
   IteratorWrapper index_iter_;
   IteratorWrapper data_iter_;  // May be nullptr
   // If data_iter_ is non-null, then "data_block_handle_" holds the
@@ -141,7 +152,7 @@ void TwoLevelIterator::SkipEmptyDataBlocksBackward() {
 }
 
 void TwoLevelIterator::SetDataIterator(Iterator* data_iter) {
-  if (data_iter_.iter() != nullptr) SaveError(data_iter_.error());
+  if (data_iter_.iter() != nullptr) SaveError(data_iter_.Status());
   data_iter_.Set(data_iter);
 }
 

@@ -73,12 +73,12 @@ class DBIter : public Iterator {
     return (direction_ == kForward) ? iter_->value() : saved_value_;
   }
 
-  std::expected<void, Error> error() const override {
-    if (err_) {
-      return iter_->error();
-    } else {
-      return err_;
-    }
+  bool Ok() const override {
+    return status_ ? iter_->Ok() : status_.has_value();
+  }
+
+  std::expected<void, Error> Status() const override {
+    return status_ ? iter_->Status() : status_;
   }
 
   void Next() override;
@@ -114,7 +114,7 @@ class DBIter : public Iterator {
   const Comparator* const user_comparator_;
   Iterator* const iter_;
   SequenceNumber const sequence_;
-  std::expected<void, Error> err_;
+  std::expected<void, Error> status_;
   std::string saved_key_;    // == current key when direction_==kReverse
   std::string saved_value_;  // == current raw value when direction_==kReverse
   Direction direction_;
@@ -135,7 +135,7 @@ inline bool DBIter::ParseKey(ParsedInternalKey* ikey) {
   bytes_until_read_sampling_ -= bytes_read;
 
   if (!ParseInternalKey(k, ikey)) {
-    err_ = std::unexpected(
+    status_ = std::unexpected(
         Error(Error::Code::Corruption, "corrupted internal key in DBIter"));
     return false;
   } else {

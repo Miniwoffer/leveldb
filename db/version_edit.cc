@@ -225,14 +225,14 @@ std::expected<void, Error> VersionEdit::DecodeFrom(
         msg = "new-file entry";
         break;
 
+      case 0:
+        msg = "invalid tag";
+        break;
+
       default:
         msg = "unknown tag";
         break;
     }
-  }
-
-  if (msg == nullptr && !input.empty()) {
-    msg = "invalid tag";
   }
 
   return msg == nullptr ? std::expected<void, Error>{}

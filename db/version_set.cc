@@ -202,7 +202,8 @@ class Version::LevelFileNumIterator : public Iterator {
     EncodeFixed<uint64_t>(span, (*flist_)[index_]->file_size);
     return std::string_view(value_buf_);
   }
-  std::expected<void, Error> error() const override { return {}; }
+  bool Ok() const override { return true; }
+  std::expected<void, Error> Status() const override { return {}; }
 
  private:
   const InternalKeyComparator icmp_;

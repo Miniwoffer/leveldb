@@ -288,7 +288,7 @@ class KeyConvertingIterator : public Iterator {
     assert(Valid());
     ParsedInternalKey key;
     if (!ParseInternalKey(iter_->key(), &key)) {
-      err_ = std::unexpected(
+      status_ = std::unexpected(
           Error(Error::Code::Corruption, "malformed internal key"));
       return std::string_view("corrupted key");
     }
@@ -296,12 +296,15 @@ class KeyConvertingIterator : public Iterator {
   }
 
   std::string_view value() const override { return iter_->value(); }
-  std::expected<void, Error> error() const override {
-    return err_ ? iter_->error() : err_;
+  bool Ok() const override {
+    return status_ ? iter_->Ok() : status_.has_value();
+  }
+  std::expected<void, Error> Status() const override {
+    return status_ ? iter_->Status() : status_;
   }
 
  private:
-  mutable std::expected<void, Error> err_;
+  mutable std::expected<void, Error> status_;
   Iterator* iter_;
 };
 

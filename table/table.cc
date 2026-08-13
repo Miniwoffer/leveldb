@@ -246,13 +246,13 @@ std::expected<std::string, Error> Table::InternalGet(
         delete iiter;
         return res;
       }
-      ret = block_iter->error() ? ret
-                                : std::unexpected(block_iter->error().error());
+      ret = block_iter->Ok() ? ret
+                             : std::unexpected(block_iter->Status().error());
       delete block_iter;
     }
   }
   if (ret) {
-    ret = iiter->error() ? ret : std::unexpected(iiter->error().error());
+    ret = iiter->Ok() ? ret : std::unexpected(iiter->Status().error());
   }
   delete iiter;
   return ret;
