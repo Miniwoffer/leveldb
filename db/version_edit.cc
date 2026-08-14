@@ -113,39 +113,34 @@ static std::optional<uint32_t> GetLevel(std::string_view& input) {
   return {};
 }
 
-std::expected<void, Error> VersionEdit::DecodeFrom(
-    const std::string_view& src) {
+std::expected<void, Error> VersionEdit::DecodeFrom(std::string_view src) {
   Clear();
   std::string_view input = src;
-  const char* msg = nullptr;
-  std::optional<DecodingResult<uint32_t>> tag;
+  FileMetaData f;  // Temporary storage for parsing
 
-  // Temporary storage for parsing
-  FileMetaData f;
-
-  while (msg == nullptr && (tag = GetVarint<uint32_t>(input))) {
+  while (auto tag = GetVarint<uint32_t>(input)) {
     input = tag->remaining_input;
     switch (tag->value) {
-      case kComparator: {
-        std::string_view input_ = input;
-        auto name = GetLengthPrefixedBlob<uint32_t>(input);
-        if (name) {
+      case kComparator:
+        if (auto name = GetLengthPrefixedBlob<uint32_t>(input)) {
           comparator_ = name->value;
           has_comparator_ = true;
           input = name->remaining_input;
-        } else {
-          msg = "comparator name";
+          continue;
         }
-      } break;
+        return std::unexpected(
+            Error(Error::Code::Corruption, "VersionEdit", "comparator name"));
+        break;
 
       case kLogNumber:
         if (auto log_number = GetVarint<uint64_t>(input)) {
           log_number_ = log_number->value;
           input = log_number->remaining_input;
           has_log_number_ = true;
-        } else {
-          msg = "log number";
+          continue;
         }
+        return std::unexpected(
+            Error(Error::Code::Corruption, "VersionEdit", "log number"));
         break;
 
       case kPrevLogNumber:
@@ -153,9 +148,10 @@ std::expected<void, Error> VersionEdit::DecodeFrom(
           prev_log_number_ = prev_log_number->value;
           input = prev_log_number->remaining_input;
           has_prev_log_number_ = true;
-        } else {
-          msg = "previous log number";
+          continue;
         }
+        return std::unexpected(Error(Error::Code::Corruption, "VersionEdit",
+                                     "previous log number"));
         break;
 
       case kNextFileNumber:
@@ -163,9 +159,10 @@ std::expected<void, Error> VersionEdit::DecodeFrom(
           next_file_number_ = next_file_number->value;
           input = next_file_number->remaining_input;
           has_next_file_number_ = true;
-        } else {
-          msg = "next file number";
+          continue;
         }
+        return std::unexpected(
+            Error(Error::Code::Corruption, "VersionEdit", "next file number"));
         break;
 
       case kLastSequence:
@@ -173,71 +170,77 @@ std::expected<void, Error> VersionEdit::DecodeFrom(
           last_sequence_ = last_sequence->value;
           input = last_sequence->remaining_input;
           has_last_sequence_ = true;
-        } else {
-          msg = "last sequence number";
+          continue;
         }
+        return std::unexpected(Error(Error::Code::Corruption, "VersionEdit",
+                                     "last sequence number"));
         break;
 
       case kCompactPointer:
-        if (auto level = GetLevel(input)) {
-          if (auto key = GetInternalKey(input)) {
-            compact_pointers_.push_back(std::make_pair(*level, *key));
-            continue;
-          }
+        if (auto ok = GetLevel(input).and_then([&](auto level) {
+              return GetInternalKey(input).and_then([&](auto key) {
+                compact_pointers_.push_back(std::make_pair(level, key));
+                return std::optional<int>{0};
+              });
+            })) {
+          continue;
         }
-        msg = "compaction pointer";
+        return std::unexpected(Error(Error::Code::Corruption, "VersionEdit",
+                                     "compaction pointer"));
         break;
 
       case kDeletedFile:
-        if (auto level = GetLevel(input)) {
-          auto number = GetVarint<uint64_t>(input);
-          if (number) {
-            input = number->remaining_input;
-            deleted_files_.insert(std::make_pair(*level, number->value));
-            continue;
-          }
+        if (auto ok = GetLevel(input).and_then([&](auto level) {
+              return GetVarint<uint64_t>(input).and_then([&](auto number) {
+                input = number.remaining_input;
+                deleted_files_.insert(std::make_pair(level, number.value));
+                return std::optional<int>{0};
+              });
+            })) {
+          continue;
         }
-        msg = "deleted file";
+        return std::unexpected(
+            Error(Error::Code::Corruption, "VersionEdit", "deleted file"));
         break;
 
       case kNewFile:
-
-        if (auto level = GetLevel(input)) {
-          auto number = GetVarint<uint64_t>(input);
-          if (number) {
-            f.number = number->value;
-            input = number->remaining_input;
-            auto file_size = GetVarint<uint64_t>(input);
-            if (file_size) {
-              f.file_size = file_size->value;
-              input = file_size->remaining_input;
-              if (auto smallest = GetInternalKey(input)) {
-                f.smallest = *smallest;
-                if (auto largest = GetInternalKey(input)) {
-                  f.largest = *largest;
-                  new_files_.push_back(std::make_pair(*level, f));
-                  continue;
-                }
-              }
-            }
-          }
+        if (auto ok = GetLevel(input).and_then([&](auto level) {
+              return GetVarint<uint64_t>(input).and_then([&](auto number) {
+                f.number = number.value;
+                input = number.remaining_input;
+                return GetVarint<uint64_t>(input).and_then([&](auto file_size) {
+                  f.file_size = file_size.value;
+                  input = file_size.remaining_input;
+                  return GetInternalKey(input).and_then([&](auto smallest) {
+                    f.smallest = smallest;
+                    return GetInternalKey(input).and_then([&](auto largest) {
+                      f.largest = largest;
+                      new_files_.push_back(std::make_pair(level, f));
+                      return std::optional<int>{0};
+                    });
+                  });
+                });
+              });
+            })) {
+          continue;
         }
-        msg = "new-file entry";
+        return std::unexpected(
+            Error(Error::Code::Corruption, "VersionEdit", "new-file entry"));
         break;
 
       case 0:
-        msg = "invalid tag";
+        return std::unexpected(
+            Error(Error::Code::Corruption, "VersionEdit", "invalid tag"));
         break;
 
       default:
-        msg = "unknown tag";
+        return std::unexpected(
+            Error(Error::Code::Corruption, "VersionEdit", "unknown tag"));
         break;
     }
   }
 
-  return msg == nullptr ? std::expected<void, Error>{}
-                        : std::unexpected(Error(Error::Code::Corruption,
-                                                "VersionEdit", msg));
+  return {};
 }
 
 std::string VersionEdit::DebugString() const {

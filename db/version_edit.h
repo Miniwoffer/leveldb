@@ -80,7 +80,7 @@ class VersionEdit {
 
   void EncodeTo(std::string& dst) const;
   void EncodeTo(std::string* dst) const;
-  std::expected<void, Error> DecodeFrom(const std::string_view& src);
+  std::expected<void, Error> DecodeFrom(std::string_view src);
 
   std::string DebugString() const;
 
