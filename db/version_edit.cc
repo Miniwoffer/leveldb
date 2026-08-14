@@ -7,6 +7,7 @@
 #include "db/version_set.h"
 #include <cmath>
 #include <cstdint>
+#include <format>
 #include <optional>
 #include <string>
 
@@ -225,55 +226,43 @@ std::expected<void, Error> VersionEdit::DecodeFrom(std::string_view src) {
 }
 
 std::string VersionEdit::DebugString() const {
-  std::string r;
-  r.append("VersionEdit {");
-  if (has_comparator_) {
-    r.append("\n  Comparator: ");
-    r.append(comparator_);
-  }
-  if (has_log_number_) {
-    r.append("\n  LogNumber: ");
-    AppendNumberTo(&r, log_number_);
-  }
-  if (has_prev_log_number_) {
-    r.append("\n  PrevLogNumber: ");
-    AppendNumberTo(&r, prev_log_number_);
-  }
-  if (has_next_file_number_) {
-    r.append("\n  NextFile: ");
-    AppendNumberTo(&r, next_file_number_);
-  }
-  if (has_last_sequence_) {
-    r.append("\n  LastSeq: ");
-    AppendNumberTo(&r, last_sequence_);
-  }
-  for (size_t i = 0; i < compact_pointers_.size(); i++) {
-    r.append("\n  CompactPointer: ");
-    AppendNumberTo(&r, compact_pointers_[i].first);
-    r.append(" ");
-    r.append(compact_pointers_[i].second.DebugString());
-  }
-  for (const auto& deleted_files_kvp : deleted_files_) {
-    r.append("\n  RemoveFile: ");
-    AppendNumberTo(&r, deleted_files_kvp.first);
-    r.append(" ");
-    AppendNumberTo(&r, deleted_files_kvp.second);
-  }
-  for (size_t i = 0; i < new_files_.size(); i++) {
-    const FileMetaData& f = new_files_[i].second;
-    r.append("\n  AddFile: ");
-    AppendNumberTo(&r, new_files_[i].first);
-    r.append(" ");
-    AppendNumberTo(&r, f.number);
-    r.append(" ");
-    AppendNumberTo(&r, f.file_size);
-    r.append(" ");
-    r.append(f.smallest.DebugString());
-    r.append(" .. ");
-    r.append(f.largest.DebugString());
-  }
-  r.append("\n}\n");
-  return r;
+  auto format_compact_pointers = [&]() {
+    std::string s;
+    for (const auto& cp : compact_pointers_) {
+      s += std::format("\n CompactPointer: {} {}", cp.first,
+                       cp.second.DebugString());
+    }
+    return s;
+  };
+  auto format_deleted_files = [&]() {
+    std::string s;
+    for (const auto& df : deleted_files_) {
+      s += std::format("\n RemoveFile: {} {}", df.first, df.second);
+    }
+    return s;
+  };
+  auto format_new_files = [&]() {
+    std::string s;
+    for (const auto& nf : new_files_) {
+      const auto& f = nf.second;
+      s += std::format("\n AddFile: {} {} {} {} .. {}", nf.first, f.number,
+                       f.file_size, f.smallest.DebugString(),
+                       f.largest.DebugString());
+    }
+    return s;
+  };
+  return std::format(
+      "VersionEdit {{{}{}{}{}{}{}{}{}\n}}\n",
+      has_comparator_ ? "\n Comparator: " + comparator_ : "",
+      has_log_number_ ? std::format("\n LogNumber: {}", log_number_) : "",
+      has_prev_log_number_ ? std::format("\n PrevLogNumber: {}", log_number_)
+                           : "",
+      has_next_file_number_ ? std::format("\n NextFile: {}", next_file_number_)
+                            : "",
+      has_last_sequence_ ? std::format("\n LastSeq: {}", last_sequence_) : "",
+      compact_pointers_.size() > 0 ? format_compact_pointers() : "",
+      deleted_files_.size() > 0 ? format_deleted_files() : "",
+      new_files_.size() > 0 ? format_new_files() : "");
 }
 
 }  // namespace leveldb
