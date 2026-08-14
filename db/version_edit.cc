@@ -130,8 +130,6 @@ std::expected<void, Error> VersionEdit::DecodeFrom(std::string_view src) {
         }
         return std::unexpected(
             Error(Error::Code::Corruption, "VersionEdit", "comparator name"));
-        break;
-
       case kLogNumber:
         if (auto log_number = GetVarint<uint64_t>(input)) {
           log_number_ = log_number->value;
@@ -141,8 +139,6 @@ std::expected<void, Error> VersionEdit::DecodeFrom(std::string_view src) {
         }
         return std::unexpected(
             Error(Error::Code::Corruption, "VersionEdit", "log number"));
-        break;
-
       case kPrevLogNumber:
         if (auto prev_log_number = GetVarint<uint64_t>(input)) {
           prev_log_number_ = prev_log_number->value;
@@ -152,8 +148,6 @@ std::expected<void, Error> VersionEdit::DecodeFrom(std::string_view src) {
         }
         return std::unexpected(Error(Error::Code::Corruption, "VersionEdit",
                                      "previous log number"));
-        break;
-
       case kNextFileNumber:
         if (auto next_file_number = GetVarint<uint64_t>(input)) {
           next_file_number_ = next_file_number->value;
@@ -163,8 +157,6 @@ std::expected<void, Error> VersionEdit::DecodeFrom(std::string_view src) {
         }
         return std::unexpected(
             Error(Error::Code::Corruption, "VersionEdit", "next file number"));
-        break;
-
       case kLastSequence:
         if (auto last_sequence = GetVarint<uint64_t>(input)) {
           last_sequence_ = last_sequence->value;
@@ -174,8 +166,6 @@ std::expected<void, Error> VersionEdit::DecodeFrom(std::string_view src) {
         }
         return std::unexpected(Error(Error::Code::Corruption, "VersionEdit",
                                      "last sequence number"));
-        break;
-
       case kCompactPointer:
         if (auto ok = GetLevel(input).and_then([&](auto level) {
               return GetInternalKey(input).and_then([&](auto key) {
@@ -187,8 +177,6 @@ std::expected<void, Error> VersionEdit::DecodeFrom(std::string_view src) {
         }
         return std::unexpected(Error(Error::Code::Corruption, "VersionEdit",
                                      "compaction pointer"));
-        break;
-
       case kDeletedFile:
         if (auto ok = GetLevel(input).and_then([&](auto level) {
               return GetVarint<uint64_t>(input).and_then([&](auto number) {
@@ -201,8 +189,6 @@ std::expected<void, Error> VersionEdit::DecodeFrom(std::string_view src) {
         }
         return std::unexpected(
             Error(Error::Code::Corruption, "VersionEdit", "deleted file"));
-        break;
-
       case kNewFile:
         if (auto ok = GetLevel(input).and_then([&](auto level) {
               return GetVarint<uint64_t>(input).and_then([&](auto number) {
@@ -226,17 +212,12 @@ std::expected<void, Error> VersionEdit::DecodeFrom(std::string_view src) {
         }
         return std::unexpected(
             Error(Error::Code::Corruption, "VersionEdit", "new-file entry"));
-        break;
-
       case 0:
         return std::unexpected(
             Error(Error::Code::Corruption, "VersionEdit", "invalid tag"));
-        break;
-
       default:
         return std::unexpected(
             Error(Error::Code::Corruption, "VersionEdit", "unknown tag"));
-        break;
     }
   }
 
